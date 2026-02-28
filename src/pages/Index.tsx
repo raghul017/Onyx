@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Crosshair, Shield } from "lucide-react";
+import { Crosshair, Shield, Terminal } from "lucide-react";
 import MetricsRow from "@/components/MetricsRow";
 import ChaosStream from "@/components/ChaosStream";
 import { mockChaosData } from "@/data/mockChaosData";
@@ -25,13 +25,13 @@ const Index = () => {
       {/* Nav */}
       <header className="border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Shield className="text-primary" size={20} />
-          <h1 className="text-lg font-semibold tracking-tight">ChaosForge</h1>
-          <span className="text-xs text-muted-foreground font-mono ml-2">v0.1.0-alpha</span>
+          <Shield className="text-primary" size={18} />
+          <h1 className="text-base font-semibold tracking-tight text-foreground">ChaosForge</h1>
+          <span className="text-[11px] text-muted-foreground font-mono ml-2">v0.1.0-alpha</span>
         </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
           <span>Engine: Havoc-3</span>
-          <span className="w-2 h-2 bg-primary inline-block" />
+          <span className="w-1.5 h-1.5 bg-primary inline-block" />
           <span>Ready</span>
         </div>
       </header>
@@ -40,31 +40,31 @@ const Index = () => {
         {/* Command Bar */}
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <Terminal className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <input
               type="text"
               value={targetUrl}
               onChange={(e) => setTargetUrl(e.target.value)}
               placeholder="https://api.target.com/openapi.json"
-              className="w-full bg-input border border-border px-12 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-glow-cyan focus:ring-1 focus:ring-primary transition-all"
+              className="w-full bg-input border border-border px-11 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all input-recessed"
             />
           </div>
           <button
             onClick={handleLaunch}
             disabled={isScanning}
-            className="relative border border-primary bg-background px-6 py-3 font-mono text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all glow-cyan disabled:opacity-50 flex items-center gap-2 overflow-hidden"
+            className="relative border border-border bg-card px-6 py-3 font-mono text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all glow-cyan disabled:opacity-50 flex items-center gap-2 overflow-hidden"
           >
             {isScanning && (
               <div className="absolute inset-0 bg-primary/10">
                 <div className="h-full w-1/3 bg-primary/20 animate-scan-line" />
               </div>
             )}
-            <Crosshair size={16} className={isScanning ? "animate-spin" : ""} />
+            <Crosshair size={14} className={isScanning ? "animate-spin" : ""} />
             <span className="relative z-10">{isScanning ? "Scanning…" : "Launch Attack"}</span>
           </button>
         </div>
 
-        {/* Metrics */}
+        {/* Metrics + Stream */}
         {hasLaunched && (
           <>
             <MetricsRow totalPayloads={data.length} crashes={crashes} avgResponseTime={avgTime} />
