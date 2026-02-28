@@ -1,4 +1,4 @@
-# Onyx - ChaosForge
+# Onyx
 
 A high-concurrency API chaos testing platform disguised in a sleek, Apple-level pitch-black architectural GUI. Originally built via Lovable, this repository has been heavily customized into a bespoke interactive SaaS flow.
 
