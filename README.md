@@ -1,73 +1,51 @@
-# Welcome to your Lovable project
+# Onyx - ChaosForge
 
-## Project info
+A high-concurrency API chaos testing platform disguised in a sleek, Apple-level pitch-black architectural GUI. Originally built via Lovable, this repository has been heavily customized into a bespoke interactive SaaS flow.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Key Features
 
-## How can I edit this code?
+### 1. Master Grid Architecture
 
-There are several ways of editing your application.
+- An absolute `min-h-screen` container utilizing a mathematically perfect `[90%] max-w-6xl` central bounding box.
+- Strict Apple-style whitespace framing the interior, exposing a beautiful slanting `repeating-linear-gradient` grid texture along the outside margins.
+- Fading intersection borders utilizing an explicit `maskImage` to softly gradient the textures into the pitch-black abyss.
+- Architectural 3px absolute-positioned square "nodes" intersecting the Navbar and Hero boundaries.
 
-**Use Lovable**
+### 2. Apple / Mirai Typography & Theming
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Enforces strict typography mapping using `Satoshi Variable` for headers, `Inter Variable` for body/accordion data, and `JetBrains Mono` for terminal output grids.
+- Pure `#000000` root backgrounds bypassing generic tailwind neutral grays.
+- Deep `#0A0A0A` panel layering with hyper-tight `#2A2A2A` unified border styles.
 
-Changes made via Lovable will be committed automatically to this repo.
+### 3. Interactive Mock macOS Terminal
 
-**Use your preferred IDE**
+- Centerpiece `<HeroTerminal />` component featuring accurate macOS traffic lights (`#FF5F57`, `#FEBC2E`, `#28C840`).
+- Animated Framer Motion sequence that runs a chaotic penetration-testing simulated stream.
+- Seamlessly transitions into a live, interactive `API Target` input field on completion, mapping inputs directly into React Router state to launch the Dashboard.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 4. Interactive Feature Layout Data
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- A responsive `lg:grid-cols-2` custom Showcase component featuring a simulated macOS terminal bounding box on the left overlaying a stunning backdrop image.
+- A highly-optimized pure-React Accordion mapped directly to the right capturing features: `Generate`, `Attack`, `Analyze`, and `Report`.
 
-Follow these steps:
+### 5. Consolidated Dashboard Synchronization
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Re-architected `/dashboard` metrics grid pulling the overarching `#0A0A0A` / `#000000` theme globals.
+- Fully responsive sidebar, dynamic live-stream attack tables, and critical failure highlighting natively bounding neon-red glow elements to failing `500` status codes.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 💻 Tech Stack
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
+- React 18 / React Router DOM
 - Vite
-- TypeScript
-- React
-- shadcn-ui
 - Tailwind CSS
+- Framer Motion
+- Lucide React
+- TypeScript
 
-## How can I deploy this project?
+## 🔧 Getting Started
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. Clone the repository
+2. Extract the `client` directory (or run at root if fullstack)
+3. Ensure NPM and Node are installed.
+4. Run `npm install`
+5. Run `npm run dev` to launch the Vite development server.

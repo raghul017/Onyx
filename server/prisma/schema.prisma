@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Test Run — the top-level attack session
+// ---------------------------------------------------------------------------
+model TestRun {
+  id              String    @id @default(uuid())
+  specUrl         String
+  status          String    @default("PENDING") // PENDING | PARSING | GENERATING | ATTACKING | COMPLETED | FAILED
+  totalEndpoints  Int       @default(0)
+  totalAttacks    Int       @default(0)
+  completedAttacks Int      @default(0)
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  endpoints TargetEndpoint[]
+  logs      AttackLog[]
+
+  @@map("test_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Target Endpoint — parsed routes from the OpenAPI spec
+// ---------------------------------------------------------------------------
+model TargetEndpoint {
+  id                String  @id @default(uuid())
+  testRunId         String
+  method            String  // GET | POST | PUT | DELETE | PATCH
+  path              String
+  operationId       String?
+  requestBodySchema Json?   // raw JSON schema for the request body
+
+  testRun TestRun     @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  logs    AttackLog[]
+
+  @@index([testRunId])
+  @@map("target_endpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Attack Log — individual payload execution results
+// ---------------------------------------------------------------------------
+model AttackLog {
+  id              String   @id @default(uuid())
+  testRunId       String
+  endpointId      String
+  method          String
+  path            String
+  payload         String   @db.Text
+  statusCode      Int?
+  latencyMs       Int?
+  responseSnippet String?  @db.Text
+  attackType      String   @default("UNKNOWN")
+  error           String?
+  createdAt       DateTime @default(now())
+
+  testRun  TestRun        @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  endpoint TargetEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId])
+  @@index([endpointId])
+  @@map("attack_logs")
+}
