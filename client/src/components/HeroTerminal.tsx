@@ -22,11 +22,7 @@ const bashLines = [
 ];
 
 const HeroTerminal = () => {
-    const navigate = useNavigate();
     const [linesVisible, setLinesVisible] = useState(0);
-    const [showInput, setShowInput] = useState(false);
-    const [urlInput, setUrlInput] = useState("");
-    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const sequence = [1000, 2500, 4500, 6000]; // timing for each line to appear
@@ -35,11 +31,6 @@ const HeroTerminal = () => {
         sequence.forEach((time, index) => {
             const timeout = setTimeout(() => {
                 setLinesVisible(index + 1);
-
-                // Show input after the last line
-                if (index === sequence.length - 1) {
-                    setTimeout(() => setShowInput(true), 500);
-                }
             }, time);
             timeouts.push(timeout);
         });
@@ -48,19 +39,6 @@ const HeroTerminal = () => {
             timeouts.forEach(clearTimeout);
         };
     }, []);
-
-    // Auto focus input when it appears
-    useEffect(() => {
-        if (showInput && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [showInput]);
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter" && urlInput.trim() !== "") {
-            navigate("/dashboard", { state: { targetUrl: urlInput } });
-        }
-    };
 
     return (
         <div
@@ -106,47 +84,19 @@ const HeroTerminal = () => {
                         </motion.div>
                     ))}
 
-                    {/* Interactive Input Phase */}
-                    {showInput ? (
+                    {/* Loading Blinking Cursor mapping end of file */}
+                    {linesVisible < bashLines.length ? (
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="mt-2 flex items-center relative"
-                        >
-                            <span className="text-cyan-400 mr-2">{">"}</span>
-                            {/* Native Approach Customization */}
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                value={urlInput}
-                                onChange={(e) => setUrlInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder="https://api.your-company.com/openapi.json"
-                                className="bg-transparent text-white font-mono outline-none w-full placeholder:text-neutral-600 focus:ring-0 border-none px-0"
-                                spellCheck={false}
-                                autoComplete="off"
-                            />
-                            {/* Blinking block for aesthetics if empty */}
-                            {!urlInput && (
-                                <motion.div
-                                    animate={{ opacity: [1, 0] }}
-                                    transition={{
-                                        repeat: Infinity,
-                                        duration: 0.8,
-                                    }}
-                                    className="absolute left-[3ch] w-2 h-4 bg-neutral-500 pointer-events-none"
-                                />
-                            )}
-                        </motion.div>
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ repeat: Infinity, duration: 0.8 }}
+                            className="inline-block w-2 h-4 bg-neutral-500 mt-2"
+                        />
                     ) : (
-                        /* Loading Blinking Cursor */
-                        linesVisible < bashLines.length && (
-                            <motion.div
-                                animate={{ opacity: [1, 0] }}
-                                transition={{ repeat: Infinity, duration: 0.8 }}
-                                className="inline-block w-2 h-4 bg-neutral-500 mt-2"
-                            />
-                        )
+                        <motion.div
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ repeat: Infinity, duration: 0.8 }}
+                            className="inline-block w-2 h-4 bg-neutral-500 mt-2"
+                        />
                     )}
                 </div>
             </div>
