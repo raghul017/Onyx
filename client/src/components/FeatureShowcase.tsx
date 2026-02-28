@@ -56,9 +56,9 @@ const FeatureShowcase = () => {
     ];
 
     return (
-        <section className="w-full px-8 mt-32 mb-24">
+        <section className="w-full mt-32 mb-24 relative">
             <h2
-                className="mb-12 max-w-2xl text-white"
+                className="mb-12 max-w-2xl text-white px-8 lg:px-16"
                 style={{
                     fontFamily:
                         '"Satoshi Variable", "Satoshi Variable Placeholder", sans-serif',
@@ -70,13 +70,19 @@ const FeatureShowcase = () => {
                 Generate, attack, analyze &amp; report on your APIs.
             </h2>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 rounded-[16px] overflow-hidden border border-[#2A2A2A] bg-[#0A0A0A]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 border-y border-[#2A2A2A] bg-[#0A0A0A] w-full lg:h-[750px] relative">
+                {/* Intersection Nodes (matching Hero section) */}
+                <div className="absolute top-[-2px] left-[-2px] w-[3px] h-[3px] bg-[#444444] z-10 hidden lg:block" />
+                <div className="absolute top-[-2px] right-[-2px] w-[3px] h-[3px] bg-[#444444] z-10 hidden lg:block" />
+                <div className="absolute bottom-[-2px] left-[-2px] w-[3px] h-[3px] bg-[#444444] z-10 hidden lg:block" />
+                <div className="absolute bottom-[-2px] right-[-2px] w-[3px] h-[3px] bg-[#444444] z-10 hidden lg:block" />
+
                 {/* Left Column: Terminal Asset Image Background */}
                 <div
-                    className="bg-cover bg-center p-8 md:p-12 lg:p-16 flex items-center justify-center min-h-[500px]"
+                    className="bg-cover bg-center p-8 md:p-12 lg:p-16 flex items-center justify-center min-h-[500px] lg:min-h-full border-b lg:border-b-0 lg:border-r border-[#2A2A2A]"
                     style={{ backgroundImage: "url('/hero-bg.png')" }}
                 >
-                    <div className="w-full max-w-[500px] bg-[#0A0A0A]/90 backdrop-blur-xl rounded-xl border border-[#2A2A2A] shadow-2xl flex flex-col overflow-hidden">
+                    <div className="w-full max-w-[500px] bg-[#0A0A0A]/90 backdrop-blur-xl rounded-[10px] border border-[#333] shadow-2xl shadow-black/50 flex flex-col overflow-hidden">
                         {/* Terminal Header */}
                         <div className="h-10 flex items-center px-4 shrink-0 relative bg-[#0A0A0A]">
                             <div className="flex gap-2 absolute left-4">
@@ -149,7 +155,7 @@ const FeatureShowcase = () => {
                 </div>
 
                 {/* Right Column: Interactive Accordion */}
-                <div className="flex flex-col justify-center p-8 md:p-12 lg:p-16 bg-[#111111]">
+                <div className="flex flex-col flex-1 justify-start p-8 md:p-12 lg:p-16 bg-[#111111] overflow-y-auto w-full max-h-full">
                     {features.map((feature, index) => {
                         const isActive = activeIndex === index;
 
