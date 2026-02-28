@@ -2,6 +2,7 @@
 // Onyx Server — Entry Point
 // =============================================================================
 
+import "dotenv/config"; // Load .env before anything else
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";

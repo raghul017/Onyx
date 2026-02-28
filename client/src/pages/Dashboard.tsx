@@ -17,7 +17,7 @@ import { useChaosStream } from "@/hooks/useChaosStream";
 const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const targetUrl = location.state?.url || "";
+    const targetUrl = location.state?.targetUrl || "";
 
     const [testRunId, setTestRunId] = useState<string | null>(null);
     const [launching, setLaunching] = useState(false);
