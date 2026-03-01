@@ -368,6 +368,78 @@ export async function getTestRunLogs(
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/attack — Alias endpoint for the frontend
+// ---------------------------------------------------------------------------
+
+/**
+ * Accepts { openApiUrl: string }, validates the URL is reachable,
+ * then delegates to the full test run pipeline.
+ */
+export async function attackHandler(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> {
+    try {
+        const { openApiUrl } = req.body as { openApiUrl?: string };
+
+        // Validate input
+        if (!openApiUrl || typeof openApiUrl !== "string") {
+            res.status(400).json({
+                error: "Validation failed",
+                message: "Missing required field: openApiUrl (string)",
+            });
+            return;
+        }
+
+        // Validate URL format
+        let parsedUrl: URL;
+        try {
+            parsedUrl = new URL(openApiUrl);
+            if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+                throw new Error("Invalid protocol");
+            }
+        } catch {
+            res.status(400).json({
+                error: "Invalid URL",
+                message:
+                    "openApiUrl must be a valid HTTP/HTTPS URL pointing to an OpenAPI/Swagger spec (e.g., https://petstore.swagger.io/v2/swagger.json)",
+            });
+            return;
+        }
+
+        // Pre-validate: check if the URL is reachable before entering the pipeline
+        try {
+            const probe = await fetch(openApiUrl, {
+                method: "HEAD",
+                signal: AbortSignal.timeout(8000),
+            });
+            if (!probe.ok && probe.status !== 405) {
+                // 405 = HEAD not allowed, try anyway with GET later
+                res.status(400).json({
+                    error: "Unreachable URL",
+                    message: `The spec URL returned HTTP ${probe.status}. Make sure it's a valid, publicly accessible OpenAPI JSON file.`,
+                });
+                return;
+            }
+        } catch {
+            res.status(400).json({
+                error: "Unreachable URL",
+                message:
+                    "Could not connect to the provided URL. Ensure it is publicly accessible and responds within 8 seconds.",
+            });
+            return;
+        }
+
+        // Delegate to the existing pipeline — rewrite body to match createTestRun schema
+        req.body = { specUrl: openApiUrl };
+        return createTestRun(req, res, next);
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

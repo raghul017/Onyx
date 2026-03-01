@@ -7,6 +7,7 @@ import {
     createTestRun,
     getTestRun,
     getTestRunLogs,
+    attackHandler,
 } from "../controllers/test-run.controller.js";
 
 const router = Router();
@@ -17,6 +18,12 @@ const router = Router();
 
 /** Create a new test run (parse spec → generate payloads → launch attacks). */
 router.post("/test-runs", createTestRun);
+
+/**
+ * POST /api/attack — The primary endpoint for the frontend.
+ * Accepts { openApiUrl: string }, fetches spec, runs AI, queues attacks.
+ */
+router.post("/attack", attackHandler);
 
 /** Get a test run's summary and all attack logs. */
 router.get("/test-runs/:id", getTestRun);
