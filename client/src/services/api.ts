@@ -84,3 +84,21 @@ export async function healthCheck(): Promise<{ status: string }> {
     const res = await fetch(`${API_BASE}/health`);
     return res.json();
 }
+
+/**
+ * Abort an in-progress test run. Drains pending BullMQ jobs.
+ */
+export async function abortTestRun(
+    testRunId: string,
+): Promise<{ status: string; removedJobs: number; message: string }> {
+    const res = await fetch(`${API_BASE}/test-runs/${testRunId}/abort`, {
+        method: "POST",
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Abort failed" }));
+        throw new Error(err.error || err.message || `HTTP ${res.status}`);
+    }
+
+    return res.json();
+}

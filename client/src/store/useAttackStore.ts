@@ -27,17 +27,20 @@ interface AttackState {
     connectionStatus: ConnectionStatus;
     error: string | null;
     testRunId: string | null;
+    totalPayloads: number;
 }
 
 interface AttackActions {
-    /** Open a WebSocket to ws://localhost:3000 and subscribe to a test run. */
+    /** Open a WebSocket via Vite proxy (/ws) and subscribe to a test run. */
     connectWebSocket: (testRunId: string) => void;
     /** Gracefully close the WebSocket connection. */
     disconnectWebSocket: () => void;
     /** Prepend a new log entry (newest first). */
     addLog: (log: AttackLog) => void;
-    /** Reset logs and status back to idle. */
-    clearLogs: () => void;
+    /** Set the total expected payload count (ceiling). */
+    setTotalPayloads: (count: number) => void;
+    /** Full reset: clear logs, reset status and totalPayloads to 0. */
+    resetAttack: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +62,7 @@ export const useAttackStore = create<AttackState & AttackActions>(
         connectionStatus: "disconnected",
         error: null,
         testRunId: null,
+        totalPayloads: 0,
 
         // -- Actions --------------------------------------------------------
 
@@ -79,7 +83,11 @@ export const useAttackStore = create<AttackState & AttackActions>(
                 status: "idle",
             });
 
-            const socket = new WebSocket("ws://localhost:3000");
+            const protocol =
+                window.location.protocol === "https:" ? "wss:" : "ws:";
+            const socket = new WebSocket(
+                `${protocol}//${window.location.host}/ws`,
+            );
             ws = socket;
 
             socket.onopen = () => {
@@ -118,6 +126,10 @@ export const useAttackStore = create<AttackState & AttackActions>(
 
                         case "TEST_RUN_STATUS": {
                             const s = msg.data.status as string;
+                            const total = msg.data.totalAttacks;
+                            if (total && total > 0) {
+                                set({ totalPayloads: total });
+                            }
                             if (s === "COMPLETED" || s === "FAILED") {
                                 set({ status: "completed" });
                             } else if (
@@ -190,8 +202,28 @@ export const useAttackStore = create<AttackState & AttackActions>(
             }));
         },
 
-        clearLogs: () => {
-            set({ logs: [], status: "idle", error: null });
+        setTotalPayloads: (count: number) => {
+            set({ totalPayloads: count });
+        },
+
+        resetAttack: () => {
+            // Close any existing WS before resetting
+            if (ws && ws.readyState <= WebSocket.OPEN) {
+                ws.close();
+            }
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+            ws = null;
+            set({
+                logs: [],
+                status: "idle",
+                connectionStatus: "disconnected",
+                error: null,
+                testRunId: null,
+                totalPayloads: 0,
+            });
         },
     }),
 );

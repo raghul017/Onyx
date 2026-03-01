@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const GithubIcon = () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
@@ -45,6 +46,12 @@ const Navbar = () => {
                     >
                         Docs
                     </a>
+                    <Link
+                        to="/history"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                    >
+                        History
+                    </Link>
                     <button className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors flex items-center gap-1">
                         Company
                         <ChevronDown size={14} className="opacity-50" />

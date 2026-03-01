@@ -8,6 +8,7 @@ import {
     getTestRun,
     getTestRunLogs,
     attackHandler,
+    abortTestRun,
 } from "../controllers/test-run.controller.js";
 
 const router = Router();
@@ -24,6 +25,9 @@ router.post("/test-runs", createTestRun);
  * Accepts { openApiUrl: string }, fetches spec, runs AI, queues attacks.
  */
 router.post("/attack", attackHandler);
+
+/** Abort an in-progress test run — drains BullMQ jobs and marks as FAILED. */
+router.post("/test-runs/:id/abort", abortTestRun);
 
 /** Get a test run's summary and all attack logs. */
 router.get("/test-runs/:id", getTestRun);

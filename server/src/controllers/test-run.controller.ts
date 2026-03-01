@@ -440,6 +440,96 @@ export async function attackHandler(
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/test-runs/:id/abort — Stop an in-progress attack
+// ---------------------------------------------------------------------------
+
+export async function abortTestRun(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> {
+    try {
+        const id = req.params.id as string;
+
+        // Find the test run
+        const testRun = await prisma.testRun.findUnique({
+            where: { id },
+        });
+
+        if (!testRun) {
+            res.status(404).json({ error: "Test run not found" });
+            return;
+        }
+
+        // Only abort if it's still in progress
+        if (testRun.status === "COMPLETED" || testRun.status === "FAILED") {
+            res.status(400).json({
+                error: "Cannot abort",
+                message: `Test run is already ${testRun.status}`,
+            });
+            return;
+        }
+
+        // 1. Drain all waiting jobs from the BullMQ queue for this test run
+        //    Get waiting + delayed jobs and remove ones matching this testRunId
+        const { chaosQueue } = await import("../queues/chaos-queue.js");
+
+        const [waiting, delayed] = await Promise.all([
+            chaosQueue.getJobs(["waiting", "prioritized"]),
+            chaosQueue.getJobs(["delayed"]),
+        ]);
+
+        const allJobs = [...waiting, ...delayed];
+        let removedCount = 0;
+
+        for (const job of allJobs) {
+            if (job.data?.testRunId === id) {
+                try {
+                    await job.remove();
+                    removedCount++;
+                } catch {
+                    // Job may have been picked up by the worker in the meantime
+                }
+            }
+        }
+
+        // 2. Update test run status in database
+        const updated = await prisma.testRun.update({
+            where: { id },
+            data: {
+                status: "FAILED",
+                errorMessage: `Aborted by user. ${removedCount} pending jobs removed.`,
+                completedAt: new Date(),
+            },
+        });
+
+        // 3. Broadcast abort via WebSocket
+        const abortMsg: WsServerMessage = {
+            type: "TEST_RUN_STATUS",
+            data: {
+                testRunId: id,
+                status: "FAILED",
+                completedAttacks: updated.completedAttacks,
+                totalAttacks: updated.totalAttacks,
+            },
+        };
+        wsManager.broadcast(id, abortMsg);
+
+        console.log(
+            `[Controller] Test run ${id.slice(0, 8)}... ABORTED — removed ${removedCount} pending jobs`,
+        );
+
+        res.json({
+            status: "aborted",
+            removedJobs: removedCount,
+            message: `Attack sequence terminated. ${removedCount} pending payloads removed from queue.`,
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
