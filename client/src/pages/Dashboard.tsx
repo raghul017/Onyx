@@ -1,327 +1,340 @@
-import { useEffect, useState, useCallback } from "react";
+// =============================================================================
+// Dashboard — "Onyx Command Center"
+// =============================================================================
+
+import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     Shield,
     ArrowLeft,
-    Activity,
-    Server,
-    ActivitySquare,
+    Crosshair,
     AlertTriangle,
-    Wifi,
-    WifiOff,
-    Loader2,
+    Gauge,
+    Radio,
 } from "lucide-react";
+import { useAttackStore } from "@/store/useAttackStore";
 import { createTestRun } from "@/services/api";
-import { useChaosStream } from "@/hooks/useChaosStream";
 
 const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const targetUrl = location.state?.targetUrl || "";
 
-    const [testRunId, setTestRunId] = useState<string | null>(null);
-    const [launching, setLaunching] = useState(false);
-    const [launchError, setLaunchError] = useState<string | null>(null);
-
-    // WebSocket live stream
     const {
-        results,
-        progress,
-        isConnected,
-        error: wsError,
-    } = useChaosStream(testRunId);
+        logs,
+        status,
+        connectionStatus,
+        error,
+        connectWebSocket,
+        disconnectWebSocket,
+    } = useAttackStore();
 
-    // Computed metrics
-    const crashes = results.filter((d) => d.statusCode >= 500).length;
-    const avgTime =
-        results.length > 0
-            ? Math.round(
-                  results.reduce((s, d) => s + d.responseTime, 0) /
-                      results.length,
-              )
-            : 0;
-
-    const isScanning =
-        progress.status === "PARSING" ||
-        progress.status === "GENERATING" ||
-        progress.status === "ATTACKING";
-
-    // Launch the test run on mount
-    const launch = useCallback(async () => {
-        if (!targetUrl || launching || testRunId) return;
-        setLaunching(true);
-        setLaunchError(null);
-
-        try {
-            const res = await createTestRun(targetUrl);
-            setTestRunId(res.testRunId);
-        } catch (err: any) {
-            setLaunchError(err.message || "Failed to start test run");
-        } finally {
-            setLaunching(false);
-        }
-    }, [targetUrl, launching, testRunId]);
-
+    // -- Launch test run & connect WS on mount ------------------------------
     useEffect(() => {
-        launch();
-    }, []);
+        if (!targetUrl) return;
 
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const res = await createTestRun(targetUrl);
+                if (!cancelled) {
+                    connectWebSocket(res.testRunId);
+                }
+            } catch (err) {
+                console.error("[Dashboard] Failed to create test run:", err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            disconnectWebSocket();
+        };
+    }, [targetUrl]);
+
+    // -- Computed metrics ---------------------------------------------------
+    const totalPayloads = logs.length;
+
+    const criticalFailures = useMemo(
+        () => logs.filter((l) => l.statusCode >= 500).length,
+        [logs],
+    );
+
+    const avgLatency = useMemo(() => {
+        if (logs.length === 0) return 0;
+        const sum = logs.reduce((acc, l) => acc + l.latencyMs, 0);
+        return Math.round(sum / logs.length);
+    }, [logs]);
+
+    // -- Helpers ------------------------------------------------------------
+    const statusLabel =
+        status === "attacking"
+            ? "ATTACK IN PROGRESS"
+            : status === "completed"
+              ? "SEQUENCE COMPLETE"
+              : "STANDING BY";
+
+    const queueLabel =
+        connectionStatus === "connected"
+            ? "LIVE"
+            : connectionStatus === "connecting"
+              ? "CONNECTING..."
+              : "OFFLINE";
+
+    const getRowColor = (code: number) => {
+        if (code >= 500) return "text-red-500 font-bold";
+        if (code >= 400) return "text-yellow-500";
+        return "text-neutral-500";
+    };
+
+    const getMethodColor = (method: string) => {
+        switch (method) {
+            case "GET":
+                return "text-cyan-400";
+            case "POST":
+                return "text-green-400";
+            case "PUT":
+                return "text-yellow-400";
+            case "DELETE":
+                return "text-red-400";
+            case "PATCH":
+                return "text-purple-400";
+            default:
+                return "text-neutral-400";
+        }
+    };
+
+    // =======================================================================
+    // Render
+    // =======================================================================
     return (
-        <div className="min-h-screen bg-black text-neutral-300 flex font-sans">
-            {/* Sidebar */}
-            <aside className="w-16 lg:w-64 border-r border-[#2A2A2A] bg-black flex flex-col items-center lg:items-start p-4 shrink-0 transition-all font-['Inter']">
-                <div className="flex items-center gap-3 w-full justify-center lg:justify-start mb-8 text-white">
-                    <Shield className="text-white glow-cyan-subtle" size={24} />
-                    <span className="hidden lg:block font-bold tracking-tight text-white">
-                        Onyx
+        <div className="h-screen flex flex-col bg-black text-white font-['Inter']">
+            {/* ============================================================= */}
+            {/* 1. Control Header                                             */}
+            {/* ============================================================= */}
+            <header className="h-14 shrink-0 border-b border-neutral-800 bg-[#0A0A0A] flex items-center justify-between px-6">
+                {/* Left — Logo & Back */}
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate("/")}
+                        className="text-neutral-600 hover:text-white transition-colors cursor-pointer"
+                    >
+                        <ArrowLeft size={16} />
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <Shield size={18} className="text-white" />
+                        <span className="text-white text-sm font-semibold tracking-tight">
+                            Onyx
+                        </span>
+                    </div>
+                </div>
+
+                {/* Center — Target URL */}
+                <div className="hidden sm:flex items-center gap-2 font-['JetBrains_Mono'] text-xs text-neutral-500">
+                    <span className="text-neutral-600">Target:</span>
+                    <span className="text-neutral-300 bg-black/60 px-2 py-0.5 border border-neutral-800 truncate max-w-[300px] lg:max-w-md">
+                        {targetUrl || "—"}
                     </span>
                 </div>
 
-                <nav className="flex flex-col gap-4 w-full">
-                    <button
-                        onClick={() => navigate("/")}
-                        className="p-3 lg:px-4 lg:py-3 flex items-center gap-3 text-neutral-500 hover:text-white hover:bg-neutral-900 transition-colors w-full text-left rounded-none whitespace-nowrap overflow-hidden"
+                {/* Right — Status Badge */}
+                <div className="flex items-center gap-2 text-xs font-['JetBrains_Mono']">
+                    <span
+                        className={`w-2 h-2 rounded-full ${
+                            status === "attacking"
+                                ? "bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(34,211,238,0.6)]"
+                                : status === "completed"
+                                  ? "bg-neutral-500"
+                                  : "bg-neutral-700"
+                        }`}
+                    />
+                    <span
+                        className={
+                            status === "attacking"
+                                ? "text-cyan-400"
+                                : "text-neutral-500"
+                        }
                     >
-                        <ArrowLeft size={18} className="shrink-0" />
-                        <span className="hidden lg:block text-sm font-mono tracking-wide">
-                            Return
-                        </span>
-                    </button>
-                    <div className="p-3 lg:px-4 lg:py-3 flex items-center gap-3 text-primary bg-primary/10 border-l-2 border-primary w-full text-left whitespace-nowrap overflow-hidden">
-                        <Activity size={18} className="shrink-0" />
-                        <span className="hidden lg:block text-sm font-mono tracking-wide">
-                            Live Stream
-                        </span>
-                    </div>
-                </nav>
+                        {statusLabel}
+                    </span>
+                </div>
+            </header>
 
-                {/* Connection status */}
-                <div className="mt-auto pt-4 w-full">
-                    <div
-                        className={`flex items-center gap-2 text-xs font-mono px-3 py-2 ${isConnected ? "text-emerald-400" : "text-neutral-600"}`}
-                    >
-                        {isConnected ? (
-                            <Wifi size={12} />
-                        ) : (
-                            <WifiOff size={12} />
+            {/* ============================================================= */}
+            {/* 2. Telemetry Row                                              */}
+            {/* ============================================================= */}
+            <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-800 border-b border-neutral-800">
+                {/* Card 1: Total Payloads */}
+                <div className="bg-[#0A0A0A] p-5 flex flex-col justify-between min-h-[100px]">
+                    <div className="flex items-center gap-2 text-neutral-600 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest">
+                        <Crosshair size={12} />
+                        Payloads Fired
+                    </div>
+                    <div className="text-3xl font-['JetBrains_Mono'] text-white mt-2">
+                        {totalPayloads}
+                    </div>
+                </div>
+
+                {/* Card 2: Critical Failures */}
+                <div className="bg-[#0A0A0A] p-5 flex flex-col justify-between min-h-[100px]">
+                    <div className="flex items-center gap-2 text-neutral-600 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest">
+                        <AlertTriangle size={12} />
+                        Critical Failures
+                    </div>
+                    <div className="text-3xl font-['JetBrains_Mono'] text-red-500 mt-2">
+                        {criticalFailures}
+                        {criticalFailures > 0 && (
+                            <span className="ml-2 text-xs text-red-500/60 font-normal">
+                                VULN
+                            </span>
                         )}
-                        <span className="hidden lg:block">
-                            {isConnected ? "Connected" : "Disconnected"}
+                    </div>
+                </div>
+
+                {/* Card 3: Avg Latency */}
+                <div className="bg-[#0A0A0A] p-5 flex flex-col justify-between min-h-[100px]">
+                    <div className="flex items-center gap-2 text-neutral-600 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest">
+                        <Gauge size={12} />
+                        Avg Latency
+                    </div>
+                    <div className="text-3xl font-['JetBrains_Mono'] text-cyan-400 mt-2">
+                        {avgLatency}
+                        <span className="text-base text-neutral-600 ml-1">
+                            ms
                         </span>
                     </div>
                 </div>
-            </aside>
 
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col max-h-screen overflow-hidden bg-black font-['Inter']">
-                {/* Header */}
-                <header className="h-16 border-b border-[#2A2A2A] bg-black flex items-center justify-between px-6 shrink-0">
-                    <div className="flex items-center gap-3 text-sm font-['JetBrains_Mono']">
-                        <span className="text-neutral-500 hidden sm:inline-block">
-                            Target:
+                {/* Card 4: Queue Status */}
+                <div className="bg-[#0A0A0A] p-5 flex flex-col justify-between min-h-[100px]">
+                    <div className="flex items-center gap-2 text-neutral-600 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest">
+                        <Radio size={12} />
+                        Queue Status
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span
+                            className={`w-2 h-2 rounded-full ${
+                                connectionStatus === "connected"
+                                    ? "bg-emerald-400 animate-pulse"
+                                    : connectionStatus === "connecting"
+                                      ? "bg-yellow-400 animate-pulse"
+                                      : "bg-neutral-600"
+                            }`}
+                        />
+                        <span className="text-xl font-['JetBrains_Mono'] text-white">
+                            {queueLabel}
                         </span>
-                        <span className="text-white bg-black px-3 py-1 border border-neutral-800 truncate max-w-[200px] sm:max-w-md">
-                            {targetUrl || "No URL provided"}
-                        </span>
-                        {isScanning && (
-                            <span className="text-primary animate-pulse ml-2 text-xs flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>{" "}
-                                {progress.status === "PARSING"
-                                    ? "Parsing Spec..."
-                                    : progress.status === "GENERATING"
-                                      ? "Generating Payloads..."
-                                      : `Attacking (${progress.completedAttacks}/${progress.totalAttacks})`}
-                            </span>
-                        )}
-                        {progress.status === "COMPLETED" && (
-                            <span className="text-emerald-400 ml-2 text-xs flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>{" "}
-                                Complete
-                            </span>
-                        )}
-                        {progress.status === "FAILED" && (
-                            <span className="text-destructive ml-2 text-xs flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-destructive inline-block"></span>{" "}
-                                Failed
-                            </span>
-                        )}
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono hidden sm:block">
-                        Engine: Havoc-3
-                    </div>
-                </header>
+                </div>
+            </div>
 
-                {/* Error / Launch state */}
-                {(launchError || wsError) && (
-                    <div className="mx-6 mt-4 px-4 py-3 border border-destructive/30 bg-destructive/5 text-destructive text-sm font-mono">
-                        <AlertTriangle size={14} className="inline mr-2" />
-                        {launchError || wsError}
-                    </div>
-                )}
+            {/* ============================================================= */}
+            {/* 3. Live Attack Stream                                         */}
+            {/* ============================================================= */}
+            <div className="flex-1 flex flex-col overflow-hidden bg-[#0A0A0A] border-t border-neutral-800">
+                {/* Table Header */}
+                <div className="shrink-0 grid grid-cols-[80px_70px_1fr_80px_80px_1fr] gap-0 px-6 py-3 bg-black/60 border-b border-neutral-800 font-['JetBrains_Mono'] text-[11px] text-neutral-600 uppercase tracking-widest">
+                    <span>Time</span>
+                    <span>Method</span>
+                    <span>Endpoint</span>
+                    <span>Status</span>
+                    <span>Latency</span>
+                    <span>Payload</span>
+                </div>
 
-                {launching && (
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="flex items-center gap-3 text-neutral-400 font-mono text-sm">
-                            <Loader2
-                                size={18}
-                                className="animate-spin text-primary"
-                            />
-                            Initializing test run...
+                {/* Table Body */}
+                <div className="flex-1 overflow-y-auto">
+                    {error && (
+                        <div className="mx-6 mt-4 px-4 py-3 border border-red-500/30 bg-red-500/5 text-red-400 text-xs font-['JetBrains_Mono']">
+                            <AlertTriangle size={12} className="inline mr-2" />
+                            {error}
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Dashboard Area */}
-                {!launching && (
-                    <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-6 bg-black">
-                        {/* Metric Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="bg-[#050505] border border-[#2A2A2A] p-6 flex flex-col justify-between h-32 hover:border-white/30 transition-colors">
-                                <div className="text-neutral-500 font-['JetBrains_Mono'] text-xs flex items-center gap-2 uppercase tracking-wider">
-                                    <Server
-                                        size={14}
-                                        className="text-white/70"
-                                    />{" "}
-                                    Total Requests
-                                </div>
-                                <div className="text-4xl font-['JetBrains_Mono'] text-white">
-                                    {results.length}
-                                </div>
-                            </div>
-                            <div className="bg-[#050505] border border-[#2A2A2A] p-6 flex flex-col justify-between h-32 hover:border-destructive/30 transition-colors">
-                                <div className="text-neutral-500 font-['JetBrains_Mono'] text-xs flex items-center gap-2 uppercase tracking-wider">
-                                    <AlertTriangle
-                                        size={14}
-                                        className="text-destructive/70"
-                                    />{" "}
-                                    Critical Failures
-                                </div>
-                                <div className="text-4xl font-['JetBrains_Mono'] text-destructive drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]">
-                                    {crashes}
-                                </div>
-                            </div>
-                            <div className="bg-[#050505] border border-[#2A2A2A] p-6 flex flex-col justify-between h-32 hover:border-white/30 transition-colors">
-                                <div className="text-neutral-500 font-['JetBrains_Mono'] text-xs flex items-center gap-2 uppercase tracking-wider">
-                                    <ActivitySquare
-                                        size={14}
-                                        className="text-white/70"
-                                    />{" "}
-                                    Avg Latency
-                                </div>
-                                <div className="text-4xl font-['JetBrains_Mono'] text-white">
-                                    {avgTime}
-                                    <span className="text-lg text-neutral-600 ml-1">
-                                        ms
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Event Stream Table */}
-                        <div className="bg-[#050505] border border-[#2A2A2A] flex-1 min-h-[500px] flex flex-col overflow-hidden rounded-md">
-                            <div className="px-6 py-4 border-b border-[#2A2A2A] flex items-center justify-between shrink-0 bg-black">
-                                <h2 className="text-sm font-['JetBrains_Mono'] text-white flex items-center gap-2">
-                                    <Activity
-                                        size={16}
-                                        className="text-white"
-                                    />
-                                    Event Stream
-                                </h2>
-                                <span className="text-xs font-['JetBrains_Mono'] text-neutral-500">
-                                    {results.length} attacks logged
+                    {logs.length === 0 && !error && (
+                        <div className="flex items-center justify-center h-48 text-neutral-700 font-['JetBrains_Mono'] text-sm">
+                            {status === "attacking" ? (
+                                <span className="flex items-center gap-3">
+                                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                                    Waiting for attack results...
                                 </span>
-                            </div>
-
-                            <div className="overflow-x-auto flex-1 p-0">
-                                {results.length === 0 && !launching ? (
-                                    <div className="flex items-center justify-center h-64 text-neutral-600 font-mono text-sm">
-                                        {isScanning ? (
-                                            <div className="flex items-center gap-3">
-                                                <Loader2
-                                                    size={16}
-                                                    className="animate-spin text-primary"
-                                                />
-                                                Waiting for attack results...
-                                            </div>
-                                        ) : (
-                                            "No results yet"
-                                        )}
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-left font-mono text-sm border-collapse whitespace-nowrap">
-                                        <thead className="sticky top-0 bg-[#050505] z-10 outline-1 outline outline-neutral-800">
-                                            <tr>
-                                                <th className="px-6 py-3 font-medium text-neutral-400 w-24">
-                                                    STATUS
-                                                </th>
-                                                <th className="px-6 py-3 font-medium text-neutral-400 w-24">
-                                                    METHOD
-                                                </th>
-                                                <th className="px-6 py-3 font-medium text-neutral-400">
-                                                    ENDPOINT
-                                                </th>
-                                                <th className="px-6 py-3 font-medium text-neutral-400 min-w-[200px]">
-                                                    PAYLOAD
-                                                </th>
-                                                <th className="px-6 py-3 font-medium text-neutral-400 text-right w-32">
-                                                    TIME
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {results.map((row) => {
-                                                const isError =
-                                                    row.statusCode >= 500;
-                                                const isSuccess =
-                                                    row.statusCode >= 200 &&
-                                                    row.statusCode < 300;
-
-                                                return (
-                                                    <tr
-                                                        key={row.id}
-                                                        className={`
-                                                            border-b border-neutral-800/80 hover:bg-white/[0.04] transition-colors
-                                                            ${isError ? "bg-destructive/5 hover:bg-destructive/10 !border-destructive/20 relative" : ""}
-                                                        `}
-                                                    >
-                                                        {isError && (
-                                                            <td className="absolute left-0 top-0 bottom-0 w-0.5 bg-destructive"></td>
-                                                        )}
-                                                        <td
-                                                            className={`px-6 py-4 ${isError ? "text-destructive font-bold drop-shadow-[0_0_8px_rgba(220,38,38,0.4)]" : isSuccess ? "text-neutral-600" : "text-neutral-300"}`}
-                                                        >
-                                                            {row.statusCode}
-                                                        </td>
-                                                        <td
-                                                            className={`px-6 py-4 ${isError ? "text-destructive/80" : "text-primary/70"}`}
-                                                        >
-                                                            {row.method}
-                                                        </td>
-                                                        <td
-                                                            className={`px-6 py-4 ${isError ? "text-white" : "text-neutral-300"}`}
-                                                        >
-                                                            {row.endpoint}
-                                                        </td>
-                                                        <td
-                                                            className="px-6 py-4 text-neutral-500 text-xs truncate max-w-sm xl:max-w-xl"
-                                                            title={row.payload}
-                                                        >
-                                                            {row.payload}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right text-neutral-500">
-                                                            {row.responseTime}ms
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
+                            ) : (
+                                "No attack data"
+                            )}
                         </div>
-                    </div>
-                )}
-            </main>
+                    )}
+
+                    <AnimatePresence initial={false}>
+                        {logs.map((log) => {
+                            const ts = new Date(log.timestamp);
+                            const timeStr = `${String(ts.getHours()).padStart(2, "0")}:${String(ts.getMinutes()).padStart(2, "0")}:${String(ts.getSeconds()).padStart(2, "0")}`;
+                            const payloadStr =
+                                typeof log.payload === "string"
+                                    ? log.payload
+                                    : JSON.stringify(log.payload);
+
+                            return (
+                                <motion.div
+                                    key={log.id}
+                                    initial={{ opacity: 0, y: -20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
+                                    className={`grid grid-cols-[80px_70px_1fr_80px_80px_1fr] gap-0 px-6 py-2.5 border-b border-neutral-800/50 font-['JetBrains_Mono'] text-[13px] hover:bg-white/[0.02] transition-colors ${
+                                        log.statusCode >= 500
+                                            ? "bg-red-500/[0.04]"
+                                            : ""
+                                    }`}
+                                >
+                                    {/* Time */}
+                                    <span className="text-neutral-600 text-xs">
+                                        {timeStr}
+                                    </span>
+
+                                    {/* Method */}
+                                    <span
+                                        className={`text-xs font-semibold ${getMethodColor(log.method)}`}
+                                    >
+                                        {log.method}
+                                    </span>
+
+                                    {/* Endpoint */}
+                                    <span
+                                        className={`truncate pr-4 ${
+                                            log.statusCode >= 500
+                                                ? "text-white"
+                                                : "text-neutral-300"
+                                        }`}
+                                    >
+                                        {log.endpoint}
+                                    </span>
+
+                                    {/* Status Code */}
+                                    <span
+                                        className={getRowColor(log.statusCode)}
+                                    >
+                                        {log.statusCode}
+                                    </span>
+
+                                    {/* Latency */}
+                                    <span className="text-neutral-500 text-xs">
+                                        {log.latencyMs}ms
+                                    </span>
+
+                                    {/* Payload */}
+                                    <span
+                                        className="text-neutral-500 text-xs truncate"
+                                        title={payloadStr}
+                                    >
+                                        {payloadStr}
+                                    </span>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                </div>
+            </div>
         </div>
     );
 };
