@@ -34,8 +34,17 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401 || error.response?.status === 403) {
             useAuthStore.getState().logout();
-            // Optional: force a page reload to clear memory and hit React Router's ProtectedRoute
-            window.location.href = "/signin";
+
+            // Only force a reload if we are not already on the auth pages
+            // This prevents a reload loop when trying to log in with wrong credentials
+            const currentPath = window.location.pathname;
+            if (
+                currentPath !== "/signin" &&
+                currentPath !== "/signup" &&
+                currentPath !== "/"
+            ) {
+                window.location.href = "/signin";
+            }
         }
         return Promise.reject(error);
     },
