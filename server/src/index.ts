@@ -23,8 +23,11 @@ import { prisma } from "./lib/prisma.js";
 // Configuration
 // ---------------------------------------------------------------------------
 
-const PORT = parseInt(process.env.PORT ?? "3001", 10);
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:8080";
+const PORT = parseInt(process.env.PORT ?? "3000", 10);
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:8080";
+const CORS_ORIGIN = CLIENT_URL.includes(",")
+    ? CLIENT_URL.split(",")
+    : CLIENT_URL;
 
 // ---------------------------------------------------------------------------
 // Express App
@@ -144,7 +147,9 @@ async function start(): Promise<void> {
             console.log("╠══════════════════════════════════════════════╣");
             console.log(`║  HTTP  → http://localhost:${PORT}            ║`);
             console.log(`║  WS    → ws://localhost:${PORT}/ws           ║`);
-            console.log(`║  CORS  → ${CORS_ORIGIN.padEnd(32)}           ║`);
+            console.log(
+                `║  CORS  → ${String(CORS_ORIGIN).padEnd(32)}           ║`,
+            );
             console.log("╚══════════════════════════════════════════════╝");
             console.log("");
         });

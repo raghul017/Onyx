@@ -94,7 +94,14 @@ export const useAttackStore = create<AttackState & AttackActions>(
                 window.location.protocol === "https:" ? "wss:" : "ws:";
 
             const token = useAuthStore.getState().token;
-            const wsUrl = `${protocol}//${window.location.host}/ws${token ? `?token=${token}` : ""}`;
+
+            // Prefer explicit env URL, fallback to local origin + /ws
+            const wsBaseUrl =
+                import.meta.env.VITE_WS_URL ||
+                `${protocol}//${window.location.host}/ws`;
+
+            // Append JWT token for auth hook
+            const wsUrl = `${wsBaseUrl}${token ? `?token=${token}` : ""}`;
 
             const socket = new WebSocket(wsUrl);
             ws = socket;
