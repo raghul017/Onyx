@@ -9,6 +9,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
+import jwt from "jsonwebtoken";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
@@ -84,15 +85,38 @@ wsManager.init(wss);
 server.on(
     "upgrade",
     (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-        const { pathname } = new URL(
+        const urlObj = new URL(
             request.url ?? "/",
             `http://${request.headers.host}`,
         );
 
-        if (pathname === "/ws") {
-            wss.handleUpgrade(request, socket, head, (ws) => {
-                wss.emit("connection", ws, request);
-            });
+        if (urlObj.pathname === "/ws") {
+            const token = urlObj.searchParams.get("token");
+            if (!token) {
+                socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+                socket.destroy();
+                return;
+            }
+
+            try {
+                const JWT_SECRET =
+                    process.env.JWT_SECRET ||
+                    "onyx_fallback_secret_do_not_use_in_prod";
+                const decoded = jwt.verify(token, JWT_SECRET) as {
+                    id: string;
+                    email: string;
+                };
+
+                wss.handleUpgrade(request, socket, head, (ws) => {
+                    // Attach user to websocket instance
+                    (ws as any).user = decoded;
+                    wss.emit("connection", ws, request);
+                });
+            } catch (err) {
+                socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+                socket.destroy();
+                return;
+            }
         } else {
             socket.destroy();
         }
@@ -116,11 +140,11 @@ async function start(): Promise<void> {
         server.listen(PORT, () => {
             console.log("");
             console.log("╔══════════════════════════════════════════════╗");
-            console.log("║           ⚡ Onyx Server v1.0 ⚡            ║");
+            console.log("║           ⚡ Onyx Server v1.0 ⚡               ║");
             console.log("╠══════════════════════════════════════════════╣");
-            console.log(`║  HTTP  → http://localhost:${PORT}              ║`);
-            console.log(`║  WS    → ws://localhost:${PORT}/ws              ║`);
-            console.log(`║  CORS  → ${CORS_ORIGIN.padEnd(32)}║`);
+            console.log(`║  HTTP  → http://localhost:${PORT}            ║`);
+            console.log(`║  WS    → ws://localhost:${PORT}/ws           ║`);
+            console.log(`║  CORS  → ${CORS_ORIGIN.padEnd(32)}           ║`);
             console.log("╚══════════════════════════════════════════════╝");
             console.log("");
         });

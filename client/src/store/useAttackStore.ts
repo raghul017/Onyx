@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { create } from "zustand";
+import { useAuthStore } from "./useAuthStore";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +29,9 @@ interface AttackState {
     error: string | null;
     testRunId: string | null;
     totalPayloads: number;
+    criticalCount: number;
+    blockedCount: number;
+    infoCount: number;
 }
 
 interface AttackActions {
@@ -63,6 +67,9 @@ export const useAttackStore = create<AttackState & AttackActions>(
         error: null,
         testRunId: null,
         totalPayloads: 0,
+        criticalCount: 0,
+        blockedCount: 0,
+        infoCount: 0,
 
         // -- Actions --------------------------------------------------------
 
@@ -85,9 +92,11 @@ export const useAttackStore = create<AttackState & AttackActions>(
 
             const protocol =
                 window.location.protocol === "https:" ? "wss:" : "ws:";
-            const socket = new WebSocket(
-                `${protocol}//${window.location.host}/ws`,
-            );
+
+            const token = useAuthStore.getState().token;
+            const wsUrl = `${protocol}//${window.location.host}/ws${token ? `?token=${token}` : ""}`;
+
+            const socket = new WebSocket(wsUrl);
             ws = socket;
 
             socket.onopen = () => {
@@ -197,9 +206,18 @@ export const useAttackStore = create<AttackState & AttackActions>(
         },
 
         addLog: (log: AttackLog) => {
-            set((state) => ({
-                logs: [log, ...state.logs],
-            }));
+            set((state) => {
+                const c = log.statusCode >= 500 ? 1 : 0;
+                const b = log.statusCode >= 400 && log.statusCode < 500 ? 1 : 0;
+                const i = log.statusCode >= 200 && log.statusCode < 300 ? 1 : 0;
+
+                return {
+                    logs: [log, ...state.logs],
+                    criticalCount: state.criticalCount + c,
+                    blockedCount: state.blockedCount + b,
+                    infoCount: state.infoCount + i,
+                };
+            });
         },
 
         setTotalPayloads: (count: number) => {
@@ -223,6 +241,9 @@ export const useAttackStore = create<AttackState & AttackActions>(
                 error: null,
                 testRunId: null,
                 totalPayloads: 0,
+                criticalCount: 0,
+                blockedCount: 0,
+                infoCount: 0,
             });
         },
     }),

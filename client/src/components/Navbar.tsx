@@ -1,5 +1,6 @@
-import { ChevronDown } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ChevronDown, User, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 
 const GithubIcon = () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
@@ -14,6 +15,14 @@ const XIcon = () => (
 );
 
 const Navbar = () => {
+    const navigate = useNavigate();
+    const { isAuthenticated, user, logout } = useAuthStore();
+
+    const handleLogout = () => {
+        logout();
+        navigate("/");
+    };
+
     return (
         <nav className="w-full bg-black fixed top-0 z-50 border-b border-[#333333]">
             <div className="w-[90%] max-w-6xl mx-auto px-8 h-16 flex items-center justify-between border-x border-[#333333] relative bg-black">
@@ -22,8 +31,11 @@ const Navbar = () => {
                 <div className="absolute -bottom-[2px] -right-[2px] w-[3px] h-[3px] bg-[#444444]" />
 
                 {/* Logo (Left) */}
-                <div className="flex items-center">
-                    <span className="font-sans font-normal text-white text-[24px] tracking-tight">
+                <div
+                    className="flex items-center cursor-pointer"
+                    onClick={() => navigate("/")}
+                >
+                    <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
                         Onyx
                     </span>
                 </div>
@@ -60,16 +72,45 @@ const Navbar = () => {
 
                 {/* Actions (Right) */}
                 <div className="flex items-center gap-6">
-                    <a
-                        href="#"
-                        className="hidden md:block font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
-                    >
-                        Sign In
-                    </a>
+                    {isAuthenticated && user ? (
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => navigate("/dashboard")}
+                                className="hidden md:block font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                            >
+                                Command Center
+                            </button>
+                            <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-3 py-1.5 rounded-full">
+                                <User size={14} className="text-[#22d3ee]" />
+                                <span className="text-xs font-mono text-neutral-300">
+                                    {user.email.split("@")[0]}
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="text-neutral-500 hover:text-red-400 transition-colors"
+                                title="Sign Out"
+                            >
+                                <LogOut size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <Link
+                                to="/signin"
+                                className="hidden md:block font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                            >
+                                Sign In
+                            </Link>
 
-                    <button className="bg-white text-black rounded-md px-4 py-1.5 font-['Inter'] font-normal text-[14px] leading-[21px] hover:bg-neutral-200 transition-colors">
-                        Talk to us
-                    </button>
+                            <button
+                                onClick={() => navigate("/dashboard")}
+                                className="bg-white text-black rounded-md px-4 py-1.5 font-['Inter'] font-normal text-[14px] leading-[21px] hover:bg-neutral-200 transition-colors"
+                            >
+                                Talk to us
+                            </button>
+                        </>
+                    )}
 
                     <div className="flex items-center gap-4 border-l border-white/5 pl-6">
                         <a

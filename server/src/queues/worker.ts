@@ -122,12 +122,12 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
             endpointId,
             method,
             path,
-            payload,
+            payload: payload.replace(/\0/g, "\\u0000"),
             statusCode,
             latencyMs,
-            responseSnippet,
+            responseSnippet: responseSnippet?.replace(/\0/g, "\\u0000") ?? null,
             attackType,
-            error,
+            error: error?.replace(/\0/g, "\\u0000") ?? null,
         },
     });
 

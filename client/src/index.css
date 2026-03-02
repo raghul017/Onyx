@@ -98,6 +98,34 @@
     .row-dimmed {
         color: hsl(0 0% 35%);
     }
+
+    .node-glow-blue::before {
+        content: "";
+        position: absolute;
+        bottom: -15px;
+        left: 10%;
+        width: 80%;
+        height: 30px;
+        filter: blur(24px);
+        z-index: -1;
+        opacity: 0.4;
+        border-radius: 50%;
+        background: #60a5fa;
+    }
+
+    .node-glow-green::before {
+        content: "";
+        position: absolute;
+        bottom: -15px;
+        left: 10%;
+        width: 80%;
+        height: 30px;
+        filter: blur(24px);
+        z-index: -1;
+        opacity: 0.4;
+        border-radius: 50%;
+        background: #8cf1b4;
+    }
 }
 
 @keyframes scan-pulse {

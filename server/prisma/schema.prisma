@@ -8,6 +8,20 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+
+  testRuns     TestRun[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
 // Test Run — the top-level attack session
 // ---------------------------------------------------------------------------
 model TestRun {
@@ -21,6 +35,9 @@ model TestRun {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   completedAt     DateTime?
+
+  userId          String?   // Optional temporally for backwards compatibility
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   endpoints TargetEndpoint[]
   logs      AttackLog[]

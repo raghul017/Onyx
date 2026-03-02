@@ -6,6 +6,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { IncomingMessage } from "node:http";
 import type { WsServerMessage, WsClientMessage } from "../types/shared.js";
 import { wsClientMessageSchema } from "../validators/schemas.js";
+import { prisma } from "../lib/prisma.js";
 
 class WsManager {
     private wss: WebSocketServer | null = null;
@@ -125,7 +126,42 @@ class WsManager {
     // Subscription Management
     // -------------------------------------------------------------------------
 
-    subscribe(testRunId: string, ws: WebSocket): void {
+    async subscribe(testRunId: string, ws: WebSocket): Promise<void> {
+        // Enforce Multi-Tenant Isolation
+        const user = (ws as any).user;
+        if (!user || (!user.id && !user.email)) {
+            this.sendToClient(ws, {
+                type: "ERROR",
+                data: {
+                    testRunId,
+                    message: "Unauthorized",
+                    code: "UNAUTHORIZED",
+                },
+            });
+            ws.close();
+            return;
+        }
+
+        try {
+            const testRun = await prisma.testRun.findUnique({
+                where: { id: testRunId },
+            });
+            if (!testRun || (testRun.userId && testRun.userId !== user.id)) {
+                this.sendToClient(ws, {
+                    type: "ERROR",
+                    data: {
+                        testRunId,
+                        message: "Forbidden: Not your test run",
+                        code: "FORBIDDEN",
+                    },
+                });
+                return;
+            }
+        } catch (err) {
+            console.error("[WS] Error verifying test run ownership:", err);
+            return;
+        }
+
         if (!this.subscriptions.has(testRunId)) {
             this.subscriptions.set(testRunId, new Set());
         }

@@ -2,7 +2,36 @@
 // API Service — Frontend HTTP client for Onyx backend
 // =============================================================================
 
+import axios from "axios";
+import { useAuthStore } from "../store/useAuthStore";
+
 const API_BASE = "/api";
+
+export const api = axios.create({
+    baseURL: API_BASE,
+});
+
+// Auto-inject JWT token into every request
+api.interceptors.request.use((config) => {
+    const token = useAuthStore.getState().token;
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Auto-logout on 401 or 403
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            useAuthStore.getState().logout();
+            // Optional: force a page reload to clear memory and hit React Router's ProtectedRoute
+            window.location.href = "/signin";
+        }
+        return Promise.reject(error);
+    },
+);
 
 export interface CreateTestRunResponse {
     testRunId: string;
@@ -41,24 +70,35 @@ export interface GetTestRunResponse {
     logs: AttackResult[];
 }
 
+export interface GetAllTestRunsResponse {
+    testRuns: {
+        id: string;
+        specUrl: string;
+        status: string;
+        totalEndpoints: number;
+        totalAttacks: number;
+        completedAttacks: number;
+        createdAt: string;
+        completedAt: string | null;
+    }[];
+}
+
+/**
+ * Get all historical test runs explicitly for the current authenticated user.
+ */
+export async function getAllTestRuns(): Promise<GetAllTestRunsResponse> {
+    const res = await api.get("/test-runs");
+    return res.data;
+}
+
 /**
  * Create a new test run by submitting an OpenAPI spec URL.
  */
 export async function createTestRun(
     specUrl: string,
 ): Promise<CreateTestRunResponse> {
-    const res = await fetch(`${API_BASE}/test-runs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ specUrl }),
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
-        throw new Error(err.error || err.message || `HTTP ${res.status}`);
-    }
-
-    return res.json();
+    const res = await api.post("/test-runs", { specUrl });
+    return res.data;
 }
 
 /**
@@ -67,22 +107,16 @@ export async function createTestRun(
 export async function getTestRun(
     testRunId: string,
 ): Promise<GetTestRunResponse> {
-    const res = await fetch(`${API_BASE}/test-runs/${testRunId}`);
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
-        throw new Error(err.error || err.message || `HTTP ${res.status}`);
-    }
-
-    return res.json();
+    const res = await api.get(`/test-runs/${testRunId}`);
+    return res.data;
 }
 
 /**
  * Health check.
  */
 export async function healthCheck(): Promise<{ status: string }> {
-    const res = await fetch(`${API_BASE}/health`);
-    return res.json();
+    const res = await api.get("/health");
+    return res.data;
 }
 
 /**
@@ -91,14 +125,13 @@ export async function healthCheck(): Promise<{ status: string }> {
 export async function abortTestRun(
     testRunId: string,
 ): Promise<{ status: string; removedJobs: number; message: string }> {
-    const res = await fetch(`${API_BASE}/test-runs/${testRunId}/abort`, {
-        method: "POST",
-    });
+    const res = await api.post(`/test-runs/${testRunId}/abort`);
+    return res.data;
+}
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Abort failed" }));
-        throw new Error(err.error || err.message || `HTTP ${res.status}`);
-    }
-
-    return res.json();
+/**
+ * Delete a historical test run entirely.
+ */
+export async function deleteTestRun(testRunId: string): Promise<void> {
+    await api.delete(`/test-runs/${testRunId}`);
 }

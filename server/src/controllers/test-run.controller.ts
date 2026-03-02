@@ -3,6 +3,7 @@
 // =============================================================================
 
 import type { Request, Response, NextFunction } from "express";
+import axios from "axios";
 import { prisma } from "../lib/prisma.js";
 import { createTestRunSchema } from "../validators/schemas.js";
 import {
@@ -20,6 +21,87 @@ import type {
     TestRunSummary,
     WsServerMessage,
 } from "../types/shared.js";
+
+// ---------------------------------------------------------------------------
+// GET /api/test-runs — List all test runs for the current user
+// ---------------------------------------------------------------------------
+
+export async function getAllTestRuns(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ error: "Unauthorized" });
+            return;
+        }
+
+        const testRuns = await prisma.testRun.findMany({
+            where: { userId },
+            orderBy: { createdAt: "desc" },
+            // Include enough data for the history table summary
+            select: {
+                id: true,
+                specUrl: true,
+                status: true,
+                totalEndpoints: true,
+                totalAttacks: true,
+                completedAttacks: true,
+                createdAt: true,
+                completedAt: true,
+            },
+        });
+
+        res.json({ testRuns });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/test-runs/:id — Delete a test run and its nested logs
+// ---------------------------------------------------------------------------
+
+export async function deleteTestRun(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ error: "Unauthorized" });
+            return;
+        }
+
+        const testRun = await prisma.testRun.findUnique({
+            where: { id },
+        });
+
+        if (!testRun) {
+            res.status(404).json({ error: "Test run not found" });
+            return;
+        }
+
+        if (testRun.userId !== userId) {
+            res.status(403).json({ error: "Forbidden: Not your test run" });
+            return;
+        }
+
+        await prisma.testRun.delete({
+            where: { id },
+        });
+
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+}
 
 // ---------------------------------------------------------------------------
 // POST /api/test-runs — Create & launch a new test run
@@ -48,6 +130,7 @@ export async function createTestRun(
             data: {
                 specUrl,
                 status: "PARSING",
+                userId: req.user?.id,
             },
         });
 
@@ -331,6 +414,21 @@ export async function getTestRunLogs(
             Math.max(1, parseInt(req.query.pageSize as string) || 50),
         );
 
+        // Find the test run and verify ownership
+        const testRun = await prisma.testRun.findUnique({
+            where: { id },
+        });
+
+        if (!testRun) {
+            res.status(404).json({ error: "Test run not found" });
+            return;
+        }
+
+        if (testRun.userId && testRun.userId !== req.user?.id) {
+            res.status(403).json({ error: "Forbidden: Not your test run" });
+            return;
+        }
+
         const [logs, total] = await Promise.all([
             prisma.attackLog.findMany({
                 where: { testRunId: id },
@@ -408,25 +506,23 @@ export async function attackHandler(
             return;
         }
 
-        // Pre-validate: check if the URL is reachable before entering the pipeline
+        // Pre-validate & bypass WAF: attempt to download the spec mimicking a real browser
         try {
-            const probe = await fetch(openApiUrl, {
-                method: "HEAD",
-                signal: AbortSignal.timeout(8000),
+            await axios.get(openApiUrl, {
+                headers: {
+                    Accept: "application/json, text/plain, */*",
+                    "User-Agent":
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                    "Accept-Encoding": "gzip, deflate, br",
+                },
+                timeout: 8000,
             });
-            if (!probe.ok && probe.status !== 405) {
-                // 405 = HEAD not allowed, try anyway with GET later
-                res.status(400).json({
-                    error: "Unreachable URL",
-                    message: `The spec URL returned HTTP ${probe.status}. Make sure it's a valid, publicly accessible OpenAPI JSON file.`,
-                });
-                return;
-            }
-        } catch {
+        } catch (axiosErr: any) {
             res.status(400).json({
-                error: "Unreachable URL",
-                message:
-                    "Could not connect to the provided URL. Ensure it is publicly accessible and responds within 8 seconds.",
+                error: "Unreachable URL or WAF Block",
+                message: axiosErr.response
+                    ? `The spec URL returned HTTP ${axiosErr.response.status}. Ensure it is publicly accessible and allows external API requests.`
+                    : "Could not connect to the provided URL. Ensure it is publicly accessible and responds within 8 seconds.",
             });
             return;
         }
@@ -451,13 +547,19 @@ export async function abortTestRun(
     try {
         const id = req.params.id as string;
 
-        // Find the test run
+        // Find the test run and verify ownership
         const testRun = await prisma.testRun.findUnique({
             where: { id },
+            include: { endpoints: true },
         });
 
         if (!testRun) {
             res.status(404).json({ error: "Test run not found" });
+            return;
+        }
+
+        if (testRun.userId && testRun.userId !== req.user?.id) {
+            res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
 
