@@ -96,8 +96,16 @@ export const useAttackStore = create<AttackState & AttackActions>(
             const token = useAuthStore.getState().token;
 
             // Prefer explicit env URL, fallback to local backend port
-            const WS_BASE_URL =
+            let WS_BASE_URL =
                 import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
+
+            // Ensure the WebSocket URL ends with /ws
+            if (WS_BASE_URL && !WS_BASE_URL.endsWith("/ws")) {
+                if (WS_BASE_URL.endsWith("/")) {
+                    WS_BASE_URL = WS_BASE_URL.slice(0, -1);
+                }
+                WS_BASE_URL += "/ws";
+            }
 
             // Append JWT token for auth hook
             const wsUrl = `${WS_BASE_URL}${token ? `?token=${token}` : ""}`;

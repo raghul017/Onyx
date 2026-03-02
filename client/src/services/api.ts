@@ -5,7 +5,15 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+let API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+// Ensure the base URL ends with /api to match the backend router prefix
+if (API_BASE_URL && !API_BASE_URL.endsWith("/api")) {
+    if (API_BASE_URL.endsWith("/")) {
+        API_BASE_URL = API_BASE_URL.slice(0, -1);
+    }
+    API_BASE_URL += "/api";
+}
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
