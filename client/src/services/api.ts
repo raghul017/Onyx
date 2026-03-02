@@ -5,10 +5,10 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export const api = axios.create({
-    baseURL: API_BASE,
+    baseURL: API_BASE_URL,
 });
 
 // Auto-inject JWT token into every request
