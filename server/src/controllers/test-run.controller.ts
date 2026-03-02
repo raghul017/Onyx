@@ -71,7 +71,7 @@ export async function deleteTestRun(
     next: NextFunction,
 ): Promise<void> {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const userId = req.user?.id;
 
         if (!userId) {
