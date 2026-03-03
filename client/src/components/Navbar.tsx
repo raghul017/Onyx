@@ -114,13 +114,17 @@ const Navbar = () => {
 
                     <div className="flex items-center gap-4 border-l border-white/5 pl-6">
                         <a
-                            href="#"
+                            href="https://x.com/raghul017"
+                            target="_blank"
+                            rel="noreferrer"
                             className="text-neutral-500 hover:text-white transition-colors"
                         >
                             <XIcon />
                         </a>
                         <a
-                            href="#"
+                            href="https://github.com/raghul017/Onyx"
+                            target="_blank"
+                            rel="noreferrer"
                             className="text-neutral-500 hover:text-white transition-colors"
                         >
                             <GithubIcon />

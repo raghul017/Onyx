@@ -52,7 +52,7 @@ const Navbar = () => {
 
             <div className="flex items-center gap-6">
                 <a
-                    href="https://github.com"
+                    href="https://github.com/raghul017/Onyx"
                     target="_blank"
                     rel="noreferrer"
                     className="text-neutral-400 hover:text-white transition-colors hidden sm:block"
