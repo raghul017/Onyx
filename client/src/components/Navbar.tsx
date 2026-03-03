@@ -42,32 +42,24 @@ const Navbar = () => {
 
                 {/* Navigation Links (Center) */}
                 <div className="hidden md:flex items-center gap-8">
-                    <button className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors flex items-center gap-1">
-                        Product
-                        <ChevronDown size={14} className="opacity-50" />
-                    </button>
                     <a
-                        href="#"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                        href="/#features"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors flex items-center gap-1"
                     >
-                        Integrations
+                        Features
                     </a>
                     <a
-                        href="#"
+                        href="/#architecture"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                    >
+                        Architecture
+                    </a>
+                    <a
+                        href="/#docs"
                         className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
                     >
                         Docs
                     </a>
-                    <Link
-                        to="/history"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
-                    >
-                        History
-                    </Link>
-                    <button className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors flex items-center gap-1">
-                        Company
-                        <ChevronDown size={14} className="opacity-50" />
-                    </button>
                 </div>
 
                 {/* Actions (Right) */}
