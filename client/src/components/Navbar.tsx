@@ -112,7 +112,7 @@ const Navbar = () => {
 
                     <div className="flex items-center gap-4 border-l border-white/5 pl-6">
                         <a
-                            href="https://x.com/raghul017"
+                            href="https://x.com/RaghulAR7"
                             target="_blank"
                             rel="noreferrer"
                             className="text-neutral-500 hover:text-white transition-colors"

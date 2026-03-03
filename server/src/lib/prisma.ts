@@ -13,7 +13,7 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient(): PrismaClient {
     const connectionString =
         process.env.DATABASE_URL ??
-        "postgresql://neondb_owner:***REMOVED***@ep-odd-bonus-a11zgwvr-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+        "postgresql://neondb_owner:npg_ms89jVbOEHzc@ep-odd-bonus-a11zgwvr-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
     const pool = new pg.Pool({ connectionString });
     const adapter = new PrismaPg(pool);
