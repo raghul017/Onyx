@@ -60,6 +60,12 @@ const Navbar = () => {
                     >
                         Docs
                     </a>
+                    <Link
+                        to="/history"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                    >
+                        History
+                    </Link>
                 </div>
 
                 {/* Actions (Right) */}
