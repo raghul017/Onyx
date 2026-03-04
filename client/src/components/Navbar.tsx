@@ -1,6 +1,7 @@
-import { ChevronDown, User, LogOut } from "lucide-react";
+import { User, LogOut, Menu, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
+import { useState } from "react";
 
 const GithubIcon = () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
@@ -14,23 +15,48 @@ const XIcon = () => (
     </svg>
 );
 
+const scrollToSection = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    id: string,
+) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+};
+
 const Navbar = () => {
     const navigate = useNavigate();
     const { isAuthenticated, user, logout } = useAuthStore();
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     const handleLogout = () => {
         logout();
         navigate("/");
     };
 
+    const handleCTA = () => {
+        if (isAuthenticated) {
+            navigate("/dashboard");
+        } else {
+            navigate("/signup");
+        }
+    };
+
+    const navLinks = [
+        { label: "How it Works", href: "how-it-works" },
+        { label: "Features", href: "features" },
+    ];
+
     return (
-        <nav className="w-full bg-black fixed top-0 z-50 border-b border-[#333333]">
-            <div className="w-[90%] max-w-6xl mx-auto px-8 h-16 flex items-center justify-between border-x border-[#333333] relative bg-black">
+        <nav className="w-full bg-black/80 backdrop-blur-md fixed top-0 z-50 border-b border-[#333333]">
+            <div className="w-[90%] max-w-6xl mx-auto px-8 h-16 flex items-center justify-between border-x border-[#333333] relative bg-black/80">
                 {/* Intersection Nodes */}
                 <div className="absolute -bottom-[2px] -left-[2px] w-[3px] h-[3px] bg-[#444444]" />
                 <div className="absolute -bottom-[2px] -right-[2px] w-[3px] h-[3px] bg-[#444444]" />
 
-                {/* Logo (Left) */}
+                {/* Logo */}
                 <div
                     className="flex items-center cursor-pointer"
                     onClick={() => navigate("/")}
@@ -40,43 +66,37 @@ const Navbar = () => {
                     </span>
                 </div>
 
-                {/* Navigation Links (Center) */}
+                {/* Center Nav Links (Desktop) */}
                 <div className="hidden md:flex items-center gap-8">
+                    {navLinks.map((link) => (
+                        <a
+                            key={link.href}
+                            href={`#${link.href}`}
+                            onClick={(e) => scrollToSection(e, link.href)}
+                            className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                        >
+                            {link.label}
+                        </a>
+                    ))}
                     <a
-                        href="/#features"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors flex items-center gap-1"
-                    >
-                        Features
-                    </a>
-                    <a
-                        href="/#architecture"
+                        href="https://github.com/raghul017/Onyx"
+                        target="_blank"
+                        rel="noreferrer"
                         className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
                     >
-                        Architecture
+                        GitHub
                     </a>
-                    <a
-                        href="/#docs"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
-                    >
-                        Docs
-                    </a>
-                    <Link
-                        to="/history"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
-                    >
-                        History
-                    </Link>
                 </div>
 
-                {/* Actions (Right) */}
-                <div className="flex items-center gap-6">
+                {/* Right Actions (Desktop) */}
+                <div className="hidden md:flex items-center gap-6">
                     {isAuthenticated && user ? (
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => navigate("/dashboard")}
-                                className="hidden md:block font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
                             >
-                                Command Center
+                                Dashboard
                             </button>
                             <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-3 py-1.5 rounded-full">
                                 <User size={14} className="text-[#22d3ee]" />
@@ -96,16 +116,15 @@ const Navbar = () => {
                         <>
                             <Link
                                 to="/signin"
-                                className="hidden md:block font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
                             >
                                 Sign In
                             </Link>
-
                             <button
-                                onClick={() => navigate("/dashboard")}
+                                onClick={handleCTA}
                                 className="bg-white text-black rounded-md px-4 py-1.5 font-['Inter'] font-normal text-[14px] leading-[21px] hover:bg-neutral-200 transition-colors"
                             >
-                                Talk to us
+                                Get Started
                             </button>
                         </>
                     )}
@@ -129,7 +148,85 @@ const Navbar = () => {
                         </a>
                     </div>
                 </div>
+
+                {/* Mobile Menu Toggle */}
+                <button
+                    className="md:hidden text-white"
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                >
+                    {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
             </div>
+
+            {/* Mobile Menu */}
+            {mobileOpen && (
+                <div className="md:hidden bg-black border-t border-[#222] px-8 py-6 flex flex-col gap-4">
+                    {navLinks.map((link) => (
+                        <a
+                            key={link.href}
+                            href={`#${link.href}`}
+                            onClick={(e) => {
+                                scrollToSection(e, link.href);
+                                setMobileOpen(false);
+                            }}
+                            className="font-['Inter'] text-[14px] text-white/70 hover:text-white transition-colors"
+                        >
+                            {link.label}
+                        </a>
+                    ))}
+                    <a
+                        href="https://github.com/raghul017/Onyx"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-['Inter'] text-[14px] text-white/70 hover:text-white transition-colors"
+                    >
+                        GitHub
+                    </a>
+                    <div className="border-t border-[#222] pt-4 mt-2 flex flex-col gap-3">
+                        {isAuthenticated ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        navigate("/dashboard");
+                                        setMobileOpen(false);
+                                    }}
+                                    className="text-left font-['Inter'] text-[14px] text-white/70 hover:text-white"
+                                >
+                                    Dashboard
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleLogout();
+                                        setMobileOpen(false);
+                                    }}
+                                    className="text-left font-['Inter'] text-[14px] text-red-400 hover:text-red-300"
+                                >
+                                    Sign Out
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    to="/signin"
+                                    onClick={() => setMobileOpen(false)}
+                                    className="font-['Inter'] text-[14px] text-white/70 hover:text-white"
+                                >
+                                    Sign In
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        handleCTA();
+                                        setMobileOpen(false);
+                                    }}
+                                    className="bg-white text-black rounded-md px-4 py-2 font-['Inter'] text-[14px] hover:bg-neutral-200 transition-colors text-center"
+                                >
+                                    Get Started
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </nav>
     );
 };

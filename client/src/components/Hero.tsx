@@ -1,13 +1,19 @@
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 import HeroTerminal from "./HeroTerminal";
 
 const Hero = () => {
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuthStore();
     const [urlInput, setUrlInput] = useState("");
 
     const handleLaunch = () => {
+        if (!isAuthenticated) {
+            navigate("/signup");
+            return;
+        }
         navigate("/dashboard", { state: { targetUrl: urlInput } });
     };
 
@@ -29,8 +35,9 @@ const Hero = () => {
 
                 {/* Subheadline */}
                 <p className="font-['Inter',sans-serif] font-normal text-[20px] text-[#888888] mt-4 max-w-2xl">
-                    The fastest AI-driven vulnerability testing engine for
-                    modern infrastructure.
+                    Paste your OpenAPI spec. Onyx uses Gemini AI to generate
+                    targeted attack payloads and fires them at your endpoints
+                    streaming results back in real-time.
                 </p>
 
                 {/* Interactive CTA Group */}
@@ -40,7 +47,7 @@ const Hero = () => {
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="https://api.your-company.com/openapi.json"
+                        placeholder="https://api.example.com/openapi.json"
                         className="flex-1 bg-[#111] border border-[#333] text-white font-['JetBrains_Mono'] text-[14px] px-4 py-3 rounded-md outline-none focus:border-[#555] transition-colors placeholder:text-neutral-600"
                         spellCheck={false}
                         autoComplete="off"
@@ -49,10 +56,10 @@ const Hero = () => {
                         onClick={handleLaunch}
                         className="bg-white text-black font-['Inter',sans-serif] font-normal text-[14px] leading-[21px] px-6 py-3 rounded-md hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 group whitespace-nowrap"
                     >
-                        Launch Dashboard
+                        Start Testing
                         <ArrowRight
                             size={16}
-                            className="text-neutral-500 group-hover:text-black transition-colors"
+                            className="text-neutral-500 group-hover:text-black transition-colors group-hover:translate-x-0.5"
                         />
                     </button>
                 </div>

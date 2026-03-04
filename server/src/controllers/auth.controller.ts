@@ -7,6 +7,14 @@ import { authSchema } from "../validators/schemas.js";
 const JWT_SECRET =
     process.env.JWT_SECRET || "onyx_fallback_secret_do_not_use_in_prod";
 
+const BCRYPT_SALT_ROUNDS = 8;
+
+if (!process.env.JWT_SECRET) {
+    console.warn(
+        "[Auth] ⚠️  JWT_SECRET is not set — using insecure fallback. Set JWT_SECRET in your .env for production!",
+    );
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/auth/signup
 // ---------------------------------------------------------------------------
@@ -36,7 +44,7 @@ export async function signup(
         }
 
         // Hash password and create user
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
         const user = await prisma.user.create({
             data: { email, passwordHash },
         });

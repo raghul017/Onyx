@@ -4,6 +4,12 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET =
     process.env.JWT_SECRET || "onyx_fallback_secret_do_not_use_in_prod";
 
+if (!process.env.JWT_SECRET) {
+    console.warn(
+        "[Auth Middleware] ⚠️  JWT_SECRET is not set — using insecure fallback.",
+    );
+}
+
 interface JwtPayload {
     id: string;
     email: string;

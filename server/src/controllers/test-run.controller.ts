@@ -333,6 +333,12 @@ export async function getTestRun(
             return;
         }
 
+        // Ownership check — prevent cross-tenant data access
+        if (testRun.userId && testRun.userId !== req.user?.id) {
+            res.status(403).json({ error: "Forbidden: Not your test run" });
+            return;
+        }
+
         // Compute aggregate metrics
         const logs = testRun.logs;
         const criticalFailures = logs.filter(
@@ -504,6 +510,48 @@ export async function attackHandler(
                     "openApiUrl must be a valid HTTP/HTTPS URL pointing to an OpenAPI/Swagger spec (e.g., https://petstore.swagger.io/v2/swagger.json)",
             });
             return;
+        }
+
+        // SSRF Protection — block internal/private IP ranges
+        try {
+            const hostname = parsedUrl.hostname;
+            // Block obvious private hostnames
+            if (
+                hostname === "localhost" ||
+                hostname === "127.0.0.1" ||
+                hostname === "::1" ||
+                hostname === "0.0.0.0" ||
+                hostname.endsWith(".local") ||
+                hostname.endsWith(".internal")
+            ) {
+                res.status(400).json({
+                    error: "Blocked URL",
+                    message:
+                        "URLs pointing to localhost or internal networks are not allowed.",
+                });
+                return;
+            }
+            // Block private IPv4 ranges
+            const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+            if (ipv4Match) {
+                const [, a, b] = ipv4Match.map(Number);
+                if (
+                    a === 10 ||
+                    a === 127 ||
+                    (a === 172 && b! >= 16 && b! <= 31) ||
+                    (a === 192 && b === 168) ||
+                    (a === 169 && b === 254)
+                ) {
+                    res.status(400).json({
+                        error: "Blocked URL",
+                        message:
+                            "URLs pointing to private/internal IP ranges are not allowed.",
+                    });
+                    return;
+                }
+            }
+        } catch {
+            // Fall through — let the actual request handle DNS errors
         }
 
         // Pre-validate & bypass WAF: attempt to download the spec mimicking a real browser

@@ -11,11 +11,15 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-    const connectionString =
-        process.env.DATABASE_URL ??
-        "postgresql://neondb_owner:npg_ms89jVbOEHzc@ep-odd-bonus-a11zgwvr-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+    const connectionString = process.env.DATABASE_URL as string;
 
-    const pool = new pg.Pool({ connectionString });
+    const pool = new pg.Pool({
+        connectionString,
+        min: 2, // Keep warm connections to avoid Neon cold-start latency
+        max: 10,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 5_000,
+    });
     const adapter = new PrismaPg(pool);
 
     return new PrismaClient({ adapter } as any);

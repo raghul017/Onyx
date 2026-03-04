@@ -90,9 +90,6 @@ export const useAttackStore = create<AttackState & AttackActions>(
                 status: "idle",
             });
 
-            const protocol =
-                window.location.protocol === "https:" ? "wss:" : "ws:";
-
             const token = useAuthStore.getState().token;
 
             // Prefer explicit env URL, fallback to local backend port

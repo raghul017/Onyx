@@ -8,11 +8,11 @@ const bashLines = [
         className: "text-neutral-500",
     },
     {
-        text: "> Loading vulnerability modules...",
+        text: "> Parsing OpenAPI specification from target...",
         className: "text-neutral-300",
     },
     {
-        text: "> Establishing connection to target environment...",
+        text: "> Generating attack payloads via Gemini 2.5 Flash...",
         className: "text-cyan-400",
     },
     {

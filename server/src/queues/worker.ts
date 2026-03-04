@@ -172,28 +172,37 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     };
     wsManager.broadcast(testRunId, statusMessage);
 
-    // Check if all attacks are complete
+    // Check if all attacks are complete (atomic: only update if not already COMPLETED)
     if (testRun.completedAttacks >= testRun.totalAttacks) {
-        await prisma.testRun.update({
-            where: { id: testRunId },
+        // Use updateMany with a status filter to prevent double-completion race
+        const { count } = await prisma.testRun.updateMany({
+            where: {
+                id: testRunId,
+                status: { not: "COMPLETED" },
+            },
             data: {
                 status: "COMPLETED",
                 completedAt: new Date(),
             },
         });
 
-        const completionMessage: WsServerMessage = {
-            type: "TEST_RUN_STATUS",
-            data: {
-                testRunId,
-                status: "COMPLETED",
-                completedAttacks: testRun.completedAttacks,
-                totalAttacks: testRun.totalAttacks,
-            },
-        };
-        wsManager.broadcast(testRunId, completionMessage);
+        // Only broadcast if this worker was the one that actually set COMPLETED
+        if (count > 0) {
+            const completionMessage: WsServerMessage = {
+                type: "TEST_RUN_STATUS",
+                data: {
+                    testRunId,
+                    status: "COMPLETED",
+                    completedAttacks: testRun.completedAttacks,
+                    totalAttacks: testRun.totalAttacks,
+                },
+            };
+            wsManager.broadcast(testRunId, completionMessage);
 
-        console.log(`[Worker] Test run ${testRunId.slice(0, 8)}... COMPLETED`);
+            console.log(
+                `[Worker] Test run ${testRunId.slice(0, 8)}... COMPLETED`,
+            );
+        }
     }
 }
 

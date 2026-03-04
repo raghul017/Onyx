@@ -1,4 +1,5 @@
-import { JwtPayload } from "jsonwebtoken";
+// Augment Express Request with user info from JWT
+export {};
 
 declare global {
     namespace Express {
