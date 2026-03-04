@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="./client/public/onyx.jpeg" alt="Onyx Logo" width="120" />
-  <h1>Onyx (ChaosForge)</h1>
+  <h1>Onyx</h1>
   <p><strong>AI-Powered High-Concurrency API Chaos Testing Platform</strong></p>
   
   [![React](https://img.shields.io/badge/React-18.x-blue?logo=react)](https://reactjs.org/)
