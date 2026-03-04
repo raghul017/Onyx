@@ -143,7 +143,7 @@ const Report = () => {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20">
+        <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
             {/* 1. Control Header */}
             <header className="h-14 shrink-0 border-b border-neutral-800 bg-[#0A0A0A] flex items-center justify-between px-4 sm:px-6 gap-3">
                 <div className="flex items-center gap-3 shrink-0">
@@ -272,7 +272,7 @@ const Report = () => {
 
             {/* 3. Static Attack Stream */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="shrink-0 grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
                     <span>Time</span>
                     <span>Method</span>
                     <span>Endpoint</span>
@@ -280,6 +280,10 @@ const Report = () => {
                     <span>Status</span>
                     <span>Latency</span>
                     <span>Payload</span>
+                </div>
+
+                <div className="shrink-0 md:hidden px-4 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    Attack Log Archive
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-[#0A0A0A]">
@@ -322,39 +326,82 @@ const Report = () => {
                                         duration: 0.18,
                                         ease: "easeOut",
                                     }}
-                                    className={`grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors ${getRowClass(log.statusCode)}`}
+                                    className={`${getRowClass(log.statusCode)}`}
                                 >
-                                    <span className="text-neutral-600 text-[11px] tabular-nums">
-                                        {formatTime(log.timestamp)}
-                                    </span>
-                                    <span
-                                        className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
-                                    >
-                                        {log.method}
-                                    </span>
-                                    <span
-                                        className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}
-                                    >
-                                        {log.endpoint}
-                                    </span>
-                                    <span className="flex items-center text-[11px] tracking-wide">
-                                        {getStatusBadge(log.statusCode)}
-                                    </span>
-                                    <span className="text-neutral-500 tabular-nums">
-                                        {log.statusCode || "ERR"}
-                                    </span>
-                                    <span className="text-neutral-500 text-[11px] tabular-nums">
-                                        {log.responseTime}
-                                        <span className="text-neutral-700">
-                                            ms
+                                    {/* Desktop row */}
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                        <span className="text-neutral-600 text-[11px] tabular-nums">
+                                            {formatTime(log.timestamp)}
                                         </span>
-                                    </span>
-                                    <span
-                                        className="text-neutral-500 text-[11px] truncate"
-                                        title={payloadStr}
-                                    >
-                                        {payloadStr}
-                                    </span>
+                                        <span
+                                            className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                        >
+                                            {log.method}
+                                        </span>
+                                        <span
+                                            className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}
+                                        >
+                                            {log.endpoint}
+                                        </span>
+                                        <span className="flex items-center text-[11px] tracking-wide">
+                                            {getStatusBadge(log.statusCode)}
+                                        </span>
+                                        <span className="text-neutral-500 tabular-nums">
+                                            {log.statusCode || "ERR"}
+                                        </span>
+                                        <span className="text-neutral-500 text-[11px] tabular-nums">
+                                            {log.responseTime}
+                                            <span className="text-neutral-700">
+                                                ms
+                                            </span>
+                                        </span>
+                                        <span
+                                            className="text-neutral-500 text-[11px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </span>
+                                    </div>
+
+                                    {/* Mobile card */}
+                                    <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                                >
+                                                    {log.method}
+                                                </span>
+                                                <span className="text-neutral-500 tabular-nums text-[11px]">
+                                                    {log.statusCode || "ERR"}
+                                                </span>
+                                                <span className="text-[11px] tracking-wide">
+                                                    {getStatusBadge(
+                                                        log.statusCode,
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
+                                                <span className="tabular-nums">
+                                                    {log.responseTime}ms
+                                                </span>
+                                                <span className="tabular-nums">
+                                                    {formatTime(log.timestamp)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            className={`text-[11px] truncate ${isCritical ? "text-white" : "text-neutral-400"}`}
+                                        >
+                                            {log.endpoint}
+                                        </div>
+                                        <div
+                                            className="text-neutral-600 text-[10px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </div>
+                                    </div>
                                 </motion.div>
                             );
                         })}

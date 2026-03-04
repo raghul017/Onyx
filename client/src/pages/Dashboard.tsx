@@ -172,44 +172,112 @@ const Dashboard = () => {
     // Render
     // =======================================================================
     return (
-        <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20">
+        <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
             {/* ============================================================= */}
             {/* 1. Control Header                                             */}
             {/* ============================================================= */}
-            <header className="h-14 shrink-0 border-b border-neutral-800 bg-[#0A0A0A] flex items-center justify-between px-4 sm:px-6 gap-3">
-                {/* Left — Logo & Back */}
-                <div className="flex items-center gap-3 shrink-0">
-                    <button
-                        onClick={() => navigate("/")}
-                        className="text-neutral-600 hover:text-white transition-colors cursor-pointer p-1"
-                        aria-label="Back to landing"
+            <header className="shrink-0 border-b border-neutral-800 bg-[#0A0A0A]">
+                {/* Top row — Logo, Status */}
+                <div className="h-14 flex items-center justify-between px-4 sm:px-6 gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
+                        <button
+                            onClick={() => navigate("/")}
+                            className="text-neutral-600 hover:text-white transition-colors cursor-pointer p-1"
+                            aria-label="Back to landing"
+                        >
+                            <ArrowLeft size={16} />
+                        </button>
+                        <div className="w-px h-5 bg-neutral-800" />
+                        <div className="flex items-center gap-2">
+                            <Shield size={16} className="text-white" />
+                            <span className="text-white text-sm font-semibold tracking-tight">
+                                Onyx
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Desktop form — hidden on mobile */}
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleStartAttack();
+                        }}
+                        className="hidden md:flex items-center gap-2 flex-1 max-w-2xl mx-4"
                     >
-                        <ArrowLeft size={16} />
-                    </button>
-                    <div className="w-px h-5 bg-neutral-800" />
-                    <div className="flex items-center gap-2">
-                        <Shield size={16} className="text-white" />
-                        <span className="text-white text-sm font-semibold tracking-tight">
-                            Onyx
+                        <Terminal
+                            size={12}
+                            className="text-neutral-600 shrink-0"
+                        />
+                        <input
+                            type="url"
+                            value={inputUrl}
+                            onChange={(e) => setInputUrl(e.target.value)}
+                            placeholder="https://petstore.swagger.io/v2/swagger.json"
+                            className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
+                            disabled={launching}
+                        />
+                        <button
+                            type="submit"
+                            disabled={
+                                launching ||
+                                !inputUrl.trim() ||
+                                status === "attacking"
+                            }
+                            className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                        >
+                            <Play size={11} />
+                            {launching ? "Launching..." : "Execute Run"}
+                        </button>
+                        {status === "attacking" && (
+                            <button
+                                type="button"
+                                onClick={handleStopAttack}
+                                disabled={aborting}
+                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                            >
+                                <Square size={10} />
+                                {aborting ? "Stopping..." : "Stop Attack"}
+                            </button>
+                        )}
+                    </form>
+
+                    {/* Status Badge */}
+                    <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider shrink-0">
+                        <span
+                            className={`w-2 h-2 rounded-full ${
+                                status === "attacking"
+                                    ? "bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                                    : status === "completed"
+                                      ? "bg-neutral-500"
+                                      : "bg-neutral-700"
+                            }`}
+                        />
+                        <span
+                            className={
+                                status === "attacking"
+                                    ? "text-cyan-400"
+                                    : "text-neutral-500"
+                            }
+                        >
+                            {statusLabel}
                         </span>
                     </div>
                 </div>
 
-                {/* Center — Interactive Input Form */}
+                {/* Mobile form — visible only on mobile */}
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
                         handleStartAttack();
                     }}
-                    className="flex items-center gap-2 flex-1 max-w-2xl mx-4"
+                    className="flex md:hidden items-center gap-2 px-4 pb-3"
                 >
-                    <Terminal size={12} className="text-neutral-600 shrink-0" />
                     <input
                         type="url"
                         value={inputUrl}
                         onChange={(e) => setInputUrl(e.target.value)}
-                        placeholder="https://petstore.swagger.io/v2/swagger.json"
-                        className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
+                        placeholder="Swagger URL..."
+                        className="flex-1 min-w-0 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
                         disabled={launching}
                     />
                     <button
@@ -219,47 +287,23 @@ const Dashboard = () => {
                             !inputUrl.trim() ||
                             status === "attacking"
                         }
-                        className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                        className="shrink-0 bg-white text-black text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
                     >
                         <Play size={11} />
-                        {launching ? "Launching..." : "Execute Run"}
+                        Run
                     </button>
-
-                    {/* Stop Attack button — visible only during active attack */}
                     {status === "attacking" && (
                         <button
                             type="button"
                             onClick={handleStopAttack}
                             disabled={aborting}
-                            className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                            className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm flex items-center gap-1 font-['Inter']"
                         >
                             <Square size={10} />
-                            {aborting ? "Stopping..." : "Stop Attack"}
+                            Stop
                         </button>
                     )}
                 </form>
-
-                {/* Right — Status Badge */}
-                <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider shrink-0">
-                    <span
-                        className={`w-2 h-2 rounded-full ${
-                            status === "attacking"
-                                ? "bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]"
-                                : status === "completed"
-                                  ? "bg-neutral-500"
-                                  : "bg-neutral-700"
-                        }`}
-                    />
-                    <span
-                        className={
-                            status === "attacking"
-                                ? "text-cyan-400"
-                                : "text-neutral-500"
-                        }
-                    >
-                        {statusLabel}
-                    </span>
-                </div>
             </header>
 
             {/* ============================================================= */}
@@ -377,8 +421,8 @@ const Dashboard = () => {
             {/* 3. Live Attack Stream — Full-width data table                  */}
             {/* ============================================================= */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Column Headers */}
-                <div className="shrink-0 grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                {/* Column Headers — desktop only */}
+                <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
                     <span>Time</span>
                     <span>Method</span>
                     <span>Endpoint</span>
@@ -386,6 +430,11 @@ const Dashboard = () => {
                     <span>Status</span>
                     <span>Latency</span>
                     <span>Payload</span>
+                </div>
+
+                {/* Mobile header */}
+                <div className="shrink-0 md:hidden px-4 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    Live Attack Stream
                 </div>
 
                 {/* Scrollable rows */}
@@ -451,56 +500,82 @@ const Dashboard = () => {
                                         duration: 0.18,
                                         ease: "easeOut",
                                     }}
-                                    className={`grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors ${getRowClass(log.statusCode)}`}
+                                    className={`${getRowClass(log.statusCode)}`}
                                 >
-                                    {/* Time */}
-                                    <span className="text-neutral-600 text-[11px] tabular-nums">
-                                        {formatTime(log.timestamp)}
-                                    </span>
-
-                                    {/* Method */}
-                                    <span
-                                        className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
-                                    >
-                                        {log.method}
-                                    </span>
-
-                                    {/* Endpoint */}
-                                    <span
-                                        className={`truncate pr-3 ${
-                                            isCritical
-                                                ? "text-white"
-                                                : "text-neutral-300"
-                                        }`}
-                                    >
-                                        {log.endpoint}
-                                    </span>
-
-                                    {/* Severity Badge */}
-                                    <span className="flex items-center text-[11px] tracking-wide">
-                                        {getStatusBadge(log.statusCode)}
-                                    </span>
-
-                                    {/* Status Code */}
-                                    <span className="text-neutral-500 tabular-nums">
-                                        {log.statusCode || "ERR"}
-                                    </span>
-
-                                    {/* Latency */}
-                                    <span className="text-neutral-500 text-[11px] tabular-nums">
-                                        {log.latencyMs}
-                                        <span className="text-neutral-700">
-                                            ms
+                                    {/* Desktop row — 7-column grid */}
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                        <span className="text-neutral-600 text-[11px] tabular-nums">
+                                            {formatTime(log.timestamp)}
                                         </span>
-                                    </span>
+                                        <span
+                                            className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                        >
+                                            {log.method}
+                                        </span>
+                                        <span
+                                            className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}
+                                        >
+                                            {log.endpoint}
+                                        </span>
+                                        <span className="flex items-center text-[11px] tracking-wide">
+                                            {getStatusBadge(log.statusCode)}
+                                        </span>
+                                        <span className="text-neutral-500 tabular-nums">
+                                            {log.statusCode || "ERR"}
+                                        </span>
+                                        <span className="text-neutral-500 text-[11px] tabular-nums">
+                                            {log.latencyMs}
+                                            <span className="text-neutral-700">
+                                                ms
+                                            </span>
+                                        </span>
+                                        <span
+                                            className="text-neutral-500 text-[11px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </span>
+                                    </div>
 
-                                    {/* Payload */}
-                                    <span
-                                        className="text-neutral-500 text-[11px] truncate"
-                                        title={payloadStr}
-                                    >
-                                        {payloadStr}
-                                    </span>
+                                    {/* Mobile card — stacked layout */}
+                                    <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                                >
+                                                    {log.method}
+                                                </span>
+                                                <span className="text-neutral-500 tabular-nums text-[11px]">
+                                                    {log.statusCode || "ERR"}
+                                                </span>
+                                                <span className="text-[11px] tracking-wide">
+                                                    {getStatusBadge(
+                                                        log.statusCode,
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
+                                                <span className="tabular-nums">
+                                                    {log.latencyMs}ms
+                                                </span>
+                                                <span className="tabular-nums">
+                                                    {formatTime(log.timestamp)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            className={`text-[11px] truncate ${isCritical ? "text-white" : "text-neutral-400"}`}
+                                        >
+                                            {log.endpoint}
+                                        </div>
+                                        <div
+                                            className="text-neutral-600 text-[10px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </div>
+                                    </div>
                                 </motion.div>
                             );
                         })}

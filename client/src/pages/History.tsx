@@ -95,14 +95,19 @@ const History = () => {
 
                     {/* 2. The Audit Log Table */}
                     <div className="w-full bg-[#0A0A0A] border border-neutral-800 rounded-md overflow-hidden flex flex-col">
-                        {/* Table Headers */}
-                        <div className="grid grid-cols-[120px_1fr_120px_200px_100px_120px] gap-4 px-6 py-4 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
+                        {/* Table Headers — desktop only */}
+                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_200px_100px_120px] gap-4 px-6 py-4 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
                             <span>Date</span>
                             <span>Target API</span>
                             <span>Total Payloads</span>
                             <span>Completed Payloads</span>
                             <span>Status</span>
                             <span className="text-right">Action</span>
+                        </div>
+
+                        {/* Mobile header */}
+                        <div className="md:hidden px-4 py-3 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
+                            Execution History
                         </div>
 
                         {/* Table Body */}
@@ -121,42 +126,113 @@ const History = () => {
                                 </div>
                             ) : (
                                 testRuns.map((row) => (
-                                    <div
-                                        key={row.id}
-                                        className="grid grid-cols-[120px_1fr_120px_200px_100px_120px] items-center gap-4 px-6 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group"
-                                    >
-                                        <span className="text-sm text-neutral-400 truncate pr-2">
-                                            {formatDate(row.createdAt)}
-                                        </span>
-                                        <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate pr-4">
-                                            {row.specUrl}
-                                        </span>
-                                        <span className="text-sm text-neutral-400">
-                                            {row.totalAttacks}
-                                        </span>
-                                        <span
-                                            className={`text-sm font-semibold ${
-                                                row.completedAttacks > 0
-                                                    ? "text-cyan-500"
-                                                    : "text-neutral-600"
-                                            }`}
-                                        >
-                                            {row.completedAttacks}
-                                        </span>
-                                        <span
-                                            className={`text-sm ${
-                                                row.status === "FAILED" ||
-                                                row.status === "ABORTED"
-                                                    ? "text-yellow-500"
-                                                    : row.status === "COMPLETED"
-                                                      ? "text-neutral-400"
-                                                      : "text-cyan-400"
-                                            }`}
-                                        >
-                                            {row.status}
-                                        </span>
-                                        <div className="text-right">
-                                            <div className="flex items-center justify-end gap-3 w-full">
+                                    <div key={row.id}>
+                                        {/* Desktop row */}
+                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_200px_100px_120px] items-center gap-4 px-6 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group">
+                                            <span className="text-sm text-neutral-400 truncate pr-2">
+                                                {formatDate(row.createdAt)}
+                                            </span>
+                                            <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate pr-4">
+                                                {row.specUrl}
+                                            </span>
+                                            <span className="text-sm text-neutral-400">
+                                                {row.totalAttacks}
+                                            </span>
+                                            <span
+                                                className={`text-sm font-semibold ${
+                                                    row.completedAttacks > 0
+                                                        ? "text-cyan-500"
+                                                        : "text-neutral-600"
+                                                }`}
+                                            >
+                                                {row.completedAttacks}
+                                            </span>
+                                            <span
+                                                className={`text-sm ${
+                                                    row.status === "FAILED" ||
+                                                    row.status === "ABORTED"
+                                                        ? "text-yellow-500"
+                                                        : row.status ===
+                                                            "COMPLETED"
+                                                          ? "text-neutral-400"
+                                                          : "text-cyan-400"
+                                                }`}
+                                            >
+                                                {row.status}
+                                            </span>
+                                            <div className="text-right">
+                                                <div className="flex items-center justify-end gap-3 w-full">
+                                                    <button
+                                                        onClick={(e) =>
+                                                            handleDelete(
+                                                                e,
+                                                                row.id,
+                                                            )
+                                                        }
+                                                        className="p-1.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                                        title="Delete Record"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(
+                                                                `/report/${row.id}`,
+                                                            );
+                                                        }}
+                                                        className="text-sm text-neutral-500 group-hover:text-white transition-colors flex items-center justify-end gap-1.5"
+                                                    >
+                                                        View Report
+                                                        <ArrowRight
+                                                            size={14}
+                                                            className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all"
+                                                        />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Mobile card */}
+                                        <div className="md:hidden px-4 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors space-y-2">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate flex-1 min-w-0">
+                                                    {row.specUrl}
+                                                </span>
+                                                <span
+                                                    className={`text-xs shrink-0 px-2 py-0.5 rounded ${
+                                                        row.status ===
+                                                            "FAILED" ||
+                                                        row.status === "ABORTED"
+                                                            ? "text-yellow-500 bg-yellow-500/10"
+                                                            : row.status ===
+                                                                "COMPLETED"
+                                                              ? "text-neutral-400 bg-neutral-800"
+                                                              : "text-cyan-400 bg-cyan-500/10"
+                                                    }`}
+                                                >
+                                                    {row.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs text-neutral-500">
+                                                <span>
+                                                    {formatDate(row.createdAt)}
+                                                </span>
+                                                <span>
+                                                    {row.totalAttacks} payloads
+                                                </span>
+                                                <span
+                                                    className={
+                                                        row.completedAttacks > 0
+                                                            ? "text-cyan-500"
+                                                            : ""
+                                                    }
+                                                >
+                                                    {row.completedAttacks}{" "}
+                                                    completed
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 pt-1">
                                                 <button
                                                     onClick={(e) =>
                                                         handleDelete(e, row.id)
@@ -164,7 +240,7 @@ const History = () => {
                                                     className="p-1.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
                                                     title="Delete Record"
                                                 >
-                                                    <Trash2 size={15} />
+                                                    <Trash2 size={14} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
@@ -173,13 +249,10 @@ const History = () => {
                                                             `/report/${row.id}`,
                                                         );
                                                     }}
-                                                    className="text-sm text-neutral-500 group-hover:text-white transition-colors flex items-center justify-end gap-1.5"
+                                                    className="text-sm text-cyan-400 flex items-center gap-1"
                                                 >
                                                     View Report
-                                                    <ArrowRight
-                                                        size={14}
-                                                        className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all"
-                                                    />
+                                                    <ArrowRight size={14} />
                                                 </button>
                                             </div>
                                         </div>
