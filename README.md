@@ -24,8 +24,12 @@ By wrapping tests in a **distributed BullMQ/Redis worker architecture**, Onyx sa
 - **Intelligent Payload Generation**: Utilizes Gemini AI to synthesize sophisticated, context-aware payloads (SQLi, NoSQLi, XSS, SSRF, Boundary Overflows) tailored to individual API schemas.
 - **High-Concurrency Execution**: Built on a decoupled distributed architecture utilizing **Redis** and **BullMQ** to process hundreds of attack jobs asynchronously without exhausting V8's thread pool.
 - **Real-time Telemetry Streaming**: Implements low-latency **WebSocket (ws)** connections to push live attack results, status codes, and latency metrics to the React dashboard instantly.
+- **Security & Resilience Integration**:
+    - **WAF Bypass Engine**: Intelligent header spoofing (mimicking modern Chrome) to securely bypass strict Web Application Firewalls during schema parsing.
+    - **DNS-Resolving SSRF Guard**: Defends internal infrastructure from Server-Side Request Forgery and DNS rebinding attacks by blocking private IP ranges.
+    - **Strict Rate Limiting**: Endpoint safeguards prevent AI api credit drain and abuse.
 - **Resilient Fallback Protocols**: Ensures 99%+ scan completion rates via graceful degradation; if AI synthesis fails or rate limits are hit, local static heuristics automatically take over.
-- **Architectural UI/UX**: Features a `min-h-screen` master grid architecture, Framer Motion terminal sequences simulating live chaotic penetration tests, and absolute strict typography mapping.
+- **Architectural UI/UX**: Features a `min-h-screen` master grid architecture, Framer Motion terminal sequences simulating live chaotic penetration tests, and a transparent "Built with" architecture showcase.
 
 ---
 
@@ -83,11 +87,14 @@ When a user inputs an OpenAPI specification URL, the Onyx pipeline initializes:
     ```env
     DATABASE_URL="postgresql://user:password@host/db"
     GEMINI_API_KEY="AIzaSy..."
+    JWT_SECRET="generate_a_secure_random_string"
     REDIS_HOST=localhost
     REDIS_PORT=6379
     PORT=3001
     CORS_ORIGIN=http://localhost:8080
     ```
+
+    _(Note: `JWT_SECRET` is mandatory. The server will crash on startup if it is missing.)_
 
 4. **Initialize the Backend:**
 
