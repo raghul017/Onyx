@@ -353,11 +353,9 @@ const Dashboard = () => {
                             <span className="text-3xl font-['JetBrains_Mono'] text-white tabular-nums">
                                 {completedCount}
                             </span>
-                            {totalPayloads > 0 && (
-                                <span className="text-sm font-['JetBrains_Mono'] text-neutral-600">
-                                    / {totalPayloads}
-                                </span>
-                            )}
+                            <span className="text-sm font-['JetBrains_Mono'] text-neutral-600">
+                                / {totalPayloads}
+                            </span>
                         </div>
                         {/* Progress bar */}
                         {totalPayloads > 0 && (
