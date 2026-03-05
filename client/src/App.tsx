@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useServerStatus } from "./store/useServerStatus";
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting — each page loads only when navigated to
@@ -31,32 +32,47 @@ const PageLoader = () => (
     </div>
 );
 
-const App = () => (
-    <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        <Route path="/" element={<Landing />} />
-                        <Route path="/signin" element={<SignIn />} />
-                        <Route path="/signup" element={<SignUp />} />
+const App = () => {
+    const { warmUpServer } = useServerStatus();
 
-                        {/* Protected Routes */}
-                        <Route element={<ProtectedRoute />}>
-                            <Route path="/dashboard" element={<Dashboard />} />
-                            <Route path="/history" element={<History />} />
-                            <Route path="/report/:id" element={<Report />} />
-                        </Route>
+    // Pre-warm the Render backend as soon as the app mounts
+    useEffect(() => {
+        warmUpServer();
+    }, []);
 
-                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                        <Route path="*" element={<NotFound />} />
-                    </Routes>
-                </Suspense>
-            </BrowserRouter>
-        </TooltipProvider>
-    </QueryClientProvider>
-);
+    return (
+        <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/" element={<Landing />} />
+                            <Route path="/signin" element={<SignIn />} />
+                            <Route path="/signup" element={<SignUp />} />
+
+                            {/* Protected Routes */}
+                            <Route element={<ProtectedRoute />}>
+                                <Route
+                                    path="/dashboard"
+                                    element={<Dashboard />}
+                                />
+                                <Route path="/history" element={<History />} />
+                                <Route
+                                    path="/report/:id"
+                                    element={<Report />}
+                                />
+                            </Route>
+
+                            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                            <Route path="*" element={<NotFound />} />
+                        </Routes>
+                    </Suspense>
+                </BrowserRouter>
+            </TooltipProvider>
+        </QueryClientProvider>
+    );
+};
 
 export default App;

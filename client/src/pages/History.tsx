@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
+import ColdStartBanner from "@/components/ColdStartBanner";
 import { ArrowRight, Trash2 } from "lucide-react";
 import {
     getAllTestRuns,
@@ -80,6 +81,7 @@ const History = () => {
             />
 
             <Navbar />
+            <ColdStartBanner />
 
             {/* Component Structure Master Grid container */}
             <div className="w-[90%] max-w-6xl mx-auto min-h-screen border-x border-[#2A2A2A] relative bg-black z-10 pt-32 pb-24">

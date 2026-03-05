@@ -18,6 +18,7 @@ import {
     Terminal,
 } from "lucide-react";
 import { getTestRun, GetTestRunResponse } from "@/services/api";
+import ColdStartBanner from "@/components/ColdStartBanner";
 
 const Report = () => {
     const { id } = useParams<{ id: string }>();
@@ -200,6 +201,8 @@ const Report = () => {
                     <span className="text-neutral-500">{statusLabel}</span>
                 </div>
             </header>
+
+            <ColdStartBanner />
 
             {/* 2. Telemetry Row */}
             <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-800 border-b border-neutral-800">
