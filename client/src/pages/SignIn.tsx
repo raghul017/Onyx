@@ -3,14 +3,19 @@ import { useNavigate, Link } from "react-router-dom";
 import { Shield } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../services/api";
+import { useServerStatus } from "../store/useServerStatus";
+import ColdStartBanner from "../components/ColdStartBanner";
 
 const SignIn = () => {
     const navigate = useNavigate();
     const { setAuth } = useAuthStore();
+    const { serverStatus } = useServerStatus();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const serverReady = serverStatus === "ready";
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,10 +29,16 @@ const SignIn = () => {
             setAuth(token, user);
             navigate("/dashboard");
         } catch (err: any) {
-            setError(
-                err.response?.data?.error ||
-                    "Failed to sign in. Incoming connection refused.",
-            );
+            if (err.response?.data?.error) {
+                setError(err.response.data.error);
+            } else if (!err.response) {
+                // Network error — server unreachable (likely cold start)
+                setError(
+                    "Server is starting up — please wait a moment and try again.",
+                );
+            } else {
+                setError("Failed to sign in. Please try again.");
+            }
         } finally {
             setLoading(false);
         }
@@ -35,6 +46,10 @@ const SignIn = () => {
 
     return (
         <div className="min-h-screen bg-[#000000] flex flex-col items-center justify-center p-4">
+            {/* Cold-start banner — positioned at top */}
+            <div className="fixed top-0 left-0 right-0 z-50">
+                <ColdStartBanner />
+            </div>
             <Link
                 to="/"
                 className="flex items-center gap-3 mb-8 hover:opacity-80 transition-opacity"
@@ -86,10 +101,16 @@ const SignIn = () => {
 
                     <button
                         type="submit"
-                        disabled={loading || !email || !password}
+                        disabled={
+                            loading || !email || !password || !serverReady
+                        }
                         className="w-full font-['Inter'] font-semibold py-2.5 mt-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white text-black hover:bg-neutral-200"
                     >
-                        {loading ? "Authenticating..." : "Initialize Session"}
+                        {!serverReady
+                            ? "Waiting for server..."
+                            : loading
+                              ? "Authenticating..."
+                              : "Initialize Session"}
                     </button>
                 </form>
 

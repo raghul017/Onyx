@@ -17,7 +17,7 @@ if (API_BASE_URL && !API_BASE_URL.endsWith("/api")) {
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 15_000, // 15s — fail fast instead of hanging indefinitely
+    timeout: 30_000, // 30s — generous enough for Render cold-start scenarios
 });
 
 // Auto-inject JWT token into every request
