@@ -194,6 +194,21 @@ const Dashboard = () => {
                                 Onyx
                             </span>
                         </div>
+                        <div className="w-px h-4 bg-neutral-800 mx-1 hidden sm:block" />
+                        <div className="hidden sm:flex items-center gap-4">
+                            <button
+                                onClick={() => navigate("/dashboard")}
+                                className="text-white text-[13px] font-medium transition-colors"
+                            >
+                                Dashboard
+                            </button>
+                            <button
+                                onClick={() => navigate("/history")}
+                                className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
+                            >
+                                History
+                            </button>
+                        </div>
                     </div>
 
                     {/* Desktop form — hidden on mobile */}

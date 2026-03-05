@@ -98,6 +98,12 @@ const Navbar = () => {
                             >
                                 Dashboard
                             </button>
+                            <button
+                                onClick={() => navigate("/history")}
+                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                            >
+                                History
+                            </button>
                             <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-3 py-1.5 rounded-full">
                                 <User size={14} className="text-[#22d3ee]" />
                                 <span className="text-xs font-mono text-neutral-300">
@@ -193,6 +199,15 @@ const Navbar = () => {
                                     className="text-left font-['Inter'] text-[14px] text-white/70 hover:text-white"
                                 >
                                     Dashboard
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigate("/history");
+                                        setMobileOpen(false);
+                                    }}
+                                    className="text-left font-['Inter'] text-[14px] text-white/70 hover:text-white"
+                                >
+                                    History
                                 </button>
                                 <button
                                     onClick={() => {
