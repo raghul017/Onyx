@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-    process.env.JWT_SECRET || "onyx_fallback_secret_do_not_use_in_prod";
-
-if (!process.env.JWT_SECRET) {
-    console.warn(
-        "[Auth Middleware] ⚠️  JWT_SECRET is not set — using insecure fallback.",
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+    console.error(
+        "FATAL: JWT_SECRET environment variable is required. Server cannot start without it.",
     );
+    process.exit(1);
 }
+const JWT_SECRET: string = _jwtSecret;
 
 interface JwtPayload {
     id: string;

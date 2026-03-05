@@ -102,10 +102,9 @@ server.on(
             }
 
             try {
-                const JWT_SECRET =
-                    process.env.JWT_SECRET ||
-                    "onyx_fallback_secret_do_not_use_in_prod";
-                const decoded = jwt.verify(token, JWT_SECRET) as {
+                // JWT_SECRET is guaranteed to exist — server crashes on
+                // startup via middleware/auth.ts if it's missing.
+                const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
                     id: string;
                     email: string;
                 };

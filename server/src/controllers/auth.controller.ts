@@ -4,16 +4,16 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma.js";
 import { authSchema } from "../validators/schemas.js";
 
-const JWT_SECRET =
-    process.env.JWT_SECRET || "onyx_fallback_secret_do_not_use_in_prod";
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+    console.error(
+        "FATAL: JWT_SECRET environment variable is required. Server cannot start without it.",
+    );
+    process.exit(1);
+}
+const JWT_SECRET: string = _jwtSecret;
 
 const BCRYPT_SALT_ROUNDS = 8;
-
-if (!process.env.JWT_SECRET) {
-    console.warn(
-        "[Auth] ⚠️  JWT_SECRET is not set — using insecure fallback. Set JWT_SECRET in your .env for production!",
-    );
-}
 
 // ---------------------------------------------------------------------------
 // POST /api/auth/signup

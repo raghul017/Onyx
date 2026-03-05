@@ -52,7 +52,7 @@ const generatedPayloadSchema = z.object({
 export const aiPayloadArraySchema = z
     .array(generatedPayloadSchema)
     .min(1)
-    .max(100);
+    .max(25);
 
 export type GeneratedPayload = z.infer<typeof generatedPayloadSchema>;
 

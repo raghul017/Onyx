@@ -11,6 +11,7 @@ import {
     attackJobDataSchema,
     type AttackJobData,
 } from "../validators/schemas.js";
+import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
 
 // ---------------------------------------------------------------------------
@@ -90,6 +91,58 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
 
     // Build the full URL
     const targetUrl = buildTargetUrl(baseUrl, path);
+
+    // SSRF guard — block requests to private/internal IPs
+    try {
+        await assertNotSSRF(targetUrl);
+    } catch {
+        // Skip this job — target resolves to a private/internal IP
+        const attackLog = await prisma.attackLog.create({
+            data: {
+                testRunId,
+                endpointId,
+                method,
+                path,
+                payload: payload.replace(/\0/g, "\\u0000"),
+                statusCode: 0,
+                latencyMs: 0,
+                responseSnippet: null,
+                attackType,
+                error: "SSRF blocked: target resolves to internal/private IP",
+            },
+        });
+
+        const testRun = await prisma.testRun.update({
+            where: { id: testRunId },
+            data: { completedAttacks: { increment: 1 } },
+        });
+
+        const wsMsg: WsServerMessage = {
+            type: "ATTACK_RESULT",
+            data: {
+                id: attackLog.id,
+                testRunId,
+                method: method as any,
+                endpoint: path,
+                statusCode: 0,
+                responseTime: 0,
+                payload,
+                responseSnippet: "",
+                attackType: attackType as any,
+                timestamp: attackLog.createdAt.toISOString(),
+            },
+        };
+        wsManager.broadcast(testRunId, wsMsg);
+
+        // Check completion
+        if (testRun.completedAttacks >= testRun.totalAttacks) {
+            await prisma.testRun.updateMany({
+                where: { id: testRunId, status: { not: "COMPLETED" } },
+                data: { status: "COMPLETED", completedAt: new Date() },
+            });
+        }
+        return;
+    }
 
     try {
         // Execute the HTTP request

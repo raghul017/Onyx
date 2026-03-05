@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import {
     getAllTestRuns,
     createTestRun,
@@ -23,6 +24,20 @@ const router = Router();
 router.use("/auth", authRouter);
 
 // ---------------------------------------------------------------------------
+// Rate limiter for LLM-triggering endpoints (Gemini API credit protection)
+// ---------------------------------------------------------------------------
+const attackLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour window
+    max: 5, // Max 5 test runs per hour per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "Rate limit exceeded",
+        message: "Maximum 5 test runs per hour. Please try again later.",
+    },
+});
+
+// ---------------------------------------------------------------------------
 // Test Run Routes (Protected)
 // ---------------------------------------------------------------------------
 
@@ -30,13 +45,13 @@ router.use("/auth", authRouter);
 router.get("/test-runs", authenticateToken, getAllTestRuns);
 
 /** Create a new test run (parse spec → generate payloads → launch attacks). */
-router.post("/test-runs", authenticateToken, createTestRun);
+router.post("/test-runs", authenticateToken, attackLimiter, createTestRun);
 
 /**
  * POST /api/attack — The primary endpoint for the frontend.
  * Accepts { openApiUrl: string }, fetches spec, runs AI, queues attacks.
  */
-router.post("/attack", authenticateToken, attackHandler);
+router.post("/attack", authenticateToken, attackLimiter, attackHandler);
 
 /** Abort an in-progress test run — drains BullMQ jobs and marks as FAILED. */
 router.post("/test-runs/:id/abort", authenticateToken, abortTestRun);

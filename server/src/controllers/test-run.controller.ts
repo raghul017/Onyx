@@ -13,6 +13,7 @@ import {
 import { generatePayloadsForEndpoint } from "../services/ai-payload.js";
 import { enqueueAttackJobs } from "../queues/producer.js";
 import { wsManager } from "../websockets/ws-manager.js";
+import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type {
     CreateTestRunResponse,
     GetTestRunResponse,
@@ -124,6 +125,23 @@ export async function createTestRun(
         }
 
         const { specUrl } = validation.data;
+
+        // ── Per-user concurrency cap ──
+        const activeRuns = await prisma.testRun.count({
+            where: {
+                userId: req.user?.id,
+                status: { in: ["PARSING", "GENERATING", "ATTACKING"] },
+            },
+        });
+
+        if (activeRuns >= 2) {
+            res.status(429).json({
+                error: "Concurrent limit reached",
+                message:
+                    "You already have 2 active test runs. Please wait for them to complete.",
+            });
+            return;
+        }
 
         // Create the test run record
         const testRun = await prisma.testRun.create({
@@ -246,9 +264,19 @@ async function processTestRunAsync(
         // Extract base URL from spec URL
         const baseUrl = extractBaseUrl(specUrl);
 
-        for (let i = 0; i < endpoints.length; i++) {
-            const endpoint = endpoints[i]!;
-            const savedEndpoint = savedEndpoints[i]!;
+        // Cap endpoints to prevent excessive Gemini API usage
+        const MAX_ENDPOINTS = 20;
+        const cappedEndpoints = endpoints.slice(0, MAX_ENDPOINTS);
+        const cappedSavedEndpoints = savedEndpoints.slice(0, MAX_ENDPOINTS);
+        if (endpoints.length > MAX_ENDPOINTS) {
+            console.warn(
+                `[Pipeline] Spec has ${endpoints.length} endpoints — capped to ${MAX_ENDPOINTS}`,
+            );
+        }
+
+        for (let i = 0; i < cappedEndpoints.length; i++) {
+            const endpoint = cappedEndpoints[i]!;
+            const savedEndpoint = cappedSavedEndpoints[i]!;
 
             console.log(
                 `[Pipeline] Generating payloads for ${endpoint.method} ${endpoint.path}...`,
@@ -512,46 +540,16 @@ export async function attackHandler(
             return;
         }
 
-        // SSRF Protection — block internal/private IP ranges
+        // SSRF Protection — DNS-resolving check blocks internal/private IPs
         try {
-            const hostname = parsedUrl.hostname;
-            // Block obvious private hostnames
-            if (
-                hostname === "localhost" ||
-                hostname === "127.0.0.1" ||
-                hostname === "::1" ||
-                hostname === "0.0.0.0" ||
-                hostname.endsWith(".local") ||
-                hostname.endsWith(".internal")
-            ) {
-                res.status(400).json({
-                    error: "Blocked URL",
-                    message:
-                        "URLs pointing to localhost or internal networks are not allowed.",
-                });
-                return;
-            }
-            // Block private IPv4 ranges
-            const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-            if (ipv4Match) {
-                const [, a, b] = ipv4Match.map(Number);
-                if (
-                    a === 10 ||
-                    a === 127 ||
-                    (a === 172 && b! >= 16 && b! <= 31) ||
-                    (a === 192 && b === 168) ||
-                    (a === 169 && b === 254)
-                ) {
-                    res.status(400).json({
-                        error: "Blocked URL",
-                        message:
-                            "URLs pointing to private/internal IP ranges are not allowed.",
-                    });
-                    return;
-                }
-            }
+            await assertNotSSRF(openApiUrl);
         } catch {
-            // Fall through — let the actual request handle DNS errors
+            res.status(400).json({
+                error: "Blocked URL",
+                message:
+                    "URL resolves to a private/internal IP address and is not allowed.",
+            });
+            return;
         }
 
         // Pre-validate & bypass WAF: attempt to download the spec mimicking a real browser

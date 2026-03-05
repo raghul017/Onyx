@@ -3,6 +3,7 @@
 // =============================================================================
 
 import SwaggerParser from "swagger-parser";
+import { assertNotSSRF } from "../lib/ssrf-guard.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +40,9 @@ export async function parseOpenApiSpec(
     let api: any;
 
     try {
+        // SSRF guard — resolve DNS and block internal IPs before fetching
+        await assertNotSSRF(specUrl);
+
         // swagger-parser handles both Swagger 2.0 and OpenAPI 3.x
         // It also resolves $ref pointers automatically
         api = await (SwaggerParser as any).validate(specUrl);
