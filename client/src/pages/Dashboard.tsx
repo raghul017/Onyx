@@ -259,17 +259,15 @@ const Dashboard = () => {
                                 <Play size={11} />
                                 {launching ? "Launching..." : "Execute Run"}
                             </button>
-                            {status === "attacking" && (
-                                <button
-                                    type="button"
-                                    onClick={handleStopAttack}
-                                    disabled={aborting}
-                                    className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
-                                >
-                                    <Square size={10} />
-                                    {aborting ? "Stopping..." : "Stop Attack"}
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={handleStopAttack}
+                                disabled={status !== "attacking" || aborting}
+                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                            >
+                                <Square size={10} />
+                                {aborting ? "Stopping..." : "Stop Attack"}
+                            </button>
                         </form>
 
                         {/* Status Badge */}
@@ -323,17 +321,15 @@ const Dashboard = () => {
                             <Play size={11} />
                             Run
                         </button>
-                        {status === "attacking" && (
-                            <button
-                                type="button"
-                                onClick={handleStopAttack}
-                                disabled={aborting}
-                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm flex items-center gap-1 font-['Inter']"
-                            >
-                                <Square size={10} />
-                                Stop
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleStopAttack}
+                            disabled={status !== "attacking" || aborting}
+                            className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
+                        >
+                            <Square size={10} />
+                            Stop
+                        </button>
                     </form>
                 </header>
 
