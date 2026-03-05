@@ -161,7 +161,7 @@ const Footer = () => {
                         {/* Footer Bottom */}
                         <div className="flex flex-col items-center justify-between gap-4 pt-8 md:flex-row">
                             <p className="text-sm text-zinc-500">
-                                © 2025 Onyx. Built by Raghul.
+                                © 2025–2026 Onyx. Built by Raghul.
                             </p>
                             <div className="flex items-center gap-6">
                                 <a

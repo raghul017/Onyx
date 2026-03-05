@@ -15,7 +15,7 @@ const SupportedTech = () => {
     return (
         <section className="px-8 lg:px-12 w-full pt-40 pb-32">
             <h2 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-[32px] md:text-[40px] text-[rgb(255,255,255)] mb-8 tracking-tight">
-                Supported architectures
+                Built with
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -104,7 +104,7 @@ const SupportedTech = () => {
                             Prisma ORM
                         </span>
                         <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
-                            Modern Database
+                            Type-safe Database
                         </span>
                     </div>
                 </div>
@@ -146,10 +146,10 @@ const SupportedTech = () => {
                     </div>
                     <div className="flex flex-col">
                         <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
-                            Your stack can be next
+                            And more coming soon
                         </span>
                         <span className="font-['Inter',sans-serif] font-normal text-[#22d3ee] text-[15px] leading-tight flex items-center gap-1 group-hover:underline">
-                            Talk to us{" "}
+                            View on GitHub{" "}
                             <ArrowRight size={14} className="inline-block" />
                         </span>
                     </div>
@@ -157,10 +157,12 @@ const SupportedTech = () => {
             </div>
 
             <a
-                href="#"
+                href="https://github.com/raghul017/Onyx"
+                target="_blank"
+                rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-[#22d3ee] text-[15px] font-['Inter',sans-serif] font-normal hover:underline mt-8 transition-colors"
             >
-                Explore all specs <ArrowRight size={14} />
+                View full stack <ArrowRight size={14} />
             </a>
         </section>
     );

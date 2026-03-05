@@ -36,7 +36,7 @@ const Hero = () => {
                 {/* Subheadline */}
                 <p className="font-['Inter',sans-serif] font-normal text-[20px] text-[#888888] mt-4 max-w-2xl">
                     Paste your OpenAPI spec. Onyx uses Gemini AI to generate
-                    targeted attack payloads and fires them at your endpoints
+                    targeted attack payloads and fires them at your endpoints,
                     streaming results back in real-time.
                 </p>
 

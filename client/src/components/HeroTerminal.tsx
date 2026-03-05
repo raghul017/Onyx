@@ -8,7 +8,7 @@ const bashLines = [
         className: "text-neutral-500",
     },
     {
-        text: "> Parsing OpenAPI specification from target...",
+        text: "> Parsing OpenAPI specification — 14 endpoints detected.",
         className: "text-neutral-300",
     },
     {
@@ -16,8 +16,8 @@ const bashLines = [
         className: "text-cyan-400",
     },
     {
-        text: `> Ready. Enter target OpenAPI URL below to begin analysis:`,
-        className: "text-neutral-300",
+        text: "> Attacks queued. Streaming results to dashboard...",
+        className: "text-emerald-400",
     },
 ];
 
