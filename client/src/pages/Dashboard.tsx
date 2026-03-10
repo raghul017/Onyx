@@ -264,7 +264,7 @@ const Dashboard = () => {
                             <button
                                 type="button"
                                 onClick={handleStopAttack}
-                                disabled={status !== "attacking" || aborting}
+                                disabled={!activeTestRunId || aborting || status === "completed"}
                                 className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
                             >
                                 <Square size={10} />
@@ -326,7 +326,7 @@ const Dashboard = () => {
                         <button
                             type="button"
                             onClick={handleStopAttack}
-                            disabled={status !== "attacking" || aborting}
+                            disabled={!activeTestRunId || aborting || status === "completed"}
                             className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
                         >
                             <Square size={10} />
