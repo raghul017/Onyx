@@ -3,6 +3,7 @@
 // =============================================================================
 
 import SwaggerParser from "swagger-parser";
+import axios from "axios";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 
 // ---------------------------------------------------------------------------
@@ -43,11 +44,44 @@ export async function parseOpenApiSpec(
         // SSRF guard — resolve DNS and block internal IPs before fetching
         await assertNotSSRF(specUrl);
 
+        // Pre-validate & bypass WAF: attempt to download the spec mimicking a real browser
+        // This also enforces a strict 8-second timeout, protecting against hanging requests
+        const response = await axios.get(specUrl, {
+            headers: {
+                Accept: "application/json, text/plain, */*",
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept-Encoding": "gzip, deflate, br",
+            },
+            timeout: 8000,
+        });
+
         // swagger-parser handles both Swagger 2.0 and OpenAPI 3.x
-        // It also resolves $ref pointers automatically
-        api = await (SwaggerParser as any).validate(specUrl);
-    } catch (err) {
+        // We pass the deeply parsed JSON object if axios successfully parsed it.
+        // If it's YAML (a string), we pass the specUrl instead so swagger-parser fetches it.
+        if (typeof response.data === "object" && response.data !== null) {
+            api = await (SwaggerParser as any).validate(response.data);
+        } else {
+            api = await (SwaggerParser as any).validate(specUrl);
+        }
+    } catch (err: any) {
         const message = err instanceof Error ? err.message : String(err);
+
+        // Map axios errors (WAF block, timeout) to OpenApiParserError
+        if (err.isAxiosError) {
+            if (err.code === "ECONNABORTED") {
+                throw new OpenApiParserError(
+                    `Failed to fetch spec from ${specUrl}: Server took longer than 8 seconds to respond`,
+                    "NETWORK_ERROR",
+                );
+            }
+            throw new OpenApiParserError(
+                err.response
+                    ? `The spec URL returned HTTP ${err.response.status}. Ensure it is publicly accessible and allows external API requests.`
+                    : "Could not connect to the provided URL. Ensure it is publicly accessible and reachable.",
+                "NETWORK_ERROR", // Mapping to existing error codes
+            );
+        }
 
         if (message.includes("ENOTFOUND") || message.includes("ECONNREFUSED")) {
             throw new OpenApiParserError(

@@ -87,7 +87,9 @@ const Dashboard = () => {
 
         try {
             await abortTestRun(activeTestRunId);
-            disconnectWebSocket();
+            // We do NOT disconnect the websocket here. We rely on the backend to broadcast
+            // the TEST_RUN_STATUS = FAILED message. This allows the UI to catch up and handle
+            // the aborted state smoothly.
         } catch (err) {
             console.error("[Dashboard] Failed to abort test run:", err);
         } finally {

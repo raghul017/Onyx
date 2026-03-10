@@ -3,7 +3,6 @@
 // =============================================================================
 
 import type { Request, Response, NextFunction } from "express";
-import axios from "axios";
 import { prisma } from "../lib/prisma.js";
 import { createTestRunSchema } from "../validators/schemas.js";
 import {
@@ -552,26 +551,6 @@ export async function attackHandler(
             return;
         }
 
-        // Pre-validate & bypass WAF: attempt to download the spec mimicking a real browser
-        try {
-            await axios.get(openApiUrl, {
-                headers: {
-                    Accept: "application/json, text/plain, */*",
-                    "User-Agent":
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                    "Accept-Encoding": "gzip, deflate, br",
-                },
-                timeout: 8000,
-            });
-        } catch (axiosErr: any) {
-            res.status(400).json({
-                error: "Unreachable URL or WAF Block",
-                message: axiosErr.response
-                    ? `The spec URL returned HTTP ${axiosErr.response.status}. Ensure it is publicly accessible and allows external API requests.`
-                    : "Could not connect to the provided URL. Ensure it is publicly accessible and responds within 8 seconds.",
-            });
-            return;
-        }
 
         // Delegate to the existing pipeline — rewrite body to match createTestRun schema
         req.body = { specUrl: openApiUrl };
@@ -642,12 +621,14 @@ export async function abortTestRun(
         }
 
         // 2. Update test run status in database
+        // We set totalAttacks to completedAttacks so the progress bar hits 100% and logic concludes.
         const updated = await prisma.testRun.update({
             where: { id },
             data: {
                 status: "FAILED",
                 errorMessage: `Aborted by user. ${removedCount} pending jobs removed.`,
                 completedAt: new Date(),
+                totalAttacks: testRun.completedAttacks, // Cap the total so the UI knows it's fully done
             },
         });
 
