@@ -157,6 +157,19 @@ class WsManager {
                 });
                 return;
             }
+
+            // Successfully authenticated and retrieved test run.
+            // Immediately send the current status to this specific client
+            // so the frontend UI can sync up without waiting for the next explicit broadcast.
+            this.sendToClient(ws, {
+                type: "TEST_RUN_STATUS",
+                data: {
+                    testRunId,
+                    status: testRun.status as "PARSING" | "GENERATING" | "ATTACKING" | "COMPLETED" | "FAILED",
+                    completedAttacks: testRun.completedAttacks,
+                    totalAttacks: testRun.totalAttacks,
+                },
+            });
         } catch (err) {
             console.error("[WS] Error verifying test run ownership:", err);
             return;

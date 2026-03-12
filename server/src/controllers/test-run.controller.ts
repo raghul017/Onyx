@@ -185,8 +185,9 @@ async function processTestRunAsync(
     specUrl: string,
 ): Promise<void> {
     try {
-        // --- Phase 1: Parse OpenAPI Spec ---
-        console.log(`[Pipeline] Parsing spec for ${testRunId.slice(0, 8)}...`);
+        // Give the frontend 500ms to establish the WebSocket connection
+        // after receiving the initial HTTP response from createTestRun.
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         const broadcastStatus = (status: string) => {
             const msg: WsServerMessage = {
@@ -204,6 +205,10 @@ async function processTestRunAsync(
             };
             wsManager.broadcast(testRunId, msg);
         };
+
+        // --- Phase 1: Parse OpenAPI Spec ---
+        console.log(`[Pipeline] Parsing spec for ${testRunId.slice(0, 8)}...`);
+        broadcastStatus("PARSING");
 
         let endpoints;
         try {
