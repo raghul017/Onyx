@@ -142,6 +142,18 @@ export async function createTestRun(
             return;
         }
 
+        // SSRF Protection — DNS-resolving check blocks internal/private IPs
+        try {
+            await assertNotSSRF(specUrl);
+        } catch {
+            res.status(400).json({
+                error: "Blocked URL",
+                message:
+                    "URL resolves to a private/internal IP address and is not allowed.",
+            });
+            return;
+        }
+
         // Create the test run record
         const testRun = await prisma.testRun.create({
             data: {
