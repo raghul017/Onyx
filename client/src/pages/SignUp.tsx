@@ -14,11 +14,21 @@ const SignUp = () => {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [touched, setTouched] = useState({ email: false, password: false });
 
     const serverReady = serverStatus === "ready";
 
+    const emailError = touched.email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+        ? "Enter a valid email address."
+        : null;
+    const passwordError = touched.password && password.length < 8
+        ? `Password must be at least 8 characters (${password.length}/8).`
+        : null;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setTouched({ email: true, password: true });
+        if (emailError || passwordError || !email || password.length < 8) return;
         setLoading(true);
         setError(null);
         try {
@@ -78,12 +88,15 @@ const SignUp = () => {
                         </label>
                         <input
                             type="email"
-                            required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-black border border-[#2A2A2A] text-white font-mono px-4 py-2 rounded outline-none focus:border-[#22d3ee] focus:ring-1 focus:ring-[#22d3ee] transition-all"
+                            onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                            className={`w-full bg-black border text-white font-mono px-4 py-2 rounded outline-none focus:ring-1 transition-all ${emailError ? "border-red-500/60 focus:border-red-500 focus:ring-red-500/30" : "border-[#2A2A2A] focus:border-[#22d3ee] focus:ring-[#22d3ee]"}`}
                             placeholder="operator@onyx.dev"
                         />
+                        {emailError && (
+                            <p className="text-red-500 text-[12px] font-mono mt-1">{emailError}</p>
+                        )}
                     </div>
                     <div className="space-y-2">
                         <label className="block text-sm font-mono text-neutral-300">
@@ -91,13 +104,15 @@ const SignUp = () => {
                         </label>
                         <input
                             type="password"
-                            required
-                            minLength={8}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-black border border-[#2A2A2A] text-white font-mono px-4 py-2 rounded outline-none focus:border-[#22d3ee] focus:ring-1 focus:ring-[#22d3ee] transition-all"
-                            placeholder="•••••••• (Min 8 chars)"
+                            onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                            className={`w-full bg-black border text-white font-mono px-4 py-2 rounded outline-none focus:ring-1 transition-all ${passwordError ? "border-red-500/60 focus:border-red-500 focus:ring-red-500/30" : "border-[#2A2A2A] focus:border-[#22d3ee] focus:ring-[#22d3ee]"}`}
+                            placeholder="•••••••• (min 8 chars)"
                         />
+                        {passwordError && (
+                            <p className="text-red-500 text-[12px] font-mono mt-1">{passwordError}</p>
+                        )}
                     </div>
 
                     <button
@@ -106,7 +121,9 @@ const SignUp = () => {
                             loading ||
                             !email ||
                             password.length < 8 ||
-                            !serverReady
+                            !serverReady ||
+                            !!emailError ||
+                            !!passwordError
                         }
                         className="w-full font-['Inter'] font-semibold py-2.5 mt-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white text-black hover:bg-neutral-200"
                     >

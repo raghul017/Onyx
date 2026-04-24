@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
     Shield,
     ArrowLeft,
@@ -30,8 +30,17 @@ const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    // The URL may come from the landing page via router state
-    const initialUrl = location.state?.targetUrl || "";
+    // The URL may come from the landing page via router state,
+    // or from sessionStorage when the user was redirected through sign-up/sign-in
+    const initialUrl = (() => {
+        if (location.state?.targetUrl) return location.state.targetUrl as string;
+        const pending = sessionStorage.getItem("onyx-pending-url");
+        if (pending) {
+            sessionStorage.removeItem("onyx-pending-url");
+            return pending;
+        }
+        return "";
+    })();
 
     // Local input state
     const [inputUrl, setInputUrl] = useState(initialUrl);
@@ -98,6 +107,10 @@ const Dashboard = () => {
     };
 
     const completedCount = logs.length;
+
+    // Cap rendered rows to prevent DOM performance cliff on large runs.
+    // All logs are still counted in metrics — only rendering is limited.
+    const visibleLogs = useMemo(() => logs.slice(0, 300), [logs]);
 
     const progressPct =
         totalPayloads > 0
@@ -511,117 +524,100 @@ const Dashboard = () => {
                             </div>
                         )}
 
-                        {/* Live data rows */}
-                        <AnimatePresence initial={false}>
-                            {logs.map((log) => {
-                                const payloadStr =
-                                    typeof log.payload === "string"
-                                        ? log.payload
-                                        : JSON.stringify(log.payload);
+                        {/* Live data rows — capped at 300 to prevent DOM lag */}
+                        {visibleLogs.map((log, index) => {
+                            const payloadStr =
+                                typeof log.payload === "string"
+                                    ? log.payload
+                                    : JSON.stringify(log.payload);
 
-                                const isCritical = log.statusCode >= 400;
+                            const isCritical = log.statusCode >= 400;
 
-                                return (
-                                    <motion.div
-                                        key={log.id}
-                                        initial={{
-                                            opacity: 0,
-                                            y: -16,
-                                            height: 0,
-                                        }}
-                                        animate={{
-                                            opacity: 1,
-                                            y: 0,
-                                            height: "auto",
-                                        }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{
-                                            duration: 0.18,
-                                            ease: "easeOut",
-                                        }}
-                                        className={`${getRowClass(log.statusCode)}`}
-                                    >
-                                        {/* Desktop row — 7-column grid */}
-                                        <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
-                                            <span className="text-neutral-600 text-[11px] tabular-nums">
-                                                {formatTime(log.timestamp)}
+                            return (
+                                <div
+                                    key={log.id}
+                                    // Only animate the newest row (index 0) to avoid
+                                    // re-triggering the animation when scrolling or
+                                    // when the cap causes a re-render
+                                    className={`${getRowClass(log.statusCode)} ${index === 0 ? "onyx-row-enter" : ""}`}
+                                >
+                                    {/* Desktop row — 7-column grid */}
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                        <span className="text-neutral-600 text-[11px] tabular-nums">
+                                            {formatTime(log.timestamp)}
+                                        </span>
+                                        <span
+                                            className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                        >
+                                            {log.method}
+                                        </span>
+                                        <span
+                                            className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}
+                                        >
+                                            {log.endpoint}
+                                        </span>
+                                        <span className="flex items-center text-[11px] tracking-wide">
+                                            {getStatusBadge(log.statusCode)}
+                                        </span>
+                                        <span className="text-neutral-500 tabular-nums">
+                                            {log.statusCode || "ERR"}
+                                        </span>
+                                        <span className="text-neutral-500 text-[11px] tabular-nums">
+                                            {log.latencyMs}
+                                            <span className="text-neutral-700">
+                                                ms
                                             </span>
-                                            <span
-                                                className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
-                                            >
-                                                {log.method}
-                                            </span>
-                                            <span
-                                                className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}
-                                            >
-                                                {log.endpoint}
-                                            </span>
-                                            <span className="flex items-center text-[11px] tracking-wide">
-                                                {getStatusBadge(log.statusCode)}
-                                            </span>
-                                            <span className="text-neutral-500 tabular-nums">
-                                                {log.statusCode || "ERR"}
-                                            </span>
-                                            <span className="text-neutral-500 text-[11px] tabular-nums">
-                                                {log.latencyMs}
-                                                <span className="text-neutral-700">
-                                                    ms
+                                        </span>
+                                        <span
+                                            className="text-neutral-500 text-[11px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </span>
+                                    </div>
+
+                                    {/* Mobile card — stacked layout */}
+                                    <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
+                                                >
+                                                    {log.method}
                                                 </span>
-                                            </span>
-                                            <span
-                                                className="text-neutral-500 text-[11px] truncate"
-                                                title={payloadStr}
-                                            >
-                                                {payloadStr}
-                                            </span>
-                                        </div>
-
-                                        {/* Mobile card — stacked layout */}
-                                        <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span
-                                                        className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}
-                                                    >
-                                                        {log.method}
-                                                    </span>
-                                                    <span className="text-neutral-500 tabular-nums text-[11px]">
-                                                        {log.statusCode ||
-                                                            "ERR"}
-                                                    </span>
-                                                    <span className="text-[11px] tracking-wide">
-                                                        {getStatusBadge(
-                                                            log.statusCode,
-                                                        )}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
-                                                    <span className="tabular-nums">
-                                                        {log.latencyMs}ms
-                                                    </span>
-                                                    <span className="tabular-nums">
-                                                        {formatTime(
-                                                            log.timestamp,
-                                                        )}
-                                                    </span>
-                                                </div>
+                                                <span className="text-neutral-500 tabular-nums text-[11px]">
+                                                    {log.statusCode || "ERR"}
+                                                </span>
+                                                <span className="text-[11px] tracking-wide">
+                                                    {getStatusBadge(
+                                                        log.statusCode,
+                                                    )}
+                                                </span>
                                             </div>
-                                            <div
-                                                className={`text-[11px] truncate ${isCritical ? "text-white" : "text-neutral-400"}`}
-                                            >
-                                                {log.endpoint}
-                                            </div>
-                                            <div
-                                                className="text-neutral-600 text-[10px] truncate"
-                                                title={payloadStr}
-                                            >
-                                                {payloadStr}
+                                            <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
+                                                <span className="tabular-nums">
+                                                    {log.latencyMs}ms
+                                                </span>
+                                                <span className="tabular-nums">
+                                                    {formatTime(log.timestamp)}
+                                                </span>
                                             </div>
                                         </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </AnimatePresence>
+                                        <div
+                                            className={`text-[11px] truncate ${isCritical ? "text-white" : "text-neutral-400"}`}
+                                        >
+                                            {log.endpoint}
+                                        </div>
+                                        <div
+                                            className="text-neutral-600 text-[10px] truncate"
+                                            title={payloadStr}
+                                        >
+                                            {payloadStr}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Bottom status bar */}

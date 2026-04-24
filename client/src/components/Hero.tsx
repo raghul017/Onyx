@@ -11,6 +11,10 @@ const Hero = () => {
 
     const handleLaunch = () => {
         if (!isAuthenticated) {
+            // Preserve the URL so Dashboard can restore it after sign-up / sign-in
+            if (urlInput.trim()) {
+                sessionStorage.setItem("onyx-pending-url", urlInput.trim());
+            }
             navigate("/signup");
             return;
         }
