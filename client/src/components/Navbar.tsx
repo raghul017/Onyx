@@ -35,7 +35,9 @@ const Navbar = () => {
 
     useEffect(() => {
         if (isAuthenticated) {
-            getCurrentUser().then(setFullUser).catch(() => {});
+            getCurrentUser()
+                .then(setFullUser)
+                .catch(() => {});
         }
     }, [isAuthenticated]);
 
