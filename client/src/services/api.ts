@@ -153,3 +153,30 @@ export async function abortTestRun(
 export async function deleteTestRun(testRunId: string): Promise<void> {
     await api.delete(`/test-runs/${testRunId}`);
 }
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+export type Plan = "FREE" | "PRO" | "TEAM" | "ENTERPRISE";
+
+export interface CurrentUser {
+    id: string;
+    email: string;
+    plan: Plan;
+    planExpiresAt: string | null;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser> {
+    const res = await api.get("/user/me");
+    return res.data;
+}
+
+export async function subscribeToPlan(planId: string): Promise<{ subscriptionId: string; shortUrl: string }> {
+    const res = await api.post("/billing/subscribe", { planId });
+    return res.data;
+}
+
+export async function cancelSubscription(): Promise<void> {
+    await api.post("/billing/cancel");
+}

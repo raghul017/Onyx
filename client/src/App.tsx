@@ -18,6 +18,7 @@ const History = lazy(() => import("./pages/History"));
 const Report = lazy(() => import("./pages/Report"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const SignUp = lazy(() => import("./pages/SignUp"));
+const Billing = lazy(() => import("./pages/Billing"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => {
                                     element={<Dashboard />}
                                 />
                                 <Route path="/history" element={<History />} />
+                                <Route path="/billing" element={<Billing />} />
                                 <Route
                                     path="/report/:id"
                                     element={<Report />}

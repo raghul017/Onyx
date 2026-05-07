@@ -7,16 +7,26 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Plan {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
 // ---------------------------------------------------------------------------
 // User
 // ---------------------------------------------------------------------------
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String
-  createdAt    DateTime  @default(now())
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String
+  createdAt       DateTime  @default(now())
+  plan            Plan      @default(FREE)
+  razorpaySubId   String?
+  planExpiresAt   DateTime?
 
-  testRuns     TestRun[]
+  testRuns        TestRun[]
 
   @@map("users")
 }

@@ -104,6 +104,12 @@ const Navbar = () => {
                             >
                                 History
                             </button>
+                            <button
+                                onClick={() => navigate("/billing")}
+                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                            >
+                                Billing
+                            </button>
                             <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-3 py-1.5 rounded-full">
                                 <User size={14} className="text-[#22d3ee]" />
                                 <span className="text-xs font-mono text-neutral-300">
@@ -208,6 +214,15 @@ const Navbar = () => {
                                     className="text-left font-['Inter'] text-[14px] text-white/70 hover:text-white"
                                 >
                                     History
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigate("/billing");
+                                        setMobileOpen(false);
+                                    }}
+                                    className="text-left font-['Inter'] text-[14px] text-white/70 hover:text-white"
+                                >
+                                    Billing
                                 </button>
                                 <button
                                     onClick={() => {

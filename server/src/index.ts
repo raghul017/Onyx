@@ -48,6 +48,10 @@ app.use(
     }),
 );
 app.use(morgan("dev"));
+
+// Raw body capture for Razorpay webhook — must come before express.json()
+app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json({ limit: "10mb" }));
 
 // Routes

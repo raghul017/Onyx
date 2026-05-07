@@ -4,6 +4,7 @@
 
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { prisma } from "../lib/prisma.js";
 import {
     getAllTestRuns,
     createTestRun,
@@ -14,7 +15,9 @@ import {
     deleteTestRun,
 } from "../controllers/test-run.controller.js";
 import authRouter from "./auth.js";
+import billingRouter from "./billing.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { checkQuota } from "../middleware/quota.middleware.js";
 
 const router = Router();
 
@@ -22,6 +25,11 @@ const router = Router();
 // Auth Routes
 // ---------------------------------------------------------------------------
 router.use("/auth", authRouter);
+
+// ---------------------------------------------------------------------------
+// Billing Routes
+// ---------------------------------------------------------------------------
+router.use("/billing", billingRouter);
 
 // ---------------------------------------------------------------------------
 // Rate limiter for LLM-triggering endpoints (Gemini API credit protection)
@@ -45,7 +53,7 @@ const attackLimiter = rateLimit({
 router.get("/test-runs", authenticateToken, getAllTestRuns);
 
 /** Create a new test run (parse spec → generate payloads → launch attacks). */
-router.post("/test-runs", authenticateToken, attackLimiter, createTestRun);
+router.post("/test-runs", authenticateToken, attackLimiter, checkQuota("testRun"), createTestRun);
 
 /**
  * POST /api/attack — The primary endpoint for the frontend.
@@ -64,6 +72,19 @@ router.delete("/test-runs/:id", authenticateToken, deleteTestRun);
 
 /** Get paginated attack logs for a test run. */
 router.get("/test-runs/:id/logs", authenticateToken, getTestRunLogs);
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+router.get("/user/me", authenticateToken, async (req, res) => {
+    const user = await prisma.user.findUnique({
+        where: { id: req.user!.id },
+        select: { id: true, email: true, plan: true, planExpiresAt: true },
+    });
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(user);
+});
 
 // ---------------------------------------------------------------------------
 // Health Check
