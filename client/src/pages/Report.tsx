@@ -16,8 +16,10 @@ import {
     Gauge,
     Radio,
     Terminal,
+    FileDown,
+    Loader2,
 } from "lucide-react";
-import { getTestRun, GetTestRunResponse } from "@/services/api";
+import { getTestRun, exportTestRunPDF, GetTestRunResponse } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 
 const Report = () => {
@@ -27,6 +29,7 @@ const Report = () => {
     const [data, setData] = useState<GetTestRunResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
 
     // Fetch the test run on mount
     useEffect(() => {
@@ -143,6 +146,21 @@ const Report = () => {
         return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
     };
 
+    const handleExportPDF = async () => {
+        if (!id) return;
+        setExporting(true);
+        try {
+            const result = await exportTestRunPDF(id);
+            if (result === "plan_required") {
+                navigate("/billing");
+            }
+        } catch {
+            // silent — browser will show nothing downloaded
+        } finally {
+            setExporting(false);
+        }
+    };
+
     return (
         <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
             {/* 1. Control Header */}
@@ -189,16 +207,34 @@ const Report = () => {
                     </div>
                 </div>
 
-                {/* Right — Status Badge */}
-                <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider shrink-0">
-                    <span
-                        className={`w-2 h-2 rounded-full ${
-                            statusLabel === "SEQUENCE COMPLETE"
-                                ? "bg-neutral-500"
-                                : "bg-red-500"
-                        }`}
-                    />
-                    <span className="text-neutral-500">{statusLabel}</span>
+                {/* Right — Status Badge + Export */}
+                <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider">
+                        <span
+                            className={`w-2 h-2 rounded-full ${
+                                statusLabel === "SEQUENCE COMPLETE"
+                                    ? "bg-neutral-500"
+                                    : "bg-red-500"
+                            }`}
+                        />
+                        <span className="text-neutral-500">{statusLabel}</span>
+                    </div>
+
+                    {summary?.status === "COMPLETED" && (
+                        <button
+                            onClick={handleExportPDF}
+                            disabled={exporting}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-[11px] font-bold font-['Inter'] rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Export PDF Report"
+                        >
+                            {exporting ? (
+                                <Loader2 size={11} className="animate-spin" />
+                            ) : (
+                                <FileDown size={11} />
+                            )}
+                            {exporting ? "Exporting..." : "Export PDF"}
+                        </button>
+                    )}
                 </div>
             </header>
 

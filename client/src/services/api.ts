@@ -180,3 +180,41 @@ export async function subscribeToPlan(planId: string): Promise<{ subscriptionId:
 export async function cancelSubscription(): Promise<void> {
     await api.post("/billing/cancel");
 }
+
+// ---------------------------------------------------------------------------
+// PDF Export
+// ---------------------------------------------------------------------------
+
+/**
+ * Downloads the PDF report for a completed test run.
+ * Uses fetch directly (bypasses the axios interceptor) so a 403 PLAN_REQUIRED
+ * can be handled without triggering the global logout flow.
+ *
+ * Returns 'plan_required' if the user's plan doesn't include PDF export.
+ */
+export async function exportTestRunPDF(id: string): Promise<"ok" | "plan_required"> {
+    const token = useAuthStore.getState().token;
+    const baseUrl = api.defaults.baseURL ?? "";
+
+    const res = await fetch(`${baseUrl}/test-runs/${id}/export/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (res.status === 403) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error === "PLAN_REQUIRED") return "plan_required";
+    }
+
+    if (!res.ok) throw new Error("PDF export failed");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `onyx-report-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return "ok";
+}

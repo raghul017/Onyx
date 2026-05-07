@@ -51,7 +51,7 @@ const PLANS: PlanDef[] = [
     {
         key: "PRO",
         name: "Pro",
-        price: "$29",
+        price: "$9",
         period: "/mo",
         features: [
             "100 test runs / month",
@@ -66,7 +66,7 @@ const PLANS: PlanDef[] = [
     {
         key: "TEAM",
         name: "Team",
-        price: "$99",
+        price: "$29",
         period: "/mo",
         features: [
             "500 test runs / month",

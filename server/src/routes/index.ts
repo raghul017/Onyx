@@ -18,6 +18,7 @@ import authRouter from "./auth.js";
 import billingRouter from "./billing.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
+import { generateTestRunPDF } from "../services/pdf.service.js";
 
 const router = Router();
 
@@ -72,6 +73,35 @@ router.delete("/test-runs/:id", authenticateToken, deleteTestRun);
 
 /** Get paginated attack logs for a test run. */
 router.get("/test-runs/:id/logs", authenticateToken, getTestRunLogs);
+
+/** Export a completed test run as a PDF report (Pro/Team only). */
+router.get("/test-runs/:id/export/pdf", authenticateToken, async (req, res) => {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
+    if (!user || user.plan === "FREE") {
+        res.status(403).json({
+            error: "PLAN_REQUIRED",
+            message: "PDF export is a Pro feature",
+            upgradeUrl: "/billing",
+        });
+        return;
+    }
+
+    try {
+        const pdfBuffer = await generateTestRunPDF(id as string, userId);
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="onyx-report-${id}.pdf"`,
+            "Content-Length": String(pdfBuffer.length),
+        });
+        res.send(pdfBuffer);
+    } catch (err: any) {
+        const status = err.statusCode ?? 500;
+        res.status(status).json({ error: err.message ?? "PDF generation failed" });
+    }
+});
 
 // ---------------------------------------------------------------------------
 // User
