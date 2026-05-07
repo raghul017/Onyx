@@ -19,7 +19,7 @@ import {
     Square,
 } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
-import { createTestRun, abortTestRun } from "@/services/api";
+import { createTestRun, abortTestRun, getCurrentUser, CurrentUser } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 
 // =============================================================================
@@ -47,6 +47,7 @@ const Dashboard = () => {
     const [launching, setLaunching] = useState(false);
     const [aborting, setAborting] = useState(false);
     const [activeTestRunId, setActiveTestRunId] = useState<string | null>(null);
+    const [user, setUser] = useState<CurrentUser | null>(null);
 
     const {
         logs,
@@ -61,6 +62,11 @@ const Dashboard = () => {
         disconnectWebSocket,
         resetAttack,
     } = useAttackStore();
+
+    // -- Fetch User ---------------------------------------------------------
+    useEffect(() => {
+        getCurrentUser().then(setUser).catch(() => {});
+    }, []);
 
     // -- Cleanup on unmount -------------------------------------------------
     useEffect(() => {
@@ -239,6 +245,17 @@ const Dashboard = () => {
                                 >
                                     History
                                 </button>
+                                <button
+                                    onClick={() => navigate("/billing")}
+                                    className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
+                                >
+                                    Billing
+                                </button>
+                                {user && user.plan !== "FREE" && (
+                                    <div className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-bold font-['JetBrains_Mono'] text-cyan-400">
+                                        {user.plan}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
