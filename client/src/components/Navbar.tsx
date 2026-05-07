@@ -1,7 +1,8 @@
 import { User, LogOut, Menu, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getCurrentUser, CurrentUser } from "@/services/api";
 
 const GithubIcon = () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
@@ -30,6 +31,13 @@ const Navbar = () => {
     const navigate = useNavigate();
     const { isAuthenticated, user, logout } = useAuthStore();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [fullUser, setFullUser] = useState<CurrentUser | null>(null);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            getCurrentUser().then(setFullUser).catch(() => {});
+        }
+    }, [isAuthenticated]);
 
     const handleLogout = () => {
         logout();
@@ -58,12 +66,17 @@ const Navbar = () => {
 
                 {/* Logo */}
                 <div
-                    className="flex items-center cursor-pointer"
+                    className="flex items-center gap-2 cursor-pointer"
                     onClick={() => navigate("/")}
                 >
                     <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
                         Onyx
                     </span>
+                    {fullUser && fullUser.plan !== "FREE" && (
+                        <div className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400 translate-y-[2px]">
+                            {fullUser.plan}
+                        </div>
+                    )}
                 </div>
 
                 {/* Center Nav Links (Desktop) */}
