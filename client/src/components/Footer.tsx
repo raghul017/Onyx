@@ -90,6 +90,14 @@ const Footer = () => {
                                             Dashboard
                                         </a>
                                     </li>
+                                    <li>
+                                        <a
+                                            href="#pricing"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
+                                        >
+                                            Pricing
+                                        </a>
+                                    </li>
                                 </ul>
                             </div>
 

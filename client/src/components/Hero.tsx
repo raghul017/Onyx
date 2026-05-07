@@ -39,9 +39,8 @@ const Hero = () => {
 
                 {/* Subheadline */}
                 <p className="font-['Inter',sans-serif] font-normal text-[20px] text-[#888888] mt-4 max-w-2xl">
-                    Paste your OpenAPI spec. Onyx uses Gemini AI to generate
-                    targeted attack payloads and fires them at your endpoints,
-                    streaming results back in real-time.
+                    Most API vulnerabilities are found by hackers, not developers.
+                    Onyx changes that.
                 </p>
 
                 {/* Interactive CTA Group */}
@@ -66,6 +65,16 @@ const Hero = () => {
                             className="text-neutral-500 group-hover:text-black transition-colors group-hover:translate-x-0.5"
                         />
                     </button>
+                    <a
+                        href="#how-it-works"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="bg-transparent border border-[#333] text-[#888888] font-['Inter',sans-serif] font-normal text-[14px] leading-[21px] px-6 py-3 rounded-md hover:border-[#555] hover:text-white transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                        View Live Demo
+                    </a>
                 </div>
             </div>
 
