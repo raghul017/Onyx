@@ -35,25 +35,25 @@ const stats = [
 ];
 
 const StatsSection = () => (
-    <section className="w-full px-8 pt-16 pb-8">
+    <section className="w-full px-8 py-24">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {stats.map((s) => (
                 <div
                     key={s.label}
-                    className="bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl p-6 flex flex-col items-center justify-center text-center"
+                    className="bg-[#0A0A0A] border-t-2 border-cyan-500 border-x border-b border-x-[#1A1A1A] border-b-[#1A1A1A] rounded-xl p-8 flex flex-col items-center justify-center text-center"
                 >
                     <span
-                        className="text-white mb-1"
+                        className="bg-gradient-to-r from-cyan-400 to-cyan-600 bg-clip-text text-transparent mb-1 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]"
                         style={{
                             fontFamily: '"Satoshi Variable", sans-serif',
-                            fontWeight: 400,
-                            fontSize: "40px",
-                            lineHeight: "48px",
+                            fontWeight: 900,
+                            fontSize: "48px",
+                            lineHeight: "56px",
                         }}
                     >
                         {s.value}
                     </span>
-                    <span className="font-['Inter',sans-serif] text-[#A1A1AA] text-[15px]">
+                    <span className="font-['Inter',sans-serif] text-[#A1A1AA] text-[15px] mt-1">
                         {s.label}
                     </span>
                 </div>
@@ -117,22 +117,21 @@ const PricingSection = () => {
     const navigate = useNavigate();
     return (
         <section id="pricing" className="w-full pt-24 pb-32 px-8 relative">
-            {/* Section Header — mirrors FeatureShowcase pattern */}
+            {/* Section Header */}
             <div className="mb-12">
                 <div className="flex items-center gap-6 mb-8">
                     <div className="h-px flex-1 bg-white/10" />
-                    <span className="uppercase text-xs tracking-widest text-neutral-500 font-['Inter']">
+                    <span className="uppercase text-xs tracking-widest text-cyan-500 font-['Inter'] border-b border-cyan-500/40 pb-px">
                         Pricing
                     </span>
                     <div className="h-px flex-1 bg-white/10" />
                 </div>
                 <h2
-                    className="max-w-2xl text-white"
+                    className="max-w-2xl text-white font-bold"
                     style={{
                         fontFamily: '"Satoshi Variable", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "40px",
-                        lineHeight: "56px",
+                        fontSize: "clamp(36px, 5vw, 52px)",
+                        lineHeight: "1.15",
                     }}
                 >
                     Simple, transparent pricing.
@@ -142,41 +141,40 @@ const PricingSection = () => {
                 </p>
             </div>
 
-            {/* Pricing Cards — mirror feature card styling */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Pricing Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                 {pricingPlans.map((plan) => (
                     <div
                         key={plan.name}
-                        className={`relative group bg-[#0A0A0A] border rounded-xl flex flex-col hover:border-[#333] transition-all duration-300 overflow-hidden ${
+                        className={`relative group bg-[#0A0A0A] border rounded-xl flex flex-col transition-all duration-300 overflow-hidden hover:scale-105 ${
                             plan.highlight
-                                ? "border-[#444]"
-                                : "border-[#1A1A1A]"
+                                ? "border-2 border-cyan-500 shadow-[0_0_60px_rgba(6,182,212,0.15)]"
+                                : "border-[#1A1A1A] hover:border-[#333]"
                         }`}
                     >
-                        {/* Hover glow — same as feature cards */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        {/* Hover glow */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                         {/* Most Popular badge */}
                         {plan.highlight && (
                             <div className="absolute top-0 left-1/2 -translate-x-1/2">
-                                <span className="bg-white text-black text-[10px] font-bold font-['Inter'] tracking-widest uppercase px-4 py-1 rounded-b-md">
+                                <span className="bg-cyan-500 text-black text-[10px] font-bold font-['Inter'] tracking-widest uppercase px-4 py-1 rounded-full translate-y-[-50%] inline-block">
                                     Most Popular
                                 </span>
                             </div>
                         )}
 
-                        <div className="p-6 pt-8 relative z-10 flex flex-col flex-1">
-                            <p className="font-['Inter'] text-[#A1A1AA] text-[12px] uppercase tracking-widest mb-3">
+                        <div className={`p-8 relative z-10 flex flex-col flex-1 ${plan.highlight ? "pt-10" : ""}`}>
+                            <p className="font-['Inter'] text-[#A1A1AA] text-[12px] uppercase tracking-widest mb-4">
                                 {plan.name}
                             </p>
                             <div className="flex items-baseline gap-1 mb-6">
                                 <span
-                                    className="text-white"
+                                    className="text-white font-black"
                                     style={{
                                         fontFamily: '"Satoshi Variable", sans-serif',
-                                        fontWeight: 400,
-                                        fontSize: "40px",
-                                        lineHeight: "48px",
+                                        fontSize: "52px",
+                                        lineHeight: "1",
                                     }}
                                 >
                                     {plan.price}
@@ -200,7 +198,7 @@ const PricingSection = () => {
 
                             <button
                                 onClick={() => navigate(plan.href)}
-                                className={`w-full py-2.5 rounded-md font-['Inter'] text-[14px] font-normal transition-colors ${
+                                className={`w-full py-3 rounded-md font-['Inter'] text-[14px] font-medium transition-colors ${
                                     plan.highlight
                                         ? "bg-white text-black hover:bg-neutral-200"
                                         : "bg-transparent border border-[#333] text-[#888888] hover:border-[#555] hover:text-white"

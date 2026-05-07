@@ -127,19 +127,18 @@ const FeatureShowcase = () => {
             >
                 <div className="flex items-center gap-6 mb-8">
                     <div className="h-px flex-1 bg-white/10" />
-                    <span className="uppercase text-xs tracking-widest text-neutral-500 font-['Inter']">
+                    <span className="uppercase text-xs tracking-widest text-cyan-500 font-['Inter'] border-b border-cyan-500/40 pb-px">
                         Features
                     </span>
                     <div className="h-px flex-1 bg-white/10" />
                 </div>
 
                 <h2
-                    className="max-w-2xl text-white"
+                    className="max-w-2xl text-white font-bold"
                     style={{
                         fontFamily: '"Satoshi Variable", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "40px",
-                        lineHeight: "56px",
+                        fontSize: "clamp(36px, 5vw, 52px)",
+                        lineHeight: "1.15",
                     }}
                 >
                     Everything you need to stress-test your API.
