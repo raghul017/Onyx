@@ -12,7 +12,7 @@ const XIcon = () => (
 
 const Footer = () => {
     return (
-        <footer className="z-10 sm:px-6 lg:px-8 [animation:fadeSlideIn_0.8s_ease-out_0.1s_both] animate-on-scroll max-w-7xl mr-auto ml-auto pt-16 pr-4 pb-8 pl-4 relative w-full border-t border-[#1A1A1A]">
+        <footer className="z-10 sm:px-6 lg:px-8 [animation:fadeSlideIn_0.8s_ease-out_0.1s_both] animate-on-scroll max-w-7xl mr-auto ml-auto pt-20 pr-4 pb-16 pl-4 relative w-full border-t border-[#2A2A2A]">
             <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10 bg-neutral-950 backdrop-blur mt-6">
                 {/* Soft neutral accents */}
                 <div className="pointer-events-none absolute inset-0">
@@ -69,7 +69,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="#features"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Features
                                         </a>
@@ -77,7 +77,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="#how-it-works"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             How it Works
                                         </a>
@@ -85,7 +85,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="/dashboard"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Dashboard
                                         </a>
@@ -93,7 +93,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="#pricing"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Pricing
                                         </a>
@@ -110,7 +110,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="#"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Documentation
                                         </a>
@@ -118,7 +118,7 @@ const Footer = () => {
                                     <li>
                                         <a
                                             href="#"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             API Reference
                                         </a>
@@ -128,7 +128,7 @@ const Footer = () => {
                                             href="https://github.com/raghul017/Onyx"
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Source Code
                                         </a>
@@ -147,7 +147,7 @@ const Footer = () => {
                                             href="https://x.com/RaghulAR7"
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             Twitter
                                         </a>
@@ -157,7 +157,7 @@ const Footer = () => {
                                             href="https://github.com/raghul017/Onyx"
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-sm text-zinc-400 transition hover:text-cyan-400"
+                                            className="text-sm text-zinc-400 transition hover:text-white"
                                         >
                                             GitHub
                                         </a>
@@ -174,13 +174,13 @@ const Footer = () => {
                             <div className="flex items-center gap-6">
                                 <a
                                     href="#"
-                                    className="text-sm text-zinc-500 transition hover:text-cyan-400"
+                                    className="text-sm text-zinc-500 transition hover:text-white"
                                 >
                                     Privacy
                                 </a>
                                 <a
                                     href="#"
-                                    className="text-sm text-zinc-500 transition hover:text-cyan-400"
+                                    className="text-sm text-zinc-500 transition hover:text-white"
                                 >
                                     Terms
                                 </a>

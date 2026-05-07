@@ -114,7 +114,7 @@ const Billing = () => {
             setUser(u);
             return u;
         } catch {
-            // Degrade gracefully — renderButton defaults to FREE so buttons stay visible
+            // auth interceptor will redirect to /signin on 401
             return null;
         } finally {
             setLoadingUser(false);
@@ -224,23 +224,9 @@ const Billing = () => {
     // -------------------------------------------------------------------------
 
     const renderButton = (plan: PlanDef) => {
-        // While fetching, show disabled buttons — never hide them
-        if (loadingUser) {
-            if (plan.key === "FREE") return null;
-            return (
-                <button
-                    disabled
-                    className="w-full flex items-center justify-center gap-2 py-2 text-[12px] font-bold font-['Inter'] bg-white text-black rounded-sm opacity-40 cursor-not-allowed"
-                >
-                    <Loader2 size={12} className="animate-spin" />
-                    Loading...
-                </button>
-            );
-        }
+        if (!user) return null;
 
-        // Default to FREE when fetch failed (user is null)
-        const currentPlan: Plan = user?.plan ?? "FREE";
-        const isCurrentPlan = currentPlan === plan.key;
+        const isCurrentPlan = user.plan === plan.key;
         const isLoading = subscribingTo === plan.key;
 
         if (isCurrentPlan) {
@@ -352,89 +338,97 @@ const Billing = () => {
                         </p>
                     </div>
 
-                    {/* Pricing cards — always rendered; buttons reflect loading/plan state internally */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {PLANS.map((plan) => {
-                            const currentPlan: Plan = user?.plan ?? "FREE";
-                            const isActive = !loadingUser && currentPlan === plan.key;
-                            return (
-                                <div
-                                    key={plan.key}
-                                    className={`relative flex flex-col p-6 border rounded-sm transition-colors ${
-                                        isActive
-                                            ? "border-cyan-500/50 bg-cyan-500/[0.04]"
-                                            : plan.highlight
-                                              ? "border-neutral-600 bg-[#0D0D0D]"
-                                              : "border-neutral-800 bg-[#0A0A0A]"
-                                    }`}
-                                >
-                                    {/* Popular badge */}
-                                    {plan.highlight && !isActive && (
-                                        <div className="absolute -top-px left-1/2 -translate-x-1/2">
-                                            <span className="bg-white text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
-                                                Most Popular
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Active badge */}
-                                    {isActive && (
-                                        <div className="absolute -top-px left-1/2 -translate-x-1/2">
-                                            <span className="bg-cyan-500 text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
-                                                Active
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="mb-4">
-                                        <p className="text-neutral-400 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest mb-2">
-                                            {plan.name}
-                                        </p>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-3xl font-semibold tabular-nums">{plan.price}</span>
-                                            <span className="text-neutral-500 text-sm">{plan.period}</span>
-                                        </div>
-                                    </div>
-
-                                    <ul className="flex-1 space-y-2.5 mb-6">
-                                        {plan.features.map((f) => (
-                                            <li key={f} className="flex items-start gap-2 text-[13px] text-neutral-300">
-                                                <Check size={13} className="text-cyan-500 shrink-0 mt-0.5" />
-                                                {f}
-                                            </li>
-                                        ))}
-                                    </ul>
-
-                                    {renderButton(plan)}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Cancel subscription — only when confirmed on a paid plan */}
-                    {!loadingUser && user && (user.plan === "PRO" || user.plan === "TEAM") && (
-                        <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <p className="text-sm font-medium">Cancel subscription</p>
-                                <p className="text-neutral-500 text-[12px] mt-0.5">
-                                    You'll be immediately downgraded to the Free plan.
-                                </p>
-                            </div>
-                            <button
-                                onClick={handleCancel}
-                                disabled={cancelling}
-                                className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold font-['Inter'] border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors rounded-sm disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                            >
-                                {cancelling ? (
-                                    <>
-                                        <Loader2 size={12} className="animate-spin" />
-                                        Cancelling...
-                                    </>
-                                ) : (
-                                    "Cancel subscription"
-                                )}
-                            </button>
+                    {loadingUser ? (
+                        <div className="flex items-center justify-center h-48 text-neutral-600 font-['JetBrains_Mono'] text-xs gap-2">
+                            <Loader2 size={16} className="animate-spin" />
+                            Loading plan info...
                         </div>
+                    ) : (
+                        <>
+                            {/* Pricing cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {PLANS.map((plan) => {
+                                    const isActive = user?.plan === plan.key;
+                                    return (
+                                        <div
+                                            key={plan.key}
+                                            className={`relative flex flex-col p-6 border rounded-sm transition-colors ${
+                                                isActive
+                                                    ? "border-cyan-500/50 bg-cyan-500/[0.04]"
+                                                    : plan.highlight
+                                                      ? "border-neutral-600 bg-[#0D0D0D]"
+                                                      : "border-neutral-800 bg-[#0A0A0A]"
+                                            }`}
+                                        >
+                                            {/* Popular badge */}
+                                            {plan.highlight && !isActive && (
+                                                <div className="absolute -top-px left-1/2 -translate-x-1/2">
+                                                    <span className="bg-white text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
+                                                        Most Popular
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Active badge */}
+                                            {isActive && (
+                                                <div className="absolute -top-px left-1/2 -translate-x-1/2">
+                                                    <span className="bg-cyan-500 text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
+                                                        Active
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            <div className="mb-4">
+                                                <p className="text-neutral-400 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest mb-2">
+                                                    {plan.name}
+                                                </p>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-3xl font-semibold tabular-nums">{plan.price}</span>
+                                                    <span className="text-neutral-500 text-sm">{plan.period}</span>
+                                                </div>
+                                            </div>
+
+                                            <ul className="flex-1 space-y-2.5 mb-6">
+                                                {plan.features.map((f) => (
+                                                    <li key={f} className="flex items-start gap-2 text-[13px] text-neutral-300">
+                                                        <Check size={13} className="text-cyan-500 shrink-0 mt-0.5" />
+                                                        {f}
+                                                    </li>
+                                                ))}
+                                            </ul>
+
+                                            {renderButton(plan)}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Cancel subscription */}
+                            {user && (user.plan === "PRO" || user.plan === "TEAM") && (
+                                <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-medium">Cancel subscription</p>
+                                        <p className="text-neutral-500 text-[12px] mt-0.5">
+                                            You'll be immediately downgraded to the Free plan.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleCancel}
+                                        disabled={cancelling}
+                                        className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold font-['Inter'] border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors rounded-sm disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                    >
+                                        {cancelling ? (
+                                            <>
+                                                <Loader2 size={12} className="animate-spin" />
+                                                Cancelling...
+                                            </>
+                                        ) : (
+                                            "Cancel subscription"
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

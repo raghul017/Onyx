@@ -28,19 +28,17 @@ const Hero = () => {
     };
 
     return (
-        <section className="bg-black w-full min-h-screen flex flex-col justify-center pt-32 pb-16 px-8 relative">
+        <section className="bg-black w-full pt-32 pb-16 px-8 relative">
             <div className="w-full flex flex-col items-start text-left">
                 {/* Headline */}
-                <h1 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-black text-6xl md:text-8xl leading-[1.05] tracking-tight">
-                    <span className="text-white">Break Your API.</span>
+                <h1 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-[48px] leading-[58px] text-[rgb(255,255,255)] tracking-tight">
+                    Break Your API.
                     <br />
-                    <span className="bg-gradient-to-r from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
-                        Before They Do.
-                    </span>
+                    Before They Do.
                 </h1>
 
                 {/* Subheadline */}
-                <p className="font-['Inter',sans-serif] font-normal text-lg text-[#888888] mt-6 max-w-xl">
+                <p className="font-['Inter',sans-serif] font-normal text-[20px] text-[#888888] mt-4 max-w-2xl">
                     Most API vulnerabilities are found by hackers, not developers.
                     Onyx changes that.
                 </p>

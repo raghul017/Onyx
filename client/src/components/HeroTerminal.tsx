@@ -42,10 +42,8 @@ const HeroTerminal = () => {
 
     return (
         <div
-            className="w-full aspect-[16/10] mt-16 mb-32 border-y border-[#2A2A2A] flex items-center justify-center p-8 overflow-hidden relative bg-[#0A0A0A]"
-            style={{
-                background: "radial-gradient(ellipse at center, rgba(6,182,212,0.08) 0%, transparent 70%)",
-            }}
+            className="w-full aspect-[16/10] mt-16 mb-32 bg-cover bg-center border-y border-[#2A2A2A] flex items-center justify-center p-8 overflow-hidden relative"
+            style={{ backgroundImage: "url('/hero-bg.png')" }}
         >
             {/* Intersection Nodes (Top/Bottom, Left/Right corners of the border-y wrapper hitting the grid) */}
             <div className="absolute top-[-2px] left-[-2px] w-[3px] h-[3px] bg-[#444444] z-10" />
@@ -53,7 +51,7 @@ const HeroTerminal = () => {
             <div className="absolute bottom-[-2px] left-[-2px] w-[3px] h-[3px] bg-[#444444] z-10" />
             <div className="absolute bottom-[-2px] right-[-2px] w-[3px] h-[3px] bg-[#444444] z-10" />
 
-            <div className="w-full max-w-4xl aspect-video bg-[#000000] rounded-[10px] border border-cyan-500/20 p-8 shadow-[0_0_40px_rgba(6,182,212,0.1)] shadow-2xl flex flex-col relative overflow-hidden">
+            <div className="w-full max-w-4xl aspect-video bg-[#000000] rounded-[10px] border border-[#333] p-8 shadow-2xl shadow-black/50 flex flex-col relative overflow-hidden">
                 {/* Top Bar */}
                 <div className="h-8 border-b border-neutral-800 pb-3 mb-4 flex items-center justify-between shrink-0">
                     {/* macOS controls */}

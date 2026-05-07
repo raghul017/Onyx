@@ -13,8 +13,8 @@ import {
 
 const SupportedTech = () => {
     return (
-        <section className="px-8 lg:px-12 w-full pt-24 pb-32">
-            <h2 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-bold text-[36px] md:text-[52px] text-[rgb(255,255,255)] mb-8 tracking-tight" style={{ lineHeight: "1.15" }}>
+        <section className="px-8 lg:px-12 w-full pt-40 pb-32">
+            <h2 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-[32px] md:text-[40px] text-[rgb(255,255,255)] mb-8 tracking-tight">
                 Built with
             </h2>
 

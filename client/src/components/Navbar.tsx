@@ -69,7 +69,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => navigate("/")}
                 >
-                    <span className="font-['Inter'] font-bold text-white text-[26px] tracking-tight">
+                    <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
                         Onyx
                     </span>
                     {fullUser && fullUser.plan !== "FREE" && (
