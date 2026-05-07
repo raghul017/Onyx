@@ -85,6 +85,21 @@ const PLANS: PlanDef[] = [
 // Component
 // ---------------------------------------------------------------------------
 
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if (document.getElementById("razorpay-script")) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.id = "razorpay-script";
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
+
 const Billing = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState<CurrentUser | null>(null);
@@ -97,8 +112,10 @@ const Billing = () => {
             setLoadingUser(true);
             const u = await getCurrentUser();
             setUser(u);
+            return u;
         } catch {
             // auth interceptor will redirect to /signin on 401
+            return null;
         } finally {
             setLoadingUser(false);
         }
@@ -111,15 +128,78 @@ const Billing = () => {
     const handleUpgrade = async (plan: PlanDef) => {
         if (!plan.envKey) return;
         const planId = import.meta.env[plan.envKey] as string | undefined;
+        const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
+        
         if (!planId) {
             alert(`${plan.envKey} is not configured.`);
+            return;
+        }
+        if (!razorpayKeyId) {
+            alert("VITE_RAZORPAY_KEY_ID is not configured in client environment. Please add it.");
             return;
         }
 
         setSubscribingTo(plan.key);
         try {
-            const { shortUrl } = await subscribeToPlan(planId);
-            window.location.href = shortUrl;
+            const isLoaded = await loadRazorpayScript();
+            if (!isLoaded) {
+                alert("Razorpay SDK failed to load. Are you online?");
+                setSubscribingTo(null);
+                return;
+            }
+
+            const { subscriptionId } = await subscribeToPlan(planId);
+            
+            const options = {
+                key: razorpayKeyId,
+                subscription_id: subscriptionId,
+                name: "Onyx",
+                description: `Upgrade to ${plan.name} Plan`,
+                theme: {
+                    color: "#06b6d4" // cyan-500
+                },
+                prefill: {
+                    email: user?.email || ""
+                },
+                handler: async function () {
+                    // Payment successful. The webhook will process it in the background.
+                    // Start polling for user plan update.
+                    setLoadingUser(true);
+                    let retries = 0;
+                    const poll = setInterval(async () => {
+                        try {
+                            const updatedUser = await getCurrentUser();
+                            if (updatedUser.plan === plan.key) {
+                                clearInterval(poll);
+                                setUser(updatedUser);
+                                setSubscribingTo(null);
+                                setLoadingUser(false);
+                            } else if (retries >= 10) {
+                                // Stop polling after 20 seconds (10 * 2s)
+                                clearInterval(poll);
+                                setUser(updatedUser);
+                                setSubscribingTo(null);
+                                setLoadingUser(false);
+                            }
+                            retries++;
+                        } catch (err) {
+                            // ignore errors during polling
+                        }
+                    }, 2000);
+                },
+                modal: {
+                    ondismiss: function() {
+                        setSubscribingTo(null);
+                    }
+                }
+            };
+            
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', function (response: any){
+                alert(response.error.description);
+                setSubscribingTo(null);
+            });
+            rzp.open();
         } catch (err: any) {
             alert(err?.response?.data?.error || "Failed to start checkout.");
             setSubscribingTo(null);
