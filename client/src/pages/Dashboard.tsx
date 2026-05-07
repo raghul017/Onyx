@@ -17,6 +17,7 @@ import {
     Terminal,
     Play,
     Square,
+    CreditCard,
 } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
 import { createTestRun, abortTestRun, getCurrentUser, CurrentUser } from "@/services/api";
@@ -230,6 +231,11 @@ const Dashboard = () => {
                                 <span className="text-white text-sm font-semibold tracking-tight">
                                     Onyx
                                 </span>
+                                {user && user.plan !== "FREE" && (
+                                    <div className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400 ml-1">
+                                        {user.plan}
+                                    </div>
+                                )}
                             </div>
                             <div className="w-px h-4 bg-neutral-800 mx-1 hidden sm:block" />
                             <div className="hidden sm:flex items-center gap-4">
@@ -245,17 +251,6 @@ const Dashboard = () => {
                                 >
                                     History
                                 </button>
-                                <button
-                                    onClick={() => navigate("/billing")}
-                                    className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
-                                >
-                                    Billing
-                                </button>
-                                {user && user.plan !== "FREE" && (
-                                    <div className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-bold font-['JetBrains_Mono'] text-cyan-400">
-                                        {user.plan}
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -302,26 +297,38 @@ const Dashboard = () => {
                             </button>
                         </form>
 
-                        {/* Status Badge */}
-                        <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider shrink-0">
-                            <span
-                                className={`w-2 h-2 rounded-full ${
-                                    status === "attacking"
-                                        ? "bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]"
-                                        : status === "completed"
-                                          ? "bg-neutral-500"
-                                          : "bg-neutral-700"
-                                }`}
-                            />
-                            <span
-                                className={
-                                    status === "attacking"
-                                        ? "text-cyan-400"
-                                        : "text-neutral-500"
-                                }
+                        {/* Right side settings and status */}
+                        <div className="flex items-center gap-4 shrink-0">
+                            <button
+                                onClick={() => navigate("/billing")}
+                                className="hidden sm:flex items-center gap-1.5 text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
+                                aria-label="Billing"
                             >
-                                {statusLabel}
-                            </span>
+                                <CreditCard size={14} />
+                                Billing
+                            </button>
+                            <div className="w-px h-4 bg-neutral-800 hidden sm:block" />
+                            {/* Status Badge */}
+                            <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider">
+                                <span
+                                    className={`w-2 h-2 rounded-full ${
+                                        status === "attacking"
+                                            ? "bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                                            : status === "completed"
+                                              ? "bg-neutral-500"
+                                              : "bg-neutral-700"
+                                    }`}
+                                />
+                                <span
+                                    className={
+                                        status === "attacking"
+                                            ? "text-cyan-400"
+                                            : "text-neutral-500"
+                                    }
+                                >
+                                    {statusLabel}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
