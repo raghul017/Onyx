@@ -29,6 +29,18 @@ export type AttackType =
     | "RATE_LIMIT"
     | "UNKNOWN";
 
+export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+
+export type ScoreLabel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
+
+export interface SeverityBreakdown {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+}
+
 // ---------------------------------------------------------------------------
 // Core Data Shapes
 // ---------------------------------------------------------------------------
@@ -44,6 +56,7 @@ export interface AttackResult {
     responseSnippet: string;
     attackType: AttackType;
     timestamp: string;
+    severity: SeverityLevel;
 }
 
 export interface TestRunSummary {
@@ -57,6 +70,9 @@ export interface TestRunSummary {
     avgLatencyMs: number;
     createdAt: string;
     completedAt: string | null;
+    overallScore: number;
+    scoreLabel: ScoreLabel;
+    severityBreakdown: SeverityBreakdown;
 }
 
 // ---------------------------------------------------------------------------

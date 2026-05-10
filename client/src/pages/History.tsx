@@ -10,8 +10,23 @@ import { ArrowRight, Trash2 } from "lucide-react";
 import {
     getAllTestRuns,
     deleteTestRun,
-    GetAllTestRunsResponse,
+    type GetAllTestRunsResponse,
+    type ScoreLabel,
 } from "@/services/api";
+
+function scoreChip(score: number, label: ScoreLabel) {
+    const color =
+        score <= 25 ? "text-red-400 bg-red-500/10 border-red-500/20" :
+        score <= 50 ? "text-orange-400 bg-orange-500/10 border-orange-500/20" :
+        score <= 75 ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" :
+                      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-sm text-[11px] font-bold font-['JetBrains_Mono'] ${color}`}>
+            {score}/100
+            <span className="text-[9px] font-normal opacity-70">{label}</span>
+        </span>
+    );
+}
 
 const History = () => {
     const navigate = useNavigate();
@@ -98,12 +113,13 @@ const History = () => {
                     {/* 2. The Audit Log Table */}
                     <div className="w-full bg-[#0A0A0A] border border-neutral-800 rounded-md overflow-hidden flex flex-col">
                         {/* Table Headers — desktop only */}
-                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_200px_100px_120px] gap-4 px-6 py-4 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
+                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] gap-4 px-6 py-4 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
                             <span>Date</span>
                             <span>Target API</span>
                             <span>Total Payloads</span>
-                            <span>Completed Payloads</span>
+                            <span>Completed</span>
                             <span>Status</span>
+                            <span>Score</span>
                             <span className="text-right">Action</span>
                         </div>
 
@@ -130,7 +146,7 @@ const History = () => {
                                 testRuns.map((row) => (
                                     <div key={row.id}>
                                         {/* Desktop row */}
-                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_200px_100px_120px] items-center gap-4 px-6 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group">
+                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] items-center gap-4 px-6 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group">
                                             <span className="text-sm text-neutral-400 truncate pr-2">
                                                 {formatDate(row.createdAt)}
                                             </span>
@@ -154,13 +170,17 @@ const History = () => {
                                                     row.status === "FAILED" ||
                                                     row.status === "ABORTED"
                                                         ? "text-yellow-500"
-                                                        : row.status ===
-                                                            "COMPLETED"
+                                                        : row.status === "COMPLETED"
                                                           ? "text-neutral-400"
                                                           : "text-cyan-400"
                                                 }`}
                                             >
                                                 {row.status}
+                                            </span>
+                                            <span>
+                                                {row.status === "COMPLETED"
+                                                    ? scoreChip(row.overallScore, row.scoreLabel)
+                                                    : <span className="text-neutral-700 text-xs font-['JetBrains_Mono']">—</span>}
                                             </span>
                                             <div className="text-right">
                                                 <div className="flex items-center justify-end gap-3 w-full">
@@ -201,20 +221,20 @@ const History = () => {
                                                 <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate flex-1 min-w-0">
                                                     {row.specUrl}
                                                 </span>
-                                                <span
-                                                    className={`text-xs shrink-0 px-2 py-0.5 rounded ${
-                                                        row.status ===
-                                                            "FAILED" ||
-                                                        row.status === "ABORTED"
-                                                            ? "text-yellow-500 bg-yellow-500/10"
-                                                            : row.status ===
-                                                                "COMPLETED"
-                                                              ? "text-neutral-400 bg-neutral-800"
-                                                              : "text-cyan-400 bg-cyan-500/10"
-                                                    }`}
-                                                >
-                                                    {row.status}
-                                                </span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {row.status === "COMPLETED" && scoreChip(row.overallScore, row.scoreLabel)}
+                                                    <span
+                                                        className={`text-xs px-2 py-0.5 rounded ${
+                                                            row.status === "FAILED" || row.status === "ABORTED"
+                                                                ? "text-yellow-500 bg-yellow-500/10"
+                                                                : row.status === "COMPLETED"
+                                                                  ? "text-neutral-400 bg-neutral-800"
+                                                                  : "text-cyan-400 bg-cyan-500/10"
+                                                        }`}
+                                                    >
+                                                        {row.status}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-4 text-xs text-neutral-500">
                                                 <span>

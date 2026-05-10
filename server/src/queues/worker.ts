@@ -13,6 +13,7 @@ import {
 } from "../validators/schemas.js";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
+import { getSeverity } from "../utils/severity.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -130,6 +131,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 responseSnippet: "",
                 attackType: attackType as any,
                 timestamp: attackLog.createdAt.toISOString(),
+                severity: getSeverity(attackType, 0, ""),
             },
         };
         wsManager.broadcast(testRunId, wsMsg);
@@ -204,6 +206,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         responseSnippet: responseSnippet ?? "",
         attackType: attackType as AttackResult["attackType"],
         timestamp: attackLog.createdAt.toISOString(),
+        severity: getSeverity(attackType, statusCode ?? 0, responseSnippet ?? ""),
     };
 
     // Broadcast via WebSocket

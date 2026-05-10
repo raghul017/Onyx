@@ -51,6 +51,17 @@ api.interceptors.response.use(
     },
 );
 
+export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+export type ScoreLabel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
+
+export interface SeverityBreakdown {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+}
+
 export interface CreateTestRunResponse {
     testRunId: string;
     status: string;
@@ -68,6 +79,9 @@ export interface TestRunSummary {
     avgLatencyMs: number;
     createdAt: string;
     completedAt: string | null;
+    overallScore: number;
+    scoreLabel: ScoreLabel;
+    severityBreakdown: SeverityBreakdown;
 }
 
 export interface AttackResult {
@@ -81,6 +95,7 @@ export interface AttackResult {
     responseSnippet: string;
     attackType: string;
     timestamp: string;
+    severity: SeverityLevel;
 }
 
 export interface GetTestRunResponse {
@@ -98,6 +113,8 @@ export interface GetAllTestRunsResponse {
         completedAttacks: number;
         createdAt: string;
         completedAt: string | null;
+        overallScore: number;
+        scoreLabel: ScoreLabel;
     }[];
 }
 

@@ -21,6 +21,7 @@ import type {
     TestRunSummary,
     WsServerMessage,
 } from "../types/shared.js";
+import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
 
 // ---------------------------------------------------------------------------
 // GET /api/test-runs — List all test runs for the current user
@@ -39,10 +40,9 @@ export async function getAllTestRuns(
             return;
         }
 
-        const testRuns = await prisma.testRun.findMany({
+        const rawRuns = await prisma.testRun.findMany({
             where: { userId },
             orderBy: { createdAt: "desc" },
-            // Include enough data for the history table summary
             select: {
                 id: true,
                 specUrl: true,
@@ -52,7 +52,30 @@ export async function getAllTestRuns(
                 completedAttacks: true,
                 createdAt: true,
                 completedAt: true,
+                logs: {
+                    select: {
+                        statusCode: true,
+                        attackType: true,
+                        responseSnippet: true,
+                    },
+                },
             },
+        });
+
+        const testRuns = rawRuns.map(({ logs, ...run }) => {
+            const scoredLogs = logs.map((l) => ({
+                severity: getSeverity(
+                    l.attackType,
+                    l.statusCode ?? 0,
+                    l.responseSnippet ?? "",
+                ),
+            }));
+            const overallScore = getOverallScore(scoredLogs);
+            return {
+                ...run,
+                overallScore,
+                scoreLabel: getScoreLabel(overallScore),
+            };
         });
 
         res.json({ testRuns });
@@ -397,7 +420,7 @@ export async function getTestRun(
         const avgLatencyMs =
             logs.length > 0 ? Math.round(totalLatency / logs.length) : 0;
 
-        const summary: TestRunSummary = {
+        const summaryBase = {
             id: testRun.id,
             specUrl: testRun.specUrl,
             status: testRun.status as TestRunSummary["status"],
@@ -433,11 +456,30 @@ export async function getTestRun(
                 responseSnippet: l.responseSnippet ?? "",
                 attackType: l.attackType as AttackResult["attackType"],
                 timestamp: l.createdAt.toISOString(),
+                severity: getSeverity(
+                    l.attackType,
+                    l.statusCode ?? 0,
+                    l.responseSnippet ?? "",
+                ),
             }),
         );
 
+        const severityBreakdown = {
+            critical: attackResults.filter((l) => l.severity === "CRITICAL").length,
+            high:     attackResults.filter((l) => l.severity === "HIGH").length,
+            medium:   attackResults.filter((l) => l.severity === "MEDIUM").length,
+            low:      attackResults.filter((l) => l.severity === "LOW").length,
+            info:     attackResults.filter((l) => l.severity === "INFO").length,
+        };
+        const overallScore = getOverallScore(attackResults);
+
         const response: GetTestRunResponse = {
-            summary,
+            summary: {
+                ...summaryBase,
+                overallScore,
+                scoreLabel: getScoreLabel(overallScore),
+                severityBreakdown,
+            },
             logs: attackResults,
         };
 
@@ -500,6 +542,7 @@ export async function getTestRunLogs(
             responseSnippet: l.responseSnippet ?? "",
             attackType: l.attackType as AttackResult["attackType"],
             timestamp: l.createdAt.toISOString(),
+            severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ""),
         }));
 
         const response: PaginatedLogsResponse = {
