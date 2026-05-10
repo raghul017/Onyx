@@ -28,6 +28,7 @@ interface PlanDef {
     name: string;
     price: string;
     period: string;
+    inrNote?: string;
     features: string[];
     envKey: "VITE_RAZORPAY_PRO_PLAN_ID" | "VITE_RAZORPAY_TEAM_PLAN_ID" | null;
     highlight: boolean;
@@ -53,6 +54,7 @@ const PLANS: PlanDef[] = [
         name: "Pro",
         price: "$9",
         period: "/mo",
+        inrNote: "Billed in INR (₹900/mo)",
         features: [
             "100 test runs / month",
             "50 endpoints per run",
@@ -66,8 +68,9 @@ const PLANS: PlanDef[] = [
     {
         key: "TEAM",
         name: "Team",
-        price: "$29",
+        price: "$18",
         period: "/mo",
+        inrNote: "Billed in INR (₹1800/mo)",
         features: [
             "500 test runs / month",
             "Unlimited endpoints per run",
@@ -224,9 +227,8 @@ const Billing = () => {
     // -------------------------------------------------------------------------
 
     const renderButton = (plan: PlanDef) => {
-        if (!user) return null;
-
-        const isCurrentPlan = user.plan === plan.key;
+        const effectivePlan = user?.plan ?? "FREE";
+        const isCurrentPlan = effectivePlan === plan.key;
         const isLoading = subscribingTo === plan.key;
 
         if (isCurrentPlan) {
@@ -338,17 +340,11 @@ const Billing = () => {
                         </p>
                     </div>
 
-                    {loadingUser ? (
-                        <div className="flex items-center justify-center h-48 text-neutral-600 font-['JetBrains_Mono'] text-xs gap-2">
-                            <Loader2 size={16} className="animate-spin" />
-                            Loading plan info...
-                        </div>
-                    ) : (
-                        <>
-                            {/* Pricing cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {PLANS.map((plan) => {
-                                    const isActive = user?.plan === plan.key;
+                    <>
+                        {/* Pricing cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {PLANS.map((plan) => {
+                                    const isActive = (user?.plan ?? "FREE") === plan.key;
                                     return (
                                         <div
                                             key={plan.key}
@@ -386,6 +382,9 @@ const Billing = () => {
                                                     <span className="text-3xl font-semibold tabular-nums">{plan.price}</span>
                                                     <span className="text-neutral-500 text-sm">{plan.period}</span>
                                                 </div>
+                                                {plan.inrNote && (
+                                                    <span className="text-xs text-gray-500 mt-0.5">{plan.inrNote}</span>
+                                                )}
                                             </div>
 
                                             <ul className="flex-1 space-y-2.5 mb-6">
@@ -428,8 +427,7 @@ const Billing = () => {
                                     </button>
                                 </div>
                             )}
-                        </>
-                    )}
+                    </>
                 </div>
             </div>
         </div>

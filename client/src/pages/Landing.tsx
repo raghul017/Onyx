@@ -84,6 +84,7 @@ const pricingPlans = [
         name: "Pro",
         price: "$9",
         period: "/mo",
+        inrNote: "Billed in INR (₹900/mo)",
         features: [
             "100 test runs / month",
             "50 endpoints per run",
@@ -97,8 +98,9 @@ const pricingPlans = [
     },
     {
         name: "Team",
-        price: "$29",
+        price: "$18",
         period: "/mo",
+        inrNote: "Billed in INR (₹1800/mo)",
         features: [
             "500 test runs / month",
             "Unlimited endpoints",
@@ -169,7 +171,7 @@ const PricingSection = () => {
                             <p className="font-['Inter'] text-[#A1A1AA] text-[12px] uppercase tracking-widest mb-3">
                                 {plan.name}
                             </p>
-                            <div className="flex items-baseline gap-1 mb-6">
+                            <div className="flex items-baseline gap-1">
                                 <span
                                     className="text-white"
                                     style={{
@@ -185,6 +187,10 @@ const PricingSection = () => {
                                     {plan.period}
                                 </span>
                             </div>
+                            {plan.inrNote && (
+                                <span className="text-xs text-gray-500 mt-1 mb-6">{plan.inrNote}</span>
+                            )}
+                            {!plan.inrNote && <div className="mb-6" />}
 
                             <ul className="flex-1 space-y-3 mb-8">
                                 {plan.features.map((f) => (
