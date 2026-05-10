@@ -1,124 +1,240 @@
 <div align="center">
   <h1>Onyx</h1>
-  <p><strong>AI-Powered High-Concurrency API Chaos Testing Platform</strong></p>
-  
-  [![React](https://img.shields.io/badge/React-18.x-blue?logo=react)](https://reactjs.org/)
-  [![Node.js](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org/)
+  <p><strong>AI-Powered API Security Testing Platform</strong></p>
+  <p>Feed it an OpenAPI spec. Watch Gemini synthesize attack payloads. Stream results live.</p>
+
+  [![CI](https://github.com/raghul017/Onyx/actions/workflows/ci.yml/badge.svg)](https://github.com/raghul017/Onyx/actions/workflows/ci.yml)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+  [![Node](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
-  [![Redis](https://img.shields.io/badge/Redis-Job_Queue-red?logo=redis)](https://redis.io/)
-  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-blue?logo=postgresql)](https://neon.tech/)
 </div>
 
-<br />
+---
 
-## 📖 Overview
+## What is Onyx?
 
-Onyx (formerly ChaosForge) is an **AI-driven penetration testing and vulnerability simulation engine**. It ingests API documentation (OpenAPI/Swagger specs), intelligently analyzes exposed endpoints, and utilizes **Google's Gemini 2.5 Flash** to generate schema-aware, malicious payloads.
+Onyx is an AI-native API penetration testing platform that ingests an OpenAPI/Swagger specification URL and automatically generates schema-aware attack payloads using **Google Gemini 2.5 Flash**. It is built for security engineers and developers who want automated, context-sensitive coverage across OWASP Top 10 categories without writing test cases by hand.
 
-By wrapping tests in a **distributed BullMQ/Redis worker architecture**, Onyx safely executes high-concurrency stress tests while streaming granular, real-time attack telemetry back to the client via WebSockets. It is disguised within a sleek, Apple-level master-grid architectural GUI.
+Unlike generic fuzzers, Onyx reads your actual API schema — request bodies, path parameters, query strings — and asks an LLM to reason about what would break each endpoint. Attacks run asynchronously through a **BullMQ/Redis** worker queue and results stream back to the browser in real time over **WebSockets**. A **plan-gated PDF export** lets teams share audit-ready reports from the dashboard.
 
 ---
 
-## ✨ Core Features
+## Features
 
-- **Intelligent Payload Generation**: Utilizes Gemini AI to synthesize sophisticated, context-aware payloads (SQLi, NoSQLi, XSS, SSRF, Boundary Overflows) tailored to individual API schemas.
-- **High-Concurrency Execution**: Built on a decoupled distributed architecture utilizing **Redis** and **BullMQ** to process hundreds of attack jobs asynchronously without exhausting V8's thread pool.
-- **Real-time Telemetry Streaming**: Implements low-latency **WebSocket (ws)** connections to push live attack results, status codes, and latency metrics to the React dashboard instantly.
-- **Security & Resilience Integration**:
-    - **WAF Bypass Engine**: Intelligent header spoofing (mimicking modern Chrome) to securely bypass strict Web Application Firewalls during schema parsing.
-    - **DNS-Resolving SSRF Guard**: Defends internal infrastructure from Server-Side Request Forgery and DNS rebinding attacks by blocking private IP ranges.
-    - **Strict Rate Limiting**: Endpoint safeguards prevent AI api credit drain and abuse.
-- **Resilient Fallback Protocols**: Ensures 99%+ scan completion rates via graceful degradation; if AI synthesis fails or rate limits are hit, local static heuristics automatically take over.
-- **Architectural UI/UX**: Features a `min-h-screen` master grid architecture, Framer Motion terminal sequences simulating live chaotic penetration tests, and a transparent "Built with" architecture showcase.
-
----
-
-## 🏗️ System Architecture
-
-### The Orchestration Flow
-
-When a user inputs an OpenAPI specification URL, the Onyx pipeline initializes:
-
-1.  **Ingestion & Parsing**: The Express.js backend pulls the Swagger spec and extracts endpoint metadata (methods, paths, path variables, query parameters, request schemas).
-2.  **AI Synthesis**: Extracted routing context is relayed to Gemini AI. The LLM acts as a Senior Security Engineer, synthesizing 20 unique payloads traversing 10 OWASP Top 10 vulnerability categories per endpoint.
-3.  **Task Queuing**: Payloads are pushed into a **Redis-backed BullMQ queue** to control request concurrency and avoid rate-limiting the target API.
-4.  **Worker Execution**: Background Node.js workers consume the queue, firing HTTP requests armed with the malicious payloads against the target framework.
-5.  **Telemetry & Persistence**: Validated results are simultaneously persisted to a **Serverless PostgreSQL (Neon)** database via **Prisma ORM** and pushed to the React client via WebSockets.
-
-### Tech Stack
-
-| Domain             | Technology                                                             |
-| :----------------- | :--------------------------------------------------------------------- |
-| **Frontend**       | React 18, Vite, Tailwind CSS, Framer Motion, Zustand, React Router DOM |
-| **Backend**        | Express.js, Node.js, WebSockets (`ws`), REST APIs                      |
-| **Database**       | Serverless PostgreSQL (Neon), Prisma ORM                               |
-| **Queuing**        | Redis, BullMQ                                                          |
-| **AI Integration** | Google GenAI SDK (Gemini 2.5 Flash)                                    |
+- **AI payload synthesis** — Gemini generates targeted payloads per endpoint: SQLi, NoSQLi, XSS, SSRF, boundary overflows, auth bypass, and more
+- **Real-time attack telemetry** — WebSocket streaming pushes status codes, latency, and response snippets to the dashboard as each attack fires
+- **BullMQ job queue** — decoupled worker architecture prevents thread exhaustion and controls concurrency against the target API
+- **WAF bypass headers** — outbound requests spoof realistic browser headers to avoid WAF false-negatives during testing
+- **SSRF guard** — DNS-resolved IP blocking prevents attacks from routing back to private/internal infrastructure
+- **Plan-gated quotas** — middleware enforces Free / Pro / Team run limits per user at the route level
+- **PDF report export** — Pro and Team users can download a full attack log as a PDF (generated server-side via pdfkit)
+- **Razorpay subscriptions** — built-in billing with webhook-verified plan upgrades, no manual provisioning
+- **Graceful AI fallback** — if Gemini rate-limits or fails, static heuristics generate payloads so scans complete
+- **JWT auth** — signup/signin with bcrypt password hashing; all test-run routes are authenticated
 
 ---
 
-## 🚀 Getting Started
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Framer Motion, Zustand, React Router v6, TanStack Query, Radix UI, Recharts |
+| **Backend** | Node.js 20, Express 4, TypeScript, WebSockets (`ws`), BullMQ, `express-rate-limit`, Helmet, Morgan, Zod |
+| **AI** | Google GenAI SDK — Gemini 2.5 Flash (`@google/genai`) |
+| **Database** | PostgreSQL (Neon serverless), Prisma ORM 7, `@prisma/adapter-pg` |
+| **Queue / Cache** | Redis, BullMQ 5, ioredis |
+| **Billing** | Razorpay subscriptions + webhook verification |
+| **PDF generation** | pdfkit (server-side) |
+| **Auth** | JSON Web Tokens (`jsonwebtoken`), bcrypt |
+| **Spec parsing** | `@scalar/swagger-parser`, `swagger-parser` |
+| **Testing** | Vitest, `@testing-library/react` |
+| **Infra / Deploy** | Docker Compose (local), Render (server), Vercel (client) |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18+)
-- Docker (for Redis container)
-- A Google Cloud project with the Gemini API enabled
-- A Neon PostgreSQL database
+- Node.js 18+
+- Docker (for local Redis + PostgreSQL via `docker-compose`)
+- Google AI Studio API key ([aistudio.google.com](https://aistudio.google.com))
+- Razorpay account (for billing; optional for local dev)
 
-### Local Setup
+### 1. Clone and install
 
-1. **Clone the repository:**
+```bash
+git clone https://github.com/raghul017/Onyx.git
+cd Onyx
+```
 
-    ```bash
-    git clone https://github.com/raghul017/Onyx.git
-    cd Onyx
-    ```
+```bash
+# Install server dependencies
+cd server && npm install
 
-2. **Boot up Redis (via Docker):**
+# Install client dependencies
+cd ../client && npm install
+```
 
-    ```bash
-    docker compose up redis -d
-    ```
+### 2. Start infrastructure
 
-3. **Configure Environment Variables:**
-   Navigate to `/server` and configure the `.env` file with your credentials:
+```bash
+# From the project root — boots PostgreSQL and Redis via Docker
+docker compose up -d
+```
 
-    ```env
-    DATABASE_URL="postgresql://user:password@host/db"
-    GEMINI_API_KEY="AIzaSy..."
-    JWT_SECRET="generate_a_secure_random_string"
-    REDIS_HOST=localhost
-    REDIS_PORT=6379
-    PORT=3001
-    CORS_ORIGIN=http://localhost:8080
-    ```
+### 3. Configure environment variables
 
-    _(Note: `JWT_SECRET` is mandatory. The server will crash on startup if it is missing.)_
+**Server** — copy `server/.env.server.example` to `server/.env`:
 
-4. **Initialize the Backend:**
+```env
+PORT=3000
+CLIENT_URL=http://localhost:8080
 
-    ```bash
-    cd server
-    npm install
-    npx prisma generate
-    npx prisma db push
-    npm run dev
-    ```
+DATABASE_URL=                        # PostgreSQL connection string
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=                      # leave blank for local Docker
+REDIS_TLS=                           # set to 'true' for Upstash/managed Redis
 
-5. **Initialize the Frontend:**
-    ```bash
-    cd ../client
-    npm install
-    npm run dev
-    ```
+JWT_SECRET=                          # generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+GEMINI_API_KEY=                      # from Google AI Studio
+
+# Razorpay (optional for local dev — billing flows will error without these)
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+RAZORPAY_PRO_PLAN_ID=
+RAZORPAY_TEAM_PLAN_ID=
+```
+
+**Client** — copy `client/.env.client.example` to `client/.env`:
+
+```env
+VITE_API_URL=                        # leave blank to use Vite proxy (recommended locally)
+VITE_WS_URL=                         # leave blank to use Vite proxy (recommended locally)
+VITE_RAZORPAY_PRO_PLAN_ID=
+VITE_RAZORPAY_TEAM_PLAN_ID=
+```
+
+> For local development `VITE_API_URL` and `VITE_WS_URL` can be left empty — Vite proxies `/api` and `/ws` to `localhost:3001` automatically.
+
+### 4. Set up the database
+
+```bash
+cd server
+npx prisma db push       # creates tables from schema.prisma
+npx prisma generate      # generates the Prisma client
+```
+
+### 5. Run the development servers
+
+```bash
+# Terminal 1 — backend (hot-reloads via tsx watch)
+cd server && npm run dev
+
+# Terminal 2 — frontend (Vite dev server)
+cd client && npm run dev
+```
+
+The client is served at `http://localhost:8080` by default.
 
 ---
 
-## 📊 Dashboard Preview
+## Architecture
 
-The Command Center provides real-time oversight of ongoing chaotic simulations. Sub-panels listen on WebSocket ports to instantly bind `500 Internal Server Errors` to neon-red UI highlights, providing immediate visual feedback on API vulnerabilities.
+```
+User submits OpenAPI URL
+        │
+        ▼
+POST /api/attack  (authenticateToken → attackLimiter → checkQuota)
+        │
+        ▼
+Spec fetch + parse  (@scalar/swagger-parser)
+        │
+        ▼
+Gemini AI payload generation  (per endpoint, per attack type)
+        │
+        ▼
+BullMQ job queue  (Redis-backed, controls concurrency)
+        │
+        ▼
+Worker fires HTTP attacks  (axios, spoofed headers, SSRF guard)
+        │
+     ┌──┴──┐
+     ▼     ▼
+Prisma    WebSocket broadcast
+(persist) (stream to browser)
+```
+
+Attack logs, status codes, and latency metrics are written to PostgreSQL via Prisma and simultaneously broadcast to all connected WebSocket clients subscribed to the test run. Plan quota is enforced as Express middleware before the queue is populated.
 
 ---
 
-_Created by [Raghul AR](https://github.com/raghul017)._
+## API Reference
+
+All routes are prefixed with `/api`. Protected routes require `Authorization: Bearer <jwt>`.
+
+### Auth
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/auth/signup` | Create account (email + password) |
+| `POST` | `/api/auth/signin` | Sign in, returns JWT |
+
+### Test Runs
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/attack` | Submit an OpenAPI URL to start a new attack run |
+| `POST` | `/api/test-runs` | Alias — create a test run directly |
+| `GET` | `/api/test-runs` | List all test runs for the authenticated user |
+| `GET` | `/api/test-runs/:id` | Get a test run's summary and all attack logs |
+| `GET` | `/api/test-runs/:id/logs` | Get paginated attack logs for a test run |
+| `POST` | `/api/test-runs/:id/abort` | Abort an in-progress run (drains BullMQ jobs) |
+| `DELETE` | `/api/test-runs/:id` | Delete a historical test run |
+| `GET` | `/api/test-runs/:id/export/pdf` | Download PDF report (Pro/Team only) |
+
+### Billing
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/billing/subscribe` | Create a Razorpay subscription for a plan |
+| `POST` | `/api/billing/cancel` | Cancel the active subscription |
+| `POST` | `/api/billing/webhook` | Razorpay webhook receiver (signature-verified) |
+
+### User & Health
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/user/me` | Get current user (id, email, plan, planExpiresAt) |
+| `GET` | `/api/health` | Health check — returns `{ status: "ok" }` |
+
+### WebSocket
+
+Connect to `ws://<host>/ws` after authenticating. The server broadcasts attack-log events as JSON for each test run in progress.
+
+---
+
+## Contributing
+
+1. Fork the repository and create a feature branch (`git checkout -b feat/my-feature`)
+2. Make your changes — keep commits focused and descriptive
+3. Run type checks before pushing:
+   ```bash
+   cd server && npm run typecheck
+   cd ../client && npx tsc --noEmit
+   ```
+4. Open a pull request against `main` using the PR template
+
+For bugs, use the **Bug Report** issue template. For new ideas, use **Feature Request**.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+*Built by [Raghul AR](https://github.com/raghul017).*
