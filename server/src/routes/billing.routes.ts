@@ -28,6 +28,48 @@ router.post("/subscribe", authenticateToken, async (req: Request, res: Response)
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/billing/verify
+// Called by the frontend immediately after Razorpay checkout succeeds.
+// Fetches the subscription directly from Razorpay API and activates the plan
+// without waiting for a webhook. Webhooks still handle renewals/cancellations.
+// ---------------------------------------------------------------------------
+router.post("/verify", authenticateToken, async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user!.id;
+    const { subscriptionId } = req.body as { subscriptionId?: string };
+
+    if (!subscriptionId) {
+        res.status(400).json({ error: "subscriptionId is required" });
+        return;
+    }
+
+    let sub: any;
+    try {
+        sub = await billingService.fetchSubscription(subscriptionId);
+    } catch (err: any) {
+        console.error("[Billing] verify: failed to fetch subscription", err?.message);
+        res.status(502).json({ error: "Could not verify subscription with Razorpay" });
+        return;
+    }
+
+    // Accept any state that means payment went through
+    const activeStates = ["created", "authenticated", "active"];
+    if (!activeStates.includes(sub.status)) {
+        res.status(402).json({ error: `Subscription not active (status: ${sub.status})` });
+        return;
+    }
+
+    const plan = resolvePlan(sub.plan_id);
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { plan, razorpaySubId: subscriptionId },
+    });
+
+    console.log(`[Billing] verify: user ${userId} activated plan ${plan} via subscription ${subscriptionId}`);
+    res.json({ plan });
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/billing/cancel
 // ---------------------------------------------------------------------------
 router.post("/cancel", authenticateToken, async (req: Request, res: Response): Promise<void> => {

@@ -15,6 +15,7 @@ import {
     getCurrentUser,
     subscribeToPlan,
     cancelSubscription,
+    verifySubscription,
     type Plan,
     type CurrentUser,
 } from "@/services/api";
@@ -165,30 +166,33 @@ const Billing = () => {
                     email: user?.email || ""
                 },
                 handler: async function () {
-                    // Payment successful. The webhook will process it in the background.
-                    // Start polling for user plan update.
+                    // Payment captured — verify subscription server-side immediately
+                    // so the plan is activated without waiting for a webhook.
                     setLoadingUser(true);
-                    let retries = 0;
-                    const poll = setInterval(async () => {
-                        try {
-                            const updatedUser = await getCurrentUser();
-                            if (updatedUser.plan === plan.key) {
-                                clearInterval(poll);
-                                setUser(updatedUser);
-                                setSubscribingTo(null);
-                                setLoadingUser(false);
-                            } else if (retries >= 10) {
-                                // Stop polling after 20 seconds (10 * 2s)
-                                clearInterval(poll);
-                                setUser(updatedUser);
-                                setSubscribingTo(null);
-                                setLoadingUser(false);
+                    try {
+                        await verifySubscription(subscriptionId);
+                        const updatedUser = await getCurrentUser();
+                        setUser(updatedUser);
+                        setSubscribingTo(null);
+                        setLoadingUser(false);
+                    } catch {
+                        // Verify failed — fall back to polling (webhook may still arrive)
+                        let retries = 0;
+                        const poll = setInterval(async () => {
+                            try {
+                                const updatedUser = await getCurrentUser();
+                                if (updatedUser.plan === plan.key || retries >= 15) {
+                                    clearInterval(poll);
+                                    setUser(updatedUser);
+                                    setSubscribingTo(null);
+                                    setLoadingUser(false);
+                                }
+                                retries++;
+                            } catch {
+                                // ignore errors during polling
                             }
-                            retries++;
-                        } catch (err) {
-                            // ignore errors during polling
-                        }
-                    }, 2000);
+                        }, 2000);
+                    }
                 },
                 modal: {
                     ondismiss: function() {

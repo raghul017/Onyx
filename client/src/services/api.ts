@@ -198,6 +198,11 @@ export async function cancelSubscription(): Promise<void> {
     await api.post("/billing/cancel");
 }
 
+export async function verifySubscription(subscriptionId: string): Promise<{ plan: Plan }> {
+    const res = await api.post("/billing/verify", { subscriptionId });
+    return res.data;
+}
+
 // ---------------------------------------------------------------------------
 // PDF Export
 // ---------------------------------------------------------------------------
