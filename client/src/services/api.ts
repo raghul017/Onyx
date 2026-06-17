@@ -204,6 +204,50 @@ export async function verifySubscription(subscriptionId: string): Promise<{ plan
 }
 
 // ---------------------------------------------------------------------------
+// Domain Verification
+// ---------------------------------------------------------------------------
+
+export interface VerifiedTarget {
+    id: string;
+    domain: string;
+    token: string | null;
+    verifiedAt: string | null;
+    createdAt: string;
+}
+
+export interface InitiateVerificationResponse {
+    domain: string;
+    token: string;
+    verifiedAt: string | null;
+    alreadyVerified: boolean;
+}
+
+export interface CheckVerificationResponse {
+    verified: boolean;
+    verifiedAt?: string;
+    method?: "file" | "dns" | null;
+}
+
+export async function initiateVerification(
+    specUrl: string,
+): Promise<InitiateVerificationResponse> {
+    const res = await api.post("/verify-target", { specUrl });
+    return res.data;
+}
+
+export async function checkVerification(
+    domain: string,
+): Promise<CheckVerificationResponse> {
+    const res = await api.post("/verify-target/check", { domain });
+    return res.data;
+}
+
+export async function getVerifiedTargets(): Promise<{ targets: VerifiedTarget[] }> {
+    const res = await api.get("/verify-target");
+    return res.data;
+}
+
+// ---------------------------------------------------------------------------
 // PDF Export
 // ---------------------------------------------------------------------------
 

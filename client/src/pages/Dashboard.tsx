@@ -20,8 +20,9 @@ import {
     CreditCard,
 } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
-import { createTestRun, abortTestRun, getCurrentUser, CurrentUser } from "@/services/api";
+import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, CurrentUser } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
+import DomainVerifyPanel from "@/components/DomainVerifyPanel";
 
 // =============================================================================
 // Component
@@ -49,6 +50,8 @@ const Dashboard = () => {
     const [aborting, setAborting] = useState(false);
     const [activeTestRunId, setActiveTestRunId] = useState<string | null>(null);
     const [user, setUser] = useState<CurrentUser | null>(null);
+    const [domainVerified, setDomainVerified] = useState(false);
+    const [lastVerifiedDomain, setLastVerifiedDomain] = useState<string | null>(null);
 
     const {
         logs,
@@ -64,15 +67,44 @@ const Dashboard = () => {
         resetAttack,
     } = useAttackStore();
 
-    // -- Fetch User ---------------------------------------------------------
+    // -- Fetch User + pre-check verified domains ----------------------------
     useEffect(() => {
         getCurrentUser().then(setUser).catch(() => {});
+        if (initialUrl) {
+            try {
+                const domain = new URL(initialUrl).hostname.toLowerCase();
+                getVerifiedTargets().then(({ targets }) => {
+                    const match = targets.find((t) => t.domain === domain && t.verifiedAt !== null);
+                    if (match) {
+                        setDomainVerified(true);
+                        setLastVerifiedDomain(domain);
+                    }
+                }).catch(() => {});
+            } catch { /* invalid URL, ignore */ }
+        }
     }, []);
+
+    // -- Reset verification when the domain changes -------------------------
+    useEffect(() => {
+        if (!inputUrl.trim()) return;
+        try {
+            const domain = new URL(inputUrl).hostname.toLowerCase();
+            if (domain !== lastVerifiedDomain) {
+                setDomainVerified(false);
+            }
+        } catch { /* invalid URL, ignore */ }
+    }, [inputUrl]);
 
     // -- Cleanup on unmount -------------------------------------------------
     useEffect(() => {
         return () => disconnectWebSocket();
     }, []);
+
+    // -- Domain verified callback -------------------------------------------
+    const handleDomainVerified = (domain: string) => {
+        setDomainVerified(true);
+        setLastVerifiedDomain(domain);
+    };
 
     // -- Start attack -------------------------------------------------------
     const handleStartAttack = async (url?: string) => {
@@ -274,11 +306,18 @@ const Dashboard = () => {
                                 className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
                                 disabled={launching}
                             />
+                            {inputUrl.trim() && !domainVerified && (
+                                <DomainVerifyPanel
+                                    specUrl={inputUrl}
+                                    onVerified={handleDomainVerified}
+                                />
+                            )}
                             <button
                                 type="submit"
                                 disabled={
                                     launching ||
                                     !inputUrl.trim() ||
+                                    !domainVerified ||
                                     status === "attacking"
                                 }
                                 className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
@@ -338,37 +377,46 @@ const Dashboard = () => {
                             e.preventDefault();
                             handleStartAttack();
                         }}
-                        className="flex md:hidden items-center gap-2 px-4 pb-3"
+                        className="flex md:hidden flex-col gap-2 px-4 pb-3"
                     >
-                        <input
-                            type="url"
-                            value={inputUrl}
-                            onChange={(e) => setInputUrl(e.target.value)}
-                            placeholder="Swagger URL..."
-                            className="flex-1 min-w-0 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
-                            disabled={launching}
-                        />
-                        <button
-                            type="submit"
-                            disabled={
-                                launching ||
-                                !inputUrl.trim() ||
-                                status === "attacking"
-                            }
-                            className="shrink-0 bg-white text-black text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
-                        >
-                            <Play size={11} />
-                            Run
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleStopAttack}
-                            disabled={!activeTestRunId || aborting || status === "completed"}
-                            className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
-                        >
-                            <Square size={10} />
-                            Stop
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="url"
+                                value={inputUrl}
+                                onChange={(e) => setInputUrl(e.target.value)}
+                                placeholder="Swagger URL..."
+                                className="flex-1 min-w-0 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
+                                disabled={launching}
+                            />
+                            <button
+                                type="submit"
+                                disabled={
+                                    launching ||
+                                    !inputUrl.trim() ||
+                                    !domainVerified ||
+                                    status === "attacking"
+                                }
+                                className="shrink-0 bg-white text-black text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
+                            >
+                                <Play size={11} />
+                                Run
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleStopAttack}
+                                disabled={!activeTestRunId || aborting || status === "completed"}
+                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
+                            >
+                                <Square size={10} />
+                                Stop
+                            </button>
+                        </div>
+                        {inputUrl.trim() && !domainVerified && (
+                            <DomainVerifyPanel
+                                specUrl={inputUrl}
+                                onVerified={handleDomainVerified}
+                            />
+                        )}
                     </form>
                 </header>
 

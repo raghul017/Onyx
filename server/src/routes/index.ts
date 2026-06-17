@@ -14,6 +14,12 @@ import {
     abortTestRun,
     deleteTestRun,
 } from "../controllers/test-run.controller.js";
+import {
+    initiateVerification,
+    checkVerification,
+    listVerifiedTargets,
+    deleteVerifiedTarget,
+} from "../controllers/domain-verify.controller.js";
 import authRouter from "./auth.js";
 import billingRouter from "./billing.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
@@ -102,6 +108,15 @@ router.get("/test-runs/:id/export/pdf", authenticateToken, async (req, res) => {
         res.status(status).json({ error: err.message ?? "PDF generation failed" });
     }
 });
+
+// ---------------------------------------------------------------------------
+// Domain Verification Routes (Protected)
+// ---------------------------------------------------------------------------
+
+router.post("/verify-target", authenticateToken, initiateVerification);
+router.post("/verify-target/check", authenticateToken, checkVerification);
+router.get("/verify-target", authenticateToken, listVerifiedTargets);
+router.delete("/verify-target/:id", authenticateToken, deleteVerifiedTarget);
 
 // ---------------------------------------------------------------------------
 // User

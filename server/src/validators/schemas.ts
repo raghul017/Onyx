@@ -86,3 +86,21 @@ export const attackJobDataSchema = z.object({
 });
 
 export type AttackJobData = z.infer<typeof attackJobDataSchema>;
+
+// ---------------------------------------------------------------------------
+// Domain Verification
+// ---------------------------------------------------------------------------
+
+export const initiateVerificationSchema = z.object({
+    specUrl: z
+        .string()
+        .url("Must be a valid URL")
+        .refine(
+            (url) => url.startsWith("http://") || url.startsWith("https://"),
+            "URL must use http:// or https:// protocol",
+        ),
+});
+
+export const checkVerificationSchema = z.object({
+    domain: z.string().min(1, "Domain is required"),
+});

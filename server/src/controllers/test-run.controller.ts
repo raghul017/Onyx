@@ -177,6 +177,25 @@ export async function createTestRun(
             return;
         }
 
+        // Domain Ownership Gate — user must verify the target domain before attacking it
+        const targetDomain = new URL(specUrl).hostname.toLowerCase();
+        const verified = await prisma.verifiedTarget.findFirst({
+            where: {
+                userId: req.user?.id,
+                domain: targetDomain,
+                verifiedAt: { not: null },
+            },
+        });
+
+        if (!verified) {
+            res.status(403).json({
+                error: "DOMAIN_NOT_VERIFIED",
+                domain: targetDomain,
+                message: `You must verify ownership of "${targetDomain}" before scanning it. Go to Dashboard → Verify Domain.`,
+            });
+            return;
+        }
+
         // Create the test run record
         const testRun = await prisma.testRun.create({
             data: {

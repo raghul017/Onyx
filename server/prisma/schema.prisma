@@ -27,6 +27,7 @@ model User {
   planExpiresAt   DateTime?
 
   testRuns        TestRun[]
+  verifiedTargets VerifiedTarget[]
 
   @@map("users")
 }
@@ -71,6 +72,24 @@ model TargetEndpoint {
 
   @@index([testRunId])
   @@map("target_endpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Verified Target — domain ownership proof before scanning
+// ---------------------------------------------------------------------------
+model VerifiedTarget {
+  id         String    @id @default(uuid())
+  userId     String
+  domain     String
+  token      String    @unique
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domain])
+  @@index([userId])
+  @@map("verified_targets")
 }
 
 // ---------------------------------------------------------------------------
