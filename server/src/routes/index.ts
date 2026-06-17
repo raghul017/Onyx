@@ -22,8 +22,10 @@ import {
 } from "../controllers/domain-verify.controller.js";
 import authRouter from "./auth.js";
 import billingRouter from "./billing.routes.js";
+import orgRouter from "./org.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
+import { injectOrgContext } from "../middleware/org.middleware.js";
 import { generateTestRunPDF } from "../services/pdf.service.js";
 
 const router = Router();
@@ -37,6 +39,11 @@ router.use("/auth", authRouter);
 // Billing Routes
 // ---------------------------------------------------------------------------
 router.use("/billing", billingRouter);
+
+// ---------------------------------------------------------------------------
+// Org Routes
+// ---------------------------------------------------------------------------
+router.use("/", orgRouter);
 
 // ---------------------------------------------------------------------------
 // Rate limiter for LLM-triggering endpoints (Gemini API credit protection)
@@ -56,17 +63,17 @@ const attackLimiter = rateLimit({
 // Test Run Routes (Protected)
 // ---------------------------------------------------------------------------
 
-/** Get all test runs for the authenticated user. */
-router.get("/test-runs", authenticateToken, getAllTestRuns);
+/** Get all test runs for the authenticated user (or active org). */
+router.get("/test-runs", authenticateToken, injectOrgContext, getAllTestRuns);
 
 /** Create a new test run (parse spec → generate payloads → launch attacks). */
-router.post("/test-runs", authenticateToken, attackLimiter, checkQuota("testRun"), createTestRun);
+router.post("/test-runs", authenticateToken, injectOrgContext, attackLimiter, checkQuota("testRun"), createTestRun);
 
 /**
  * POST /api/attack — The primary endpoint for the frontend.
  * Accepts { openApiUrl: string }, fetches spec, runs AI, queues attacks.
  */
-router.post("/attack", authenticateToken, attackLimiter, attackHandler);
+router.post("/attack", authenticateToken, injectOrgContext, attackLimiter, attackHandler);
 
 /** Abort an in-progress test run — drains BullMQ jobs and marks as FAILED. */
 router.post("/test-runs/:id/abort", authenticateToken, abortTestRun);
@@ -123,12 +130,25 @@ router.delete("/verify-target/:id", authenticateToken, deleteVerifiedTarget);
 // ---------------------------------------------------------------------------
 
 router.get("/user/me", authenticateToken, async (req, res) => {
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: { id: true, email: true, plan: true, planExpiresAt: true },
-    });
+    const userId = req.user!.id;
+    const [user, memberships] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, email: true, plan: true, planExpiresAt: true },
+        }),
+        prisma.orgMember.findMany({
+            where: { userId },
+            select: {
+                role: true,
+                org: { select: { id: true, name: true, slug: true, plan: true } },
+            },
+        }),
+    ]);
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
-    res.json(user);
+    res.json({
+        ...user,
+        orgs: memberships.map((m) => ({ ...m.org, role: m.role })),
+    });
 });
 
 // ---------------------------------------------------------------------------

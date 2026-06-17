@@ -23,6 +23,7 @@ import { useAttackStore } from "@/store/useAttackStore";
 import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, CurrentUser } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
+import OrgSwitcher from "@/components/OrgSwitcher";
 
 // =============================================================================
 // Component
@@ -338,6 +339,18 @@ const Dashboard = () => {
 
                         {/* Right side settings and status */}
                         <div className="flex items-center gap-4 shrink-0">
+                            {user && (
+                                <div className="hidden sm:block">
+                                    <OrgSwitcher orgs={user.orgs ?? []} />
+                                </div>
+                            )}
+                            <button
+                                onClick={() => navigate("/settings")}
+                                className="hidden sm:flex items-center gap-1.5 text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
+                                aria-label="Settings"
+                            >
+                                Settings
+                            </button>
                             <button
                                 onClick={() => navigate("/billing")}
                                 className="hidden sm:flex items-center gap-1.5 text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"

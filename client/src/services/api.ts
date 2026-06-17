@@ -4,6 +4,7 @@
 
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { useOrgStore } from "../store/useOrgStore";
 
 let API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -20,11 +21,15 @@ export const api = axios.create({
     timeout: 30_000, // 30s — generous enough for Render cold-start scenarios
 });
 
-// Auto-inject JWT token into every request
+// Auto-inject JWT token and active org into every request
 api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    }
+    const activeOrg = useOrgStore.getState().activeOrg;
+    if (activeOrg) {
+        config.headers["x-org-id"] = activeOrg.id;
     }
     return config;
 });
@@ -176,12 +181,22 @@ export async function deleteTestRun(testRunId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export type Plan = "FREE" | "PRO" | "TEAM" | "ENTERPRISE";
+export type OrgRole = "OWNER" | "ADMIN" | "VIEWER";
+
+export interface OrgSummary {
+    id: string;
+    name: string;
+    slug: string;
+    plan: Plan;
+    role: OrgRole;
+}
 
 export interface CurrentUser {
     id: string;
     email: string;
     plan: Plan;
     planExpiresAt: string | null;
+    orgs: OrgSummary[];
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
@@ -201,6 +216,78 @@ export async function cancelSubscription(): Promise<void> {
 export async function verifySubscription(subscriptionId: string): Promise<{ plan: Plan }> {
     const res = await api.post("/billing/verify", { subscriptionId });
     return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Organizations
+// ---------------------------------------------------------------------------
+
+export interface OrgMember {
+    id: string;
+    userId: string;
+    email: string;
+    role: OrgRole;
+    joinedAt: string;
+}
+
+export interface OrgInvite {
+    id: string;
+    email: string;
+    role: OrgRole;
+    expiresAt: string;
+    acceptedAt: string | null;
+    createdAt: string;
+    inviteUrl?: string;
+}
+
+export async function getMyOrgs(): Promise<{ orgs: OrgSummary[] }> {
+    const res = await api.get("/orgs");
+    return res.data;
+}
+
+export async function createOrgApi(name: string): Promise<{ org: OrgSummary }> {
+    const res = await api.post("/orgs", { name });
+    return res.data;
+}
+
+export async function getOrgMembers(orgId: string): Promise<{ members: OrgMember[] }> {
+    const res = await api.get(`/orgs/${orgId}/members`);
+    return res.data;
+}
+
+export async function updateMemberRoleApi(orgId: string, userId: string, role: OrgRole): Promise<void> {
+    await api.patch(`/orgs/${orgId}/members/${userId}`, { role });
+}
+
+export async function removeMemberApi(orgId: string, userId: string): Promise<void> {
+    await api.delete(`/orgs/${orgId}/members/${userId}`);
+}
+
+export async function createInviteApi(
+    orgId: string,
+    email: string,
+    role: OrgRole,
+): Promise<{ invite: OrgInvite & { inviteUrl: string } }> {
+    const res = await api.post(`/orgs/${orgId}/invites`, { email, role });
+    return res.data;
+}
+
+export async function listInvitesApi(orgId: string): Promise<{ invites: OrgInvite[] }> {
+    const res = await api.get(`/orgs/${orgId}/invites`);
+    return res.data;
+}
+
+export async function revokeInviteApi(orgId: string, inviteId: string): Promise<void> {
+    await api.delete(`/orgs/${orgId}/invites/${inviteId}`);
+}
+
+export async function acceptInviteApi(token: string): Promise<{ orgId: string; role: OrgRole }> {
+    const res = await api.post("/invites/accept", { token });
+    return res.data;
+}
+
+export async function deleteOrgApi(orgId: string): Promise<void> {
+    await api.delete(`/orgs/${orgId}`);
 }
 
 // ---------------------------------------------------------------------------

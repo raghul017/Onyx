@@ -14,6 +14,12 @@ enum Plan {
   ENTERPRISE
 }
 
+enum OrgRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
 // ---------------------------------------------------------------------------
 // User
 // ---------------------------------------------------------------------------
@@ -28,8 +34,68 @@ model User {
 
   testRuns        TestRun[]
   verifiedTargets VerifiedTarget[]
+  orgMemberships  OrgMember[]
 
   @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Organization — multi-tenant workspace
+// ---------------------------------------------------------------------------
+model Organization {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  plan          Plan      @default(FREE)
+  razorpaySubId String?
+  planExpiresAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  members  OrgMember[]
+  invites  OrgInvite[]
+  testRuns TestRun[]
+
+  @@map("organizations")
+}
+
+// ---------------------------------------------------------------------------
+// OrgMember — join table with role
+// ---------------------------------------------------------------------------
+model OrgMember {
+  id       String   @id @default(uuid())
+  orgId    String
+  userId   String
+  role     OrgRole  @default(VIEWER)
+  joinedAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@map("org_members")
+}
+
+// ---------------------------------------------------------------------------
+// OrgInvite — token-based invite (copy-link, no SMTP required)
+// ---------------------------------------------------------------------------
+model OrgInvite {
+  id         String    @id @default(uuid())
+  orgId      String
+  email      String
+  role       OrgRole   @default(VIEWER)
+  token      String    @unique
+  createdBy  String
+  acceptedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([token])
+  @@map("org_invites")
 }
 
 // ---------------------------------------------------------------------------
@@ -47,8 +113,10 @@ model TestRun {
   updatedAt       DateTime  @updatedAt
   completedAt     DateTime?
 
-  userId          String?   // Optional temporally for backwards compatibility
-  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId           String?
+  org             Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
   endpoints TargetEndpoint[]
   logs      AttackLog[]

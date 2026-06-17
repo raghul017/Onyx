@@ -40,8 +40,9 @@ export async function getAllTestRuns(
             return;
         }
 
+        const orgId = req.orgId;
         const rawRuns = await prisma.testRun.findMany({
-            where: { userId },
+            where: orgId ? { orgId } : { userId },
             orderBy: { createdAt: "desc" },
             select: {
                 id: true,
@@ -111,7 +112,9 @@ export async function deleteTestRun(
             return;
         }
 
-        if (testRun.userId !== userId) {
+        const isOwner = testRun.userId === userId;
+        const isOrgMember = testRun.orgId && req.orgId === testRun.orgId;
+        if (!isOwner && !isOrgMember) {
             res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
@@ -202,6 +205,7 @@ export async function createTestRun(
                 specUrl,
                 status: "PARSING",
                 userId: req.user?.id,
+                orgId: req.orgId ?? null,
             },
         });
 
