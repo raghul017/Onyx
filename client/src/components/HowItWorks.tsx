@@ -2,8 +2,9 @@
 // HowItWorks — "Key Benefits"-style 3-card layout, Onyx content (dark theme)
 // =============================================================================
 
-const VIDEO_URL =
-    "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260421_072701_f6a01abb-eb30-4559-9d6e-774362defbc3.mp4";
+// Hero-matched gradient blob (purple/slate water-plane palette)
+const BLOB_GRADIENT =
+    "radial-gradient(circle at 30% 30%, #8d7dca, transparent 60%), radial-gradient(circle at 70% 70%, #606080, transparent 60%), radial-gradient(circle at 50% 50%, #8d7dca, transparent 70%)";
 
 const HowItWorks = () => {
     return (
@@ -36,11 +37,14 @@ const HowItWorks = () => {
                     {/* Card 1 — Ingest Schema (text)                        */}
                     {/* ----------------------------------------------------- */}
                     <div className="relative h-[340px] sm:h-[420px] rounded-2xl bg-neutral-950 overflow-hidden p-6 sm:p-8">
-                        {/* Cyan blob */}
-                        <div className="absolute top-1/2 -translate-y-1/2 -left-[420px] h-[460px] w-[460px] rounded-full bg-[#0e7490] blur-3xl opacity-40" />
+                        {/* Hero-matched gradient blob */}
+                        <div
+                            className="absolute top-1/2 -translate-y-1/2 -left-40 h-72 w-72 rounded-full blur-3xl opacity-50"
+                            style={{ background: BLOB_GRADIENT }}
+                        />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
                                 [01]
                             </div>
                             <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
@@ -57,39 +61,29 @@ const HowItWorks = () => {
                     </div>
 
                     {/* ----------------------------------------------------- */}
-                    {/* Card 2 — AI Generation (video)                       */}
+                    {/* Card 2 — AI Generation (text)                        */}
                     {/* ----------------------------------------------------- */}
-                    <div className="relative h-[340px] sm:h-[420px] rounded-2xl bg-neutral-950 overflow-hidden flex flex-col">
-                        {/* Top video region */}
+                    <div className="relative h-[340px] sm:h-[420px] rounded-2xl bg-neutral-950 overflow-hidden p-6 sm:p-8">
+                        {/* Hero-matched gradient blob */}
                         <div
-                            className="relative w-full overflow-hidden"
-                            style={{ height: "75%" }}
-                        >
-                            <video
-                                className="w-full h-full object-cover block"
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                            >
-                                <source src={VIDEO_URL} type="video/mp4" />
-                            </video>
-                            {/* Bottom fade overlay */}
-                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-neutral-950" />
-                        </div>
+                            className="absolute -top-24 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full blur-3xl opacity-50"
+                            style={{ background: BLOB_GRADIENT }}
+                        />
 
-                        {/* Bottom text region */}
-                        <div className="flex-1 flex items-center justify-start p-6 sm:p-8">
-                            <div>
-                                <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-2">
-                                    [02]
-                                </div>
-                                <h3 className="text-white text-xl sm:text-2xl font-light leading-tight text-left">
-                                    AI-Generated
-                                    <br />
-                                    Attack Payloads
-                                </h3>
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                                [02]
                             </div>
+                            <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
+                                AI-Generated
+                                <br />
+                                Attack Payloads
+                            </h3>
+                            <p className="mt-8 sm:mt-12 text-[13px] sm:text-[14px] leading-relaxed text-white/70 font-light max-w-[280px]">
+                                Gemini 2.5 Flash analyzes each endpoint and crafts
+                                targeted payloads — SQL injection, XSS, auth bypass,
+                                and more — tuned to your schema.
+                            </p>
                         </div>
                     </div>
 
@@ -97,11 +91,14 @@ const HowItWorks = () => {
                     {/* Card 3 — Queue & Fire (text)                         */}
                     {/* ----------------------------------------------------- */}
                     <div className="relative h-[340px] sm:h-[420px] rounded-2xl bg-neutral-950 overflow-hidden p-6 sm:p-8">
-                        {/* Cyan blob */}
-                        <div className="absolute -top-28 -right-28 h-56 w-56 rounded-full bg-[#0e7490] blur-3xl opacity-40" />
+                        {/* Hero-matched gradient blob */}
+                        <div
+                            className="absolute -top-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-50"
+                            style={{ background: BLOB_GRADIENT }}
+                        />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
                                 [03]
                             </div>
                             <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
@@ -109,7 +106,7 @@ const HowItWorks = () => {
                                 <br />
                                 &amp; Stream Results
                             </h3>
-                            <p className="mt-auto text-[13px] sm:text-[14px] leading-relaxed text-white/70 font-light max-w-[320px]">
+                            <p className="mt-8 sm:mt-12 text-[13px] sm:text-[14px] leading-relaxed text-white/70 font-light max-w-[280px]">
                                 Payloads load into a BullMQ Redis queue and fire
                                 at the target, with every result streaming back
                                 live over WebSockets and scored by severity.
