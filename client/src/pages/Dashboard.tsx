@@ -7,7 +7,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-    Shield,
     ArrowLeft,
     Crosshair,
     AlertTriangle,
@@ -237,23 +236,25 @@ const Dashboard = () => {
                 {/* 1. Top Navigation Bar                                          */}
                 {/* ============================================================= */}
                 <header className="sticky top-0 z-30 border-b border-[#1A1A1A] bg-black/70 backdrop-blur-md">
-                    <div className="w-[92%] max-w-[1280px] mx-auto h-16 flex items-center justify-between gap-4">
+                    <div className="w-full px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
                         {/* Left — back + brand + nav */}
-                        <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-5 shrink-0">
                             <button
                                 onClick={() => navigate("/")}
                                 className="text-neutral-500 hover:text-white transition-colors"
                                 aria-label="Back to landing"
                             >
-                                <ArrowLeft size={16} />
+                                <ArrowLeft size={18} />
                             </button>
-                            <div className="flex items-center gap-2">
-                                <Shield size={18} className="text-white" />
-                                <span className="text-white text-base font-semibold tracking-tight">
+                            <div
+                                className="flex items-center gap-2 cursor-pointer"
+                                onClick={() => navigate("/")}
+                            >
+                                <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
                                     Onyx
                                 </span>
                                 {user && user.plan !== "FREE" && (
-                                    <span className="px-2 py-[2px] rounded-full bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400">
+                                    <span className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400 translate-y-[2px]">
                                         {user.plan}
                                     </span>
                                 )}
@@ -267,7 +268,7 @@ const Dashboard = () => {
                                 </button>
                                 <button
                                     onClick={() => navigate("/history")}
-                                    className="text-neutral-500 hover:text-white text-[14px] font-medium transition-colors"
+                                    className="text-white/70 hover:text-white text-[14px] font-medium transition-colors"
                                 >
                                     History
                                 </button>
@@ -275,7 +276,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right — org switcher, settings, billing */}
-                        <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-6 shrink-0">
                             {user && (
                                 <div className="hidden sm:block">
                                     <OrgSwitcher orgs={user.orgs ?? []} />
@@ -283,13 +284,13 @@ const Dashboard = () => {
                             )}
                             <button
                                 onClick={() => navigate("/settings")}
-                                className="hidden sm:block text-neutral-500 hover:text-white text-[14px] font-medium transition-colors"
+                                className="hidden sm:block text-white/70 hover:text-white text-[14px] font-medium transition-colors"
                             >
                                 Settings
                             </button>
                             <button
                                 onClick={() => navigate("/billing")}
-                                className="hidden sm:flex items-center gap-1.5 text-neutral-500 hover:text-white text-[14px] font-medium transition-colors"
+                                className="hidden sm:flex items-center gap-1.5 text-white/70 hover:text-white text-[14px] font-medium transition-colors"
                             >
                                 <CreditCard size={14} />
                                 Billing
@@ -303,12 +304,12 @@ const Dashboard = () => {
                 {/* ============================================================= */}
                 {/* Main content                                                  */}
                 {/* ============================================================= */}
-                <main className="w-[92%] max-w-[1280px] mx-auto flex-1 flex flex-col w-full py-6 sm:py-8 gap-6">
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 flex flex-col py-5 gap-4">
                     {/* --------------------------------------------------------- */}
                     {/* 2. Launch Panel                                           */}
                     {/* --------------------------------------------------------- */}
-                    <section className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A]/80 backdrop-blur-sm p-5 sm:p-6">
-                        <div className="flex items-center justify-between mb-4">
+                    <section className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A]/80 backdrop-blur-sm p-4 sm:p-5">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
                                 <Terminal size={13} />
                                 New Attack Run
@@ -387,9 +388,9 @@ const Dashboard = () => {
                     {/* --------------------------------------------------------- */}
                     {/* 3. Telemetry Cards                                        */}
                     {/* --------------------------------------------------------- */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {/* Payloads Fired */}
-                        <div className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 flex flex-col min-h-[110px] relative overflow-hidden">
+                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <Crosshair size={11} />
                                 Payloads Fired
@@ -415,7 +416,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Critical Failures */}
-                        <div className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 flex flex-col min-h-[110px] relative overflow-hidden">
+                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <AlertTriangle size={11} className="text-red-500" />
                                 Critical Failures
@@ -433,7 +434,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Payloads Blocked */}
-                        <div className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 flex flex-col min-h-[110px]">
+                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px]">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <ShieldAlert size={11} className="text-orange-500" />
                                 Payloads Blocked
@@ -446,7 +447,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Queue Status */}
-                        <div className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 flex flex-col min-h-[110px]">
+                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px]">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <Radio size={11} />
                                 Queue Status
@@ -479,7 +480,7 @@ const Dashboard = () => {
                     {/* --------------------------------------------------------- */}
                     {/* 4. Live Attack Stream                                     */}
                     {/* --------------------------------------------------------- */}
-                    <section className="flex-1 flex flex-col rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] overflow-hidden min-h-[400px]">
+                    <section className="flex-1 flex flex-col rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] overflow-hidden min-h-[400px]">
                         {/* Panel header */}
                         <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#1A1A1A]">
                             <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
