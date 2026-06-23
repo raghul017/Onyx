@@ -6,7 +6,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Shield,
     ArrowLeft,
     Crosshair,
     AlertTriangle,
@@ -206,42 +205,46 @@ const Report = () => {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
+        <div className="relative h-screen flex flex-col bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
+            {/* Subtle gradient accent — matches landing/dashboard */}
+            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
+
             {/* 1. Header */}
-            <header className="h-14 shrink-0 border-b border-neutral-800 bg-[#0A0A0A] flex items-center justify-between px-4 sm:px-6 gap-3">
-                <div className="flex items-center gap-3 shrink-0">
+            <header className="relative z-30 h-16 shrink-0 border-b border-[#1A1A1A] bg-black/70 backdrop-blur-md flex items-center justify-between px-5 sm:px-8 lg:px-12 gap-3">
+                <div className="flex items-center gap-5 shrink-0">
                     <button
                         onClick={() => navigate("/history")}
-                        className="text-neutral-600 hover:text-white transition-colors cursor-pointer p-1"
+                        className="text-neutral-500 hover:text-white transition-colors cursor-pointer"
                         title="Back to History"
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={18} />
                     </button>
-                    <div className="w-px h-5 bg-neutral-800" />
-                    <div className="flex items-center gap-2">
-                        <Shield size={16} className="text-white" />
-                        <span className="text-white text-sm font-semibold tracking-tight">Onyx Report</span>
+                    <div
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={() => navigate("/")}
+                    >
+                        <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">Onyx</span>
                     </div>
-                    <div className="w-px h-4 bg-neutral-800 mx-1 hidden sm:block" />
-                    <div className="hidden sm:flex items-center gap-4">
-                        <button onClick={() => navigate("/dashboard")} className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors">
+                    <nav className="hidden sm:flex items-center gap-6 ml-2">
+                        <button onClick={() => navigate("/dashboard")} className="text-white/70 hover:text-white text-[14px] font-medium transition-colors">
                             Dashboard
                         </button>
-                        <button onClick={() => navigate("/history")} className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors">
+                        <button onClick={() => navigate("/history")} className="text-white/70 hover:text-white text-[14px] font-medium transition-colors">
                             History
                         </button>
-                    </div>
+                    </nav>
                 </div>
 
-                <div className="flex items-center gap-2 flex-1 max-w-2xl mx-4">
+                <div className="hidden md:flex items-center gap-2 flex-1 max-w-2xl mx-4">
                     <Terminal size={12} className="text-neutral-600 shrink-0" />
-                    <div className="flex-1 bg-[#111] border border-neutral-800 text-neutral-400 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 transition-colors rounded-sm flex items-center">
+                    <div className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-400 font-['JetBrains_Mono'] text-[12px] px-4 py-1.5 transition-colors rounded-full flex items-center truncate">
                         {loading ? "Decrypting logs..." : summary?.specUrl || "Unknown Target"}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider">
+                    <div className="hidden sm:flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider">
                         <span className={`w-2 h-2 rounded-full ${statusLabel === "SEQUENCE COMPLETE" ? "bg-neutral-500" : "bg-red-500"}`} />
                         <span className="text-neutral-500">{statusLabel}</span>
                     </div>
@@ -249,7 +252,7 @@ const Report = () => {
                         <button
                             onClick={handleExportPDF}
                             disabled={exporting}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-[11px] font-bold font-['Inter'] rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-black text-[12px] font-bold font-['Inter'] rounded-full hover:bg-neutral-200 transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                         >
                             {exporting ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
                             {exporting ? "Exporting..." : "Export PDF"}
@@ -261,7 +264,7 @@ const Report = () => {
             <ColdStartBanner />
 
             {/* 2. Telemetry Row */}
-            <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-800 border-b border-neutral-800">
+            <div className="relative z-10 shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#1A1A1A] border-b border-[#1A1A1A]">
                 <div className="bg-[#0A0A0A] p-4 sm:p-5 flex flex-col min-h-[96px] relative overflow-hidden">
                     <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                         <Crosshair size={11} /> Payloads Fired
@@ -315,9 +318,9 @@ const Report = () => {
 
             {/* 3. Score + Breakdown Bar */}
             {!loading && summary && (
-                <div className={`shrink-0 border-b border-neutral-800 px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#080808]`}>
+                <div className={`relative z-10 shrink-0 border-b border-[#1A1A1A] px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#080808]`}>
                     {/* Score pill */}
-                    <div className={`flex items-baseline gap-1.5 px-4 py-2.5 border rounded-sm ${scoreBgColor(overallScore)}`}>
+                    <div className={`flex items-baseline gap-1.5 px-4 py-2.5 border rounded-xl ${scoreBgColor(overallScore)}`}>
                         <span className={`text-4xl font-bold font-['JetBrains_Mono'] tabular-nums ${scoreColor(overallScore)}`}>
                             {overallScore}
                         </span>
@@ -369,17 +372,17 @@ const Report = () => {
             )}
 
             {/* 4. Attack Log Table */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
                 {/* Filter buttons + column headers */}
-                <div className="shrink-0 bg-[#050505] border-b border-neutral-800">
+                <div className="shrink-0 bg-[#050505] border-b border-[#1A1A1A]">
                     {/* Filter row */}
-                    <div className="flex items-center gap-1 px-4 sm:px-6 py-2 border-b border-neutral-800/60 overflow-x-auto">
+                    <div className="flex items-center gap-1 px-4 sm:px-6 py-2 border-b border-[#1A1A1A] overflow-x-auto">
                         <span className="text-[10px] font-['JetBrains_Mono'] text-neutral-600 uppercase tracking-wider mr-2 shrink-0">Filter:</span>
                         {SEVERITY_FILTERS.map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setSeverityFilter(f)}
-                                className={`px-2.5 py-0.5 rounded-sm text-[10px] font-bold font-['JetBrains_Mono'] uppercase tracking-wide transition-colors shrink-0 ${
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-['JetBrains_Mono'] uppercase tracking-wide transition-colors shrink-0 ${
                                     severityFilter === f
                                         ? f === "ALL"
                                             ? "bg-neutral-700 text-white"
@@ -451,7 +454,7 @@ const Report = () => {
                                     className={getRowClass(log.severity)}
                                 >
                                     {/* Desktop row */}
-                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
                                         <span className="text-neutral-600 text-[11px] tabular-nums">
                                             {formatTime(log.timestamp)}
                                         </span>
@@ -476,7 +479,7 @@ const Report = () => {
                                     </div>
 
                                     {/* Mobile card */}
-                                    <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                    <div className="md:hidden px-4 py-3 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>{log.method}</span>
@@ -501,7 +504,7 @@ const Report = () => {
                     </AnimatePresence>
                 </div>
 
-                <div className="shrink-0 h-7 bg-[#050505] border-t border-neutral-800 flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
+                <div className="shrink-0 h-7 bg-[#050505] border-t border-[#1A1A1A] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
                     <span>
                         {filteredLogs.length} / {totalPayloads || "—"} results
                         {severityFilter !== "ALL" && <span className="text-neutral-500 ml-1">(filtered: {severityFilter})</span>}

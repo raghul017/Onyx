@@ -3,8 +3,8 @@
 // =============================================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Building2, Users, Copy, Check, Trash2, ArrowLeft, Plus, Loader2, Shield } from "lucide-react";
+import { Building2, Users, Copy, Check, Trash2, Plus, Loader2 } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import {
     getCurrentUser,
     getOrgMembers,
@@ -26,7 +26,6 @@ import { useOrgStore } from "@/store/useOrgStore";
 type Tab = "org" | "members";
 
 export default function Settings() {
-    const navigate = useNavigate();
     const { activeOrg, setActiveOrg, clearOrg } = useOrgStore();
 
     const [user, setUser] = useState<CurrentUser | null>(null);
@@ -147,20 +146,33 @@ export default function Settings() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white font-['Inter']">
-            <div className="w-[90%] max-w-3xl mx-auto py-10">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-8">
-                    <button onClick={() => navigate("/dashboard")} className="text-neutral-600 hover:text-white transition-colors">
-                        <ArrowLeft size={16} />
-                    </button>
-                    <Shield size={16} className="text-cyan-400" />
-                    <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-                </div>
+        <div className="relative min-h-screen bg-black text-white font-['Inter'] overflow-x-hidden">
+            {/* Subtle gradient accent — matches landing/dashboard */}
+            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
+
+            <div className="relative z-10 flex flex-col min-h-screen">
+                <AppHeader user={user} />
+
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
+                    <div className="max-w-3xl mx-auto">
+                        {/* Page title */}
+                        <h1
+                            className="text-white mb-8"
+                            style={{
+                                fontFamily: '"Satoshi Variable", sans-serif',
+                                fontWeight: 400,
+                                fontSize: "clamp(1.75rem,4vw,2.5rem)",
+                                lineHeight: 1.1,
+                                letterSpacing: "-0.03em",
+                            }}
+                        >
+                            Settings
+                        </h1>
 
                 {/* No org — create one */}
                 {!activeOrg && (
-                    <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-6">
+                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Building2 size={14} className="text-cyan-400" />
                             <h2 className="text-sm font-semibold">Create an Organization</h2>
@@ -174,7 +186,7 @@ export default function Settings() {
                                 value={orgName}
                                 onChange={(e) => setOrgName(e.target.value)}
                                 placeholder="Acme Corp"
-                                className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 text-[13px] px-3 py-2 rounded-sm outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700"
+                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[13px] px-3 py-2 rounded-sm outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700"
                             />
                             <button
                                 type="submit"
@@ -189,14 +201,14 @@ export default function Settings() {
 
                         {/* Existing orgs they can switch to */}
                         {user && user.orgs.length > 0 && (
-                            <div className="mt-6 border-t border-neutral-800 pt-5">
+                            <div className="mt-6 border-t border-[#1A1A1A] pt-5">
                                 <p className="text-neutral-500 text-[12px] mb-3 uppercase tracking-wider">Your organizations</p>
                                 <div className="space-y-2">
                                     {user.orgs.map((org) => (
                                         <button
                                             key={org.id}
                                             onClick={() => setActiveOrg(org)}
-                                            className="w-full flex items-center gap-3 px-3 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-sm text-left transition-colors"
+                                            className="w-full flex items-center gap-3 px-3 py-2 bg-[#111] hover:bg-[#1A1A1A] rounded-sm text-left transition-colors"
                                         >
                                             <Building2 size={12} className="text-neutral-500" />
                                             <span className="text-[13px] text-neutral-300 flex-1">{org.name}</span>
@@ -217,7 +229,7 @@ export default function Settings() {
                             <div className="flex items-center gap-2">
                                 <Building2 size={14} className="text-cyan-400" />
                                 <h2 className="text-sm font-semibold">{activeOrg.name}</h2>
-                                <span className="text-[10px] text-neutral-600 font-['JetBrains_Mono'] border border-neutral-800 px-1.5 py-0.5 rounded-sm">{activeOrg.plan}</span>
+                                <span className="text-[10px] text-neutral-600 font-['JetBrains_Mono'] border border-[#1A1A1A] px-1.5 py-0.5 rounded-sm">{activeOrg.plan}</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-neutral-500 font-['JetBrains_Mono']">
                                 Your role: <span className="text-cyan-400 font-bold">{myRole}</span>
@@ -225,7 +237,7 @@ export default function Settings() {
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex border-b border-neutral-800 mb-6 text-[12px]">
+                        <div className="flex border-b border-[#1A1A1A] mb-6 text-[12px]">
                             {(["org", "members"] as Tab[]).map((t) => (
                                 <button
                                     key={t}
@@ -240,21 +252,21 @@ export default function Settings() {
                         {/* Tab: Organization */}
                         {tab === "org" && (
                             <div className="space-y-6">
-                                <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-5">
+                                <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
                                     <p className="text-[12px] text-neutral-500 mb-1 uppercase tracking-wider">Slug</p>
                                     <p className="text-neutral-300 font-['JetBrains_Mono'] text-[13px]">{activeOrg.slug}</p>
                                 </div>
 
                                 {/* Switch org */}
                                 {user && user.orgs.length > 1 && (
-                                    <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-5">
+                                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
                                         <p className="text-[12px] text-neutral-500 mb-3 uppercase tracking-wider">Switch Organization</p>
                                         <div className="space-y-2">
                                             {user.orgs.filter(o => o.id !== activeOrg.id).map((org) => (
                                                 <button
                                                     key={org.id}
                                                     onClick={() => setActiveOrg(org)}
-                                                    className="w-full flex items-center gap-3 px-3 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-sm text-left transition-colors"
+                                                    className="w-full flex items-center gap-3 px-3 py-2 bg-[#111] hover:bg-[#1A1A1A] rounded-sm text-left transition-colors"
                                                 >
                                                     <Building2 size={12} className="text-neutral-500" />
                                                     <span className="text-[13px] text-neutral-300 flex-1">{org.name}</span>
@@ -283,19 +295,19 @@ export default function Settings() {
                         {tab === "members" && (
                             <div className="space-y-6">
                                 {/* Members table */}
-                                <div className="border border-neutral-800 rounded-sm overflow-hidden">
-                                    <div className="grid grid-cols-[1fr_100px_80px] text-[11px] text-neutral-600 uppercase tracking-wider px-4 py-2 bg-[#0A0A0A] border-b border-neutral-800">
+                                <div className="border border-[#1A1A1A] rounded-sm overflow-hidden">
+                                    <div className="grid grid-cols-[1fr_100px_80px] text-[11px] text-neutral-600 uppercase tracking-wider px-4 py-2 bg-[#0A0A0A] border-b border-[#1A1A1A]">
                                         <span>Email</span><span>Role</span><span />
                                     </div>
                                     {members.map((m) => (
-                                        <div key={m.id} className="grid grid-cols-[1fr_100px_80px] items-center px-4 py-3 border-b border-neutral-900 last:border-0 hover:bg-neutral-900/40">
+                                        <div key={m.id} className="grid grid-cols-[1fr_100px_80px] items-center px-4 py-3 border-b border-neutral-900 last:border-0 hover:bg-[#111]/40">
                                             <span className="text-[13px] text-neutral-300 truncate">{m.email}</span>
                                             <span>
                                                 {isOwner && m.userId !== user?.id ? (
                                                     <select
                                                         value={m.role}
                                                         onChange={(e) => handleRoleChange(m.userId, e.target.value as OrgRole)}
-                                                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-[11px] px-1 py-0.5 rounded-sm outline-none"
+                                                        className="bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[11px] px-1 py-0.5 rounded-sm outline-none"
                                                     >
                                                         <option value="OWNER">OWNER</option>
                                                         <option value="ADMIN">ADMIN</option>
@@ -321,7 +333,7 @@ export default function Settings() {
 
                                 {/* Invite form */}
                                 {isAdmin && (
-                                    <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-5">
+                                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
                                         <div className="flex items-center gap-2 mb-4">
                                             <Users size={13} className="text-cyan-400" />
                                             <h3 className="text-[13px] font-semibold">Invite Member</h3>
@@ -332,12 +344,12 @@ export default function Settings() {
                                                 value={inviteEmail}
                                                 onChange={(e) => setInviteEmail(e.target.value)}
                                                 placeholder="colleague@company.com"
-                                                className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 text-[12px] px-3 py-1.5 rounded-sm outline-none focus:border-neutral-600 placeholder:text-neutral-700"
+                                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[12px] px-3 py-1.5 rounded-sm outline-none focus:border-neutral-600 placeholder:text-neutral-700"
                                             />
                                             <select
                                                 value={inviteRole}
                                                 onChange={(e) => setInviteRole(e.target.value as OrgRole)}
-                                                className="bg-[#111] border border-neutral-800 text-neutral-300 text-[12px] px-2 py-1.5 rounded-sm outline-none"
+                                                className="bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[12px] px-2 py-1.5 rounded-sm outline-none"
                                             >
                                                 <option value="VIEWER">VIEWER</option>
                                                 <option value="ADMIN">ADMIN</option>
@@ -369,7 +381,7 @@ export default function Settings() {
                                                 <p className="text-[11px] text-neutral-600 uppercase tracking-wider mb-2">Pending Invites</p>
                                                 <div className="space-y-1">
                                                     {invites.filter(i => !i.acceptedAt).map((inv) => (
-                                                        <div key={inv.id} className="flex items-center gap-2 px-3 py-2 bg-neutral-900 rounded-sm text-[12px]">
+                                                        <div key={inv.id} className="flex items-center gap-2 px-3 py-2 bg-[#111] rounded-sm text-[12px]">
                                                             <span className="flex-1 text-neutral-400 truncate">{inv.email}</span>
                                                             <span className="text-neutral-600 text-[10px] uppercase">{inv.role}</span>
                                                             <button onClick={() => handleRevokeInvite(inv.id)} className="text-neutral-600 hover:text-red-400 transition-colors">
@@ -386,6 +398,8 @@ export default function Settings() {
                         )}
                     </>
                 )}
+                    </div>
+                </main>
             </div>
         </div>
     );
