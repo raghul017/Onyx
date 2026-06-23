@@ -34,11 +34,23 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Auto-logout on 401 or 403
+// Auto-logout ONLY when the session itself is invalid.
+// Important: a 403 can be a normal business rule (e.g. DOMAIN_NOT_VERIFIED, or an
+// org-permission denial) — those must NOT log the user out. We only treat a 403 as
+// an auth failure when the backend explicitly says the token is bad.
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401 || error.response?.status === 403) {
+        const status = error.response?.status;
+        const errCode = error.response?.data?.error;
+
+        const isSessionInvalid =
+            status === 401 ||
+            (status === 403 &&
+                (errCode === "Invalid or expired token" ||
+                    errCode === "Authentication required"));
+
+        if (isSessionInvalid) {
             useAuthStore.getState().logout();
 
             // Only force a reload if we are not already on the auth pages
