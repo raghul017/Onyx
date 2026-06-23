@@ -229,25 +229,16 @@ const Dashboard = () => {
     // =======================================================================
     return (
         <div className="relative h-screen bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
-            {/* Slanted Background Lines from Landing Page */}
-            <div
-                className="fixed inset-0 pointer-events-none z-0"
-                style={{
-                    backgroundImage:
-                        "repeating-linear-gradient(45deg, #111 0, #111 1px, transparent 1px, transparent 16px)",
-                    WebkitMaskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 80%)",
-                    maskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 80%)",
-                }}
-            />
+            {/* Subtle gradient accent — ties the dashboard to the landing theme */}
+            <div className="fixed inset-x-0 top-0 h-64 pointer-events-none z-0 c5-animated-gradient opacity-[0.07] blur-3xl" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
 
             {/* Master Content Grid container */}
-            <div className="w-[90%] max-w-6xl mx-auto h-screen flex flex-col border-x border-[#2A2A2A] relative bg-black z-10 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+            <div className="w-[92%] max-w-[1280px] mx-auto h-screen flex flex-col border-x border-[#1A1A1A] relative bg-black/95 z-10 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
                 {/* ============================================================= */}
                 {/* 1. Control Header                                             */}
                 {/* ============================================================= */}
-                <header className="shrink-0 border-b border-neutral-800 bg-[#0A0A0A]">
+                <header className="shrink-0 border-b border-[#1A1A1A] bg-[#0A0A0A]/80 backdrop-blur-sm">
                     {/* Top row — Logo, Status */}
                     <div className="h-14 flex items-center justify-between px-4 sm:px-6 gap-3">
                         <div className="flex items-center gap-3 shrink-0">
@@ -258,7 +249,7 @@ const Dashboard = () => {
                             >
                                 <ArrowLeft size={16} />
                             </button>
-                            <div className="w-px h-5 bg-neutral-800" />
+                            <div className="w-px h-5 bg-[#1A1A1A]" />
                             <div className="flex items-center gap-2">
                                 <Shield size={16} className="text-white" />
                                 <span className="text-white text-sm font-semibold tracking-tight">
@@ -270,7 +261,7 @@ const Dashboard = () => {
                                     </div>
                                 )}
                             </div>
-                            <div className="w-px h-4 bg-neutral-800 mx-1 hidden sm:block" />
+                            <div className="w-px h-4 bg-[#1A1A1A] mx-1 hidden sm:block" />
                             <div className="hidden sm:flex items-center gap-4">
                                 <button
                                     onClick={() => navigate("/dashboard")}
@@ -304,7 +295,7 @@ const Dashboard = () => {
                                 value={inputUrl}
                                 onChange={(e) => setInputUrl(e.target.value)}
                                 placeholder="https://petstore.swagger.io/v2/swagger.json"
-                                className="flex-1 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
+                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-4 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-full"
                                 disabled={launching}
                             />
                             {inputUrl.trim() && !domainVerified && (
@@ -321,7 +312,7 @@ const Dashboard = () => {
                                     !domainVerified ||
                                     status === "attacking"
                                 }
-                                className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                                className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-full hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
                             >
                                 <Play size={11} />
                                 {launching ? "Launching..." : "Execute Run"}
@@ -330,7 +321,7 @@ const Dashboard = () => {
                                 type="button"
                                 onClick={handleStopAttack}
                                 disabled={!activeTestRunId || aborting || status === "completed"}
-                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-full hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
                             >
                                 <Square size={10} />
                                 {aborting ? "Stopping..." : "Stop Attack"}
@@ -359,7 +350,7 @@ const Dashboard = () => {
                                 <CreditCard size={14} />
                                 Billing
                             </button>
-                            <div className="w-px h-4 bg-neutral-800 hidden sm:block" />
+                            <div className="w-px h-4 bg-[#1A1A1A] hidden sm:block" />
                             {/* Status Badge */}
                             <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider">
                                 <span
@@ -398,7 +389,7 @@ const Dashboard = () => {
                                 value={inputUrl}
                                 onChange={(e) => setInputUrl(e.target.value)}
                                 placeholder="Swagger URL..."
-                                className="flex-1 min-w-0 bg-[#111] border border-neutral-800 text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-3 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-sm"
+                                className="flex-1 min-w-0 bg-[#111] border border-[#1A1A1A] text-neutral-300 font-['JetBrains_Mono'] text-[12px] px-4 py-1.5 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-full"
                                 disabled={launching}
                             />
                             <button
@@ -409,7 +400,7 @@ const Dashboard = () => {
                                     !domainVerified ||
                                     status === "attacking"
                                 }
-                                className="shrink-0 bg-white text-black text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
+                                className="shrink-0 bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-full hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
                             >
                                 <Play size={11} />
                                 Run
@@ -418,7 +409,7 @@ const Dashboard = () => {
                                 type="button"
                                 onClick={handleStopAttack}
                                 disabled={!activeTestRunId || aborting || status === "completed"}
-                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
+                                className="shrink-0 bg-red-600 text-white text-[12px] font-bold px-4 py-1.5 rounded-full hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-['Inter']"
                             >
                                 <Square size={10} />
                                 Stop
@@ -438,7 +429,7 @@ const Dashboard = () => {
                 {/* ============================================================= */}
                 {/* 2. Telemetry Row — 4 metric cards                             */}
                 {/* ============================================================= */}
-                <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-800 border-b border-neutral-800">
+                <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#1A1A1A] border-b border-[#1A1A1A]">
                     {/* Card 1: Total Payloads (with progress bar) */}
                     <div className="bg-[#0A0A0A] p-4 sm:p-5 flex flex-col min-h-[96px] relative overflow-hidden">
                         <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
@@ -555,7 +546,7 @@ const Dashboard = () => {
                 {/* ============================================================= */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Column Headers — desktop only */}
-                    <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
                         <span>Time</span>
                         <span>Method</span>
                         <span>Endpoint</span>
@@ -566,7 +557,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Mobile header */}
-                    <div className="shrink-0 md:hidden px-4 py-2.5 bg-[#050505] border-b border-neutral-800 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    <div className="shrink-0 md:hidden px-4 py-2.5 bg-[#050505] border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
                         Live Attack Stream
                     </div>
 
@@ -627,7 +618,7 @@ const Dashboard = () => {
                                     className={`${getRowClass(log.statusCode)} ${index === 0 ? "onyx-row-enter" : ""}`}
                                 >
                                     {/* Desktop row — 7-column grid */}
-                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
                                         <span className="text-neutral-600 text-[11px] tabular-nums">
                                             {formatTime(log.timestamp)}
                                         </span>
@@ -662,7 +653,7 @@ const Dashboard = () => {
                                     </div>
 
                                     {/* Mobile card — stacked layout */}
-                                    <div className="md:hidden px-4 py-3 border-b border-neutral-800/40 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                    <div className="md:hidden px-4 py-3 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span
@@ -706,7 +697,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Bottom status bar */}
-                    <div className="shrink-0 h-7 bg-[#050505] border-t border-neutral-800 flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
+                    <div className="shrink-0 h-7 bg-[#050505] border-t border-[#1A1A1A] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
                         <span>
                             {completedCount} / {totalPayloads || "—"} results
                             {criticalCount > 0 && (
