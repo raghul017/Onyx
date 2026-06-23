@@ -4,14 +4,16 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/Navbar";
+import AppHeader from "@/components/AppHeader";
 import ColdStartBanner from "@/components/ColdStartBanner";
 import { ArrowRight, Trash2 } from "lucide-react";
 import {
     getAllTestRuns,
     deleteTestRun,
+    getCurrentUser,
     type GetAllTestRunsResponse,
     type ScoreLabel,
+    type CurrentUser,
 } from "@/services/api";
 
 function scoreChip(score: number, label: ScoreLabel) {
@@ -21,7 +23,7 @@ function scoreChip(score: number, label: ScoreLabel) {
         score <= 75 ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" :
                       "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
     return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-sm text-[11px] font-bold font-['JetBrains_Mono'] ${color}`}>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] font-bold font-['JetBrains_Mono'] ${color}`}>
             {score}/100
             <span className="text-[9px] font-normal opacity-70">{label}</span>
         </span>
@@ -35,6 +37,11 @@ const History = () => {
     >([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [user, setUser] = useState<CurrentUser | null>(null);
+
+    useEffect(() => {
+        getCurrentUser().then(setUser).catch(() => {});
+    }, []);
 
     const fetchHistory = async () => {
         try {
@@ -81,39 +88,29 @@ const History = () => {
     };
 
     return (
-        <div className="relative min-h-screen bg-black text-white font-['Inter'] selection:bg-cyan-500/20">
-            {/* The Slanted Fading Background Layer from Landing Page aesthetics */}
-            <div
-                className="fixed inset-0 pointer-events-none z-0"
-                style={{
-                    backgroundImage:
-                        "repeating-linear-gradient(45deg, #111 0, #111 1px, transparent 1px, transparent 16px)",
-                    WebkitMaskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 80%)",
-                    maskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 80%)",
-                }}
-            />
+        <div className="relative min-h-screen bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
+            {/* Subtle gradient accent — matches landing/dashboard */}
+            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
 
-            <Navbar />
-            <ColdStartBanner />
+            <div className="relative z-10 flex flex-col min-h-screen">
+                <AppHeader user={user} />
+                <ColdStartBanner />
 
-            {/* Component Structure Master Grid container */}
-            <div className="w-[90%] max-w-6xl mx-auto min-h-screen border-x border-[#2A2A2A] relative bg-black z-10 pt-32 pb-24">
-                <div className="px-8 sm:px-12 w-full mx-auto flex flex-col items-start text-left">
-                    {/* 1. Page Header */}
-                    <h1 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-3xl leading-tight text-white mb-2 tracking-tight">
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
+                    {/* Page Header */}
+                    <h1 className="text-3xl font-medium leading-tight text-white mb-2 tracking-tight">
                         Execution History
                     </h1>
-                    <p className="text-neutral-500 text-sm mb-12">
+                    <p className="text-white/50 text-sm mb-8">
                         Review past vulnerability scans and access historical
                         payload data.
                     </p>
 
-                    {/* 2. The Audit Log Table */}
-                    <div className="w-full bg-[#0A0A0A] border border-neutral-800 rounded-md overflow-hidden flex flex-col">
+                    {/* Audit Log Table */}
+                    <div className="w-full bg-[#0A0A0A] border border-[#1A1A1A] rounded-2xl overflow-hidden flex flex-col">
                         {/* Table Headers — desktop only */}
-                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] gap-4 px-6 py-4 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
+                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] gap-4 px-6 py-4 border-b border-[#1A1A1A] text-xs text-white/40 uppercase tracking-wider">
                             <span>Date</span>
                             <span>Target API</span>
                             <span>Total Payloads</span>
@@ -124,7 +121,7 @@ const History = () => {
                         </div>
 
                         {/* Mobile header */}
-                        <div className="md:hidden px-4 py-3 border-b border-neutral-800 text-xs text-neutral-500 uppercase tracking-wider">
+                        <div className="md:hidden px-4 py-3 border-b border-[#1A1A1A] text-xs text-white/40 uppercase tracking-wider">
                             Execution History
                         </div>
 
@@ -146,7 +143,7 @@ const History = () => {
                                 testRuns.map((row) => (
                                     <div key={row.id}>
                                         {/* Desktop row */}
-                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] items-center gap-4 px-6 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group">
+                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] items-center gap-4 px-6 py-4 border-b border-[#1A1A1A] last:border-b-0 hover:bg-white/5 transition-colors cursor-pointer group">
                                             <span className="text-sm text-neutral-400 truncate pr-2">
                                                 {formatDate(row.createdAt)}
                                             </span>
@@ -216,7 +213,7 @@ const History = () => {
                                         </div>
 
                                         {/* Mobile card */}
-                                        <div className="md:hidden px-4 py-4 border-b border-neutral-800/50 last:border-b-0 hover:bg-white/5 transition-colors space-y-2">
+                                        <div className="md:hidden px-4 py-4 border-b border-[#1A1A1A] last:border-b-0 hover:bg-white/5 transition-colors space-y-2">
                                             <div className="flex items-start justify-between gap-2">
                                                 <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate flex-1 min-w-0">
                                                     {row.specUrl}
@@ -283,7 +280,7 @@ const History = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </main>
             </div>
         </div>
     );

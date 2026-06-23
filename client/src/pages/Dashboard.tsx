@@ -4,10 +4,9 @@
 // =============================================================================
 
 import { useState, useEffect, useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-    ArrowLeft,
     Crosshair,
     AlertTriangle,
     ShieldAlert,
@@ -15,13 +14,12 @@ import {
     Terminal,
     Play,
     Square,
-    CreditCard,
 } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
 import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, CurrentUser } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
-import OrgSwitcher from "@/components/OrgSwitcher";
+import AppHeader from "@/components/AppHeader";
 
 // =============================================================================
 // Component
@@ -29,7 +27,6 @@ import OrgSwitcher from "@/components/OrgSwitcher";
 
 const Dashboard = () => {
     const location = useLocation();
-    const navigate = useNavigate();
 
     // The URL may come from the landing page via router state,
     // or from sessionStorage when the user was redirected through sign-up/sign-in
@@ -232,72 +229,7 @@ const Dashboard = () => {
             <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
 
             <div className="relative z-10 flex flex-col min-h-screen">
-                {/* ============================================================= */}
-                {/* 1. Top Navigation Bar                                          */}
-                {/* ============================================================= */}
-                <header className="sticky top-0 z-30 border-b border-[#1A1A1A] bg-black/70 backdrop-blur-md">
-                    <div className="w-full px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
-                        {/* Left — back + brand + nav */}
-                        <div className="flex items-center gap-5 shrink-0">
-                            <button
-                                onClick={() => navigate("/")}
-                                className="text-neutral-500 hover:text-white transition-colors"
-                                aria-label="Back to landing"
-                            >
-                                <ArrowLeft size={18} />
-                            </button>
-                            <div
-                                className="flex items-center gap-2 cursor-pointer"
-                                onClick={() => navigate("/")}
-                            >
-                                <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
-                                    Onyx
-                                </span>
-                                {user && user.plan !== "FREE" && (
-                                    <span className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400 translate-y-[2px]">
-                                        {user.plan}
-                                    </span>
-                                )}
-                            </div>
-                            <nav className="hidden md:flex items-center gap-6 ml-2">
-                                <button
-                                    onClick={() => navigate("/dashboard")}
-                                    className="text-white text-[14px] font-medium"
-                                >
-                                    Dashboard
-                                </button>
-                                <button
-                                    onClick={() => navigate("/history")}
-                                    className="text-white/70 hover:text-white text-[14px] font-medium transition-colors"
-                                >
-                                    History
-                                </button>
-                            </nav>
-                        </div>
-
-                        {/* Right — org switcher, settings, billing */}
-                        <div className="flex items-center gap-6 shrink-0">
-                            {user && (
-                                <div className="hidden sm:block">
-                                    <OrgSwitcher orgs={user.orgs ?? []} />
-                                </div>
-                            )}
-                            <button
-                                onClick={() => navigate("/settings")}
-                                className="hidden sm:block text-white/70 hover:text-white text-[14px] font-medium transition-colors"
-                            >
-                                Settings
-                            </button>
-                            <button
-                                onClick={() => navigate("/billing")}
-                                className="hidden sm:flex items-center gap-1.5 text-white/70 hover:text-white text-[14px] font-medium transition-colors"
-                            >
-                                <CreditCard size={14} />
-                                Billing
-                            </button>
-                        </div>
-                    </div>
-                </header>
+                <AppHeader user={user} />
 
                 <ColdStartBanner />
 

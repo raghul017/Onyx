@@ -3,14 +3,7 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-    Shield,
-    ArrowLeft,
-    Check,
-    Loader2,
-    CreditCard,
-} from "lucide-react";
+import { Check, Loader2, CreditCard } from "lucide-react";
 import {
     getCurrentUser,
     subscribeToPlan,
@@ -19,6 +12,7 @@ import {
     type Plan,
     type CurrentUser,
 } from "@/services/api";
+import AppHeader from "@/components/AppHeader";
 
 // ---------------------------------------------------------------------------
 // Plan definitions
@@ -105,7 +99,6 @@ const loadRazorpayScript = () => {
 };
 
 const Billing = () => {
-    const navigate = useNavigate();
     const [user, setUser] = useState<CurrentUser | null>(null);
     const [loadingUser, setLoadingUser] = useState(true);
     const [subscribingTo, setSubscribingTo] = useState<Plan | null>(null);
@@ -237,7 +230,7 @@ const Billing = () => {
 
         if (isCurrentPlan) {
             return (
-                <div className="w-full text-center py-2 text-[12px] font-['JetBrains_Mono'] text-cyan-400 border border-cyan-500/30 rounded-sm">
+                <div className="w-full text-center py-2.5 text-[12px] font-['JetBrains_Mono'] text-cyan-400 border border-cyan-500/30 rounded-full">
                     Current Plan
                 </div>
             );
@@ -245,7 +238,7 @@ const Billing = () => {
 
         if (plan.key === "FREE") {
             return (
-                <div className="w-full text-center py-2 text-[12px] font-['JetBrains_Mono'] text-neutral-600 border border-neutral-800 rounded-sm">
+                <div className="w-full text-center py-2.5 text-[12px] font-['JetBrains_Mono'] text-neutral-600 border border-[#1A1A1A] rounded-full">
                     Downgrade via Cancel
                 </div>
             );
@@ -255,7 +248,7 @@ const Billing = () => {
             <button
                 onClick={() => handleUpgrade(plan)}
                 disabled={isLoading || !!subscribingTo}
-                className="w-full flex items-center justify-center gap-2 py-2 text-[12px] font-bold font-['Inter'] bg-white text-black rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-bold font-['Inter'] bg-white text-black rounded-full hover:bg-neutral-200 transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
                 {isLoading ? (
                     <>
@@ -278,123 +271,84 @@ const Billing = () => {
 
     return (
         <div className="relative min-h-screen bg-black text-white font-['Inter'] overflow-x-hidden">
-            {/* Background lines */}
-            <div
-                className="fixed inset-0 pointer-events-none z-0"
-                style={{
-                    backgroundImage:
-                        "repeating-linear-gradient(45deg, #111 0, #111 1px, transparent 1px, transparent 16px)",
-                    WebkitMaskImage: "linear-gradient(to bottom, black 10%, transparent 80%)",
-                    maskImage: "linear-gradient(to bottom, black 10%, transparent 80%)",
-                }}
-            />
+            {/* Subtle gradient accent — matches landing/dashboard */}
+            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
 
-            <div className="w-[90%] max-w-5xl mx-auto min-h-screen flex flex-col border-x border-[#2A2A2A] relative bg-black z-10 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
-                {/* Header */}
-                <header className="shrink-0 border-b border-neutral-800 bg-[#0A0A0A]">
-                    <div className="h-14 flex items-center justify-between px-4 sm:px-6 gap-3">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => navigate("/dashboard")}
-                                className="text-neutral-600 hover:text-white transition-colors p-1"
-                                aria-label="Back to dashboard"
-                            >
-                                <ArrowLeft size={16} />
-                            </button>
-                            <div className="w-px h-5 bg-neutral-800" />
-                            <div className="flex items-center gap-2">
-                                <Shield size={16} className="text-white" />
-                                <span className="text-white text-sm font-semibold tracking-tight">Onyx</span>
-                            </div>
-                            <div className="w-px h-4 bg-neutral-800 mx-1 hidden sm:block" />
-                            <div className="hidden sm:flex items-center gap-4">
-                                <button
-                                    onClick={() => navigate("/dashboard")}
-                                    className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
-                                >
-                                    Dashboard
-                                </button>
-                                <button
-                                    onClick={() => navigate("/history")}
-                                    className="text-neutral-500 hover:text-white text-[13px] font-medium transition-colors"
-                                >
-                                    History
-                                </button>
-                                <span className="text-white text-[13px] font-medium">Billing</span>
-                            </div>
-                        </div>
-
-                        {user && (
-                            <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] text-neutral-500">
-                                <span className="uppercase tracking-wider">Plan:</span>
-                                <span className={`font-bold ${user.plan === "FREE" ? "text-neutral-400" : "text-cyan-400"}`}>
-                                    {user.plan}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                </header>
+            <div className="relative z-10 flex flex-col min-h-screen">
+                <AppHeader user={user} />
 
                 {/* Body */}
-                <div className="flex-1 px-4 sm:px-8 py-10">
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-semibold tracking-tight">Subscription</h1>
-                        <p className="text-neutral-500 text-sm mt-1">
-                            Choose the plan that fits your security testing needs.
-                        </p>
-                    </div>
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
+                    <div className="max-w-[1100px] mx-auto">
+                        <div className="mb-8">
+                            <h1 className="text-3xl font-medium tracking-tight">Subscription</h1>
+                            <p className="text-white/50 text-sm mt-2">
+                                Choose the plan that fits your security testing needs.
+                            </p>
+                        </div>
 
-                    <>
                         {/* Pricing cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                             {PLANS.map((plan) => {
-                                    const isActive = (user?.plan ?? "FREE") === plan.key;
-                                    return (
+                                const isActive = (user?.plan ?? "FREE") === plan.key;
+                                return (
+                                    <div
+                                        key={plan.key}
+                                        className={`relative flex flex-col p-6 rounded-2xl transition-colors ${
+                                            isActive
+                                                ? "border border-cyan-500/50 bg-cyan-500/[0.04]"
+                                                : plan.highlight
+                                                  ? "c5-animated-gradient shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
+                                                  : "border border-[#1A1A1A] bg-[#0A0A0A]"
+                                        }`}
+                                    >
+                                        {/* Popular badge */}
+                                        {plan.highlight && !isActive && (
+                                            <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
+                                                <span className="bg-white text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5 rounded-b-md">
+                                                    Most Popular
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Active badge */}
+                                        {isActive && (
+                                            <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
+                                                <span className="bg-cyan-500 text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5 rounded-b-md">
+                                                    Active
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Inner panel for highlighted card so text stays legible over gradient */}
                                         <div
-                                            key={plan.key}
-                                            className={`relative flex flex-col p-6 border rounded-sm transition-colors ${
-                                                isActive
-                                                    ? "border-cyan-500/50 bg-cyan-500/[0.04]"
-                                                    : plan.highlight
-                                                      ? "border-neutral-600 bg-[#0D0D0D]"
-                                                      : "border-neutral-800 bg-[#0A0A0A]"
+                                            className={`flex flex-col flex-1 ${
+                                                plan.highlight && !isActive
+                                                    ? "bg-black/40 backdrop-blur-[2px] -m-6 p-6 rounded-2xl"
+                                                    : ""
                                             }`}
                                         >
-                                            {/* Popular badge */}
-                                            {plan.highlight && !isActive && (
-                                                <div className="absolute -top-px left-1/2 -translate-x-1/2">
-                                                    <span className="bg-white text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
-                                                        Most Popular
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* Active badge */}
-                                            {isActive && (
-                                                <div className="absolute -top-px left-1/2 -translate-x-1/2">
-                                                    <span className="bg-cyan-500 text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5">
-                                                        Active
-                                                    </span>
-                                                </div>
-                                            )}
-
                                             <div className="mb-4">
-                                                <p className="text-neutral-400 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest mb-2">
+                                                <p className="text-white/60 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest mb-2">
                                                     {plan.name}
                                                 </p>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-3xl font-semibold tabular-nums">{plan.price}</span>
-                                                    <span className="text-neutral-500 text-sm">{plan.period}</span>
+                                                    <span className="text-white/50 text-sm">{plan.period}</span>
                                                 </div>
                                                 {plan.inrNote && (
-                                                    <span className="text-xs text-gray-500 mt-0.5">{plan.inrNote}</span>
+                                                    <span className="text-xs text-white/40 mt-0.5 block">{plan.inrNote}</span>
                                                 )}
                                             </div>
 
                                             <ul className="flex-1 space-y-2.5 mb-6">
                                                 {plan.features.map((f) => (
-                                                    <li key={f} className="flex items-start gap-2 text-[13px] text-neutral-300">
-                                                        <Check size={13} className="text-cyan-500 shrink-0 mt-0.5" />
+                                                    <li key={f} className="flex items-start gap-2 text-[13px] text-white/80">
+                                                        <Check
+                                                            size={13}
+                                                            className={`shrink-0 mt-0.5 ${plan.highlight && !isActive ? "text-white" : "text-cyan-500"}`}
+                                                        />
                                                         {f}
                                                     </li>
                                                 ))}
@@ -402,37 +356,38 @@ const Billing = () => {
 
                                             {renderButton(plan)}
                                         </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Cancel subscription */}
-                            {user && (user.plan === "PRO" || user.plan === "TEAM") && (
-                                <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-sm font-medium">Cancel subscription</p>
-                                        <p className="text-neutral-500 text-[12px] mt-0.5">
-                                            You'll be immediately downgraded to the Free plan.
-                                        </p>
                                     </div>
-                                    <button
-                                        onClick={handleCancel}
-                                        disabled={cancelling}
-                                        className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold font-['Inter'] border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors rounded-sm disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                                    >
-                                        {cancelling ? (
-                                            <>
-                                                <Loader2 size={12} className="animate-spin" />
-                                                Cancelling...
-                                            </>
-                                        ) : (
-                                            "Cancel subscription"
-                                        )}
-                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Cancel subscription */}
+                        {user && (user.plan === "PRO" || user.plan === "TEAM") && (
+                            <div className="mt-10 pt-8 border-t border-[#1A1A1A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-medium">Cancel subscription</p>
+                                    <p className="text-white/50 text-[12px] mt-0.5">
+                                        You'll be immediately downgraded to the Free plan.
+                                    </p>
                                 </div>
-                            )}
-                    </>
-                </div>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={cancelling}
+                                    className="flex items-center gap-2 px-5 py-2.5 text-[12px] font-bold font-['Inter'] border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors rounded-full disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                >
+                                    {cancelling ? (
+                                        <>
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Cancelling...
+                                        </>
+                                    ) : (
+                                        "Cancel subscription"
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </main>
             </div>
         </div>
     );
