@@ -25,3 +25,6 @@ dist-ssr
 *.sw?
 .env
 .env.local
+
+# Personal project explainer — keep local only
+EXPLAIN.md
