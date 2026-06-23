@@ -15,7 +15,12 @@ interface ServerStatusState {
     warmUpServer: () => void;
 }
 
-const HEALTH_URL = `${(import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "")}/api/health`;
+// Normalize the configured API URL to a bare origin, then build the health URL.
+// Handles VITE_API_URL set with or without a trailing "/api" (or trailing slash),
+// so the health ping never accidentally becomes ".../api/api/health".
+const RAW_API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_ORIGIN = RAW_API_URL.replace(/\/$/, "").replace(/\/api$/, "");
+const HEALTH_URL = `${API_ORIGIN}/api/health`;
 const MAX_WAIT_SECONDS = 90; // give up after 90s
 const RETRY_INTERVAL_MS = 3_000; // retry every 3s
 

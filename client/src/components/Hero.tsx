@@ -40,7 +40,7 @@ const Hero = () => {
             {/* Bottom-anchored hero content */}
             <div className="relative z-10 w-full max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 pb-14 sm:pb-16 lg:pb-20">
                 {/* Small label */}
-                <p className="text-[13px] sm:text-[14px] text-white/70 tracking-wide mb-5 sm:mb-8">
+                <p className="text-[13px] sm:text-[14px] text-white/70 tracking-wide mb-6 sm:mb-10">
                     Onyx — API Security Testing
                 </p>
 
@@ -60,13 +60,13 @@ const Hero = () => {
                 </h1>
 
                 {/* Subheadline */}
-                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] text-white/70 mt-5 max-w-xl drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] text-white/70 mt-6 max-w-xl drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
                     Most API vulnerabilities are found by hackers, not developers.
                     Onyx changes that.
                 </p>
 
                 {/* Interactive CTA Group */}
-                <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full max-w-2xl">
+                <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full max-w-2xl">
                     <input
                         type="text"
                         value={urlInput}

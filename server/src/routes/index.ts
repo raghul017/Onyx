@@ -31,6 +31,18 @@ import { generateTestRunPDF } from "../services/pdf.service.js";
 const router = Router();
 
 // ---------------------------------------------------------------------------
+// Health Check — MUST stay public and be registered before any router that
+// applies global auth (e.g. orgRouter calls router.use(authenticateToken)).
+// ---------------------------------------------------------------------------
+router.get("/health", (_req, res) => {
+    res.json({
+        status: "ok",
+        service: "onyx-server",
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// ---------------------------------------------------------------------------
 // Auth Routes
 // ---------------------------------------------------------------------------
 router.use("/auth", authRouter);
@@ -148,18 +160,6 @@ router.get("/user/me", authenticateToken, async (req, res) => {
     res.json({
         ...user,
         orgs: memberships.map((m) => ({ ...m.org, role: m.role })),
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Health Check
-// ---------------------------------------------------------------------------
-
-router.get("/health", (_req, res) => {
-    res.json({
-        status: "ok",
-        service: "onyx-server",
-        timestamp: new Date().toISOString(),
     });
 });
 

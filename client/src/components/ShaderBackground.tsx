@@ -1,20 +1,41 @@
 // =============================================================================
 // ShaderBackground — animated WebGL gradient sphere (ShaderGradient + R3F)
+// Perf: capped pixel density + pauses when scrolled off-screen
 // =============================================================================
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 
 export default function ShaderBackground() {
+    const ref = useRef<HTMLDivElement>(null);
+    // Only animate while the hero is actually visible in the viewport
+    const [visible, setVisible] = useState(true);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+            ([entry]) => setVisible(entry.isIntersecting),
+            { threshold: 0 },
+        );
+        io.observe(el);
+        return () => io.disconnect();
+    }, []);
+
     return (
-        <div className="absolute inset-0 z-0 overflow-hidden">
+        <div ref={ref} className="absolute inset-0 z-0 overflow-hidden">
             <Suspense fallback={<div className="absolute inset-0 bg-black" />}>
                 <ShaderGradientCanvas
                     style={{ width: "100%", height: "100%" }}
                     pointerEvents="none"
+                    // Cap device pixel ratio — biggest GPU win on retina/large screens
+                    pixelDensity={1}
+                    // Lazy-load + pause the render loop when off-screen
+                    lazyLoad
+                    fov={45}
                 >
                     <ShaderGradient
-                        animate="on"
+                        animate={visible ? "on" : "off"}
                         brightness={0.8}
                         cAzimuthAngle={270}
                         cDistance={0.5}
