@@ -3,64 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import FeatureShowcase from "../components/FeatureShowcase";
-import SupportedTech from "../components/SupportedTech";
-import Pipeline from "../components/Pipeline";
+import HowItWorks from "../components/HowItWorks";
+import AboutSection from "../components/AboutSection";
+import FaqCta from "../components/FaqCta";
 import Footer from "../components/Footer";
-
-// ---------------------------------------------------------------------------
-// Social Proof Bar
-// ---------------------------------------------------------------------------
-const SocialProofBar = () => (
-    <div className="w-full border-t border-b border-[#1A1A1A] bg-[#050505] py-3 px-8">
-        <p className="font-['Inter',sans-serif] font-normal text-[13px] text-[#555555] text-center tracking-wide">
-            Used by developers across{" "}
-            <span className="text-[#777777]">10+ countries</span>
-            {" · "}
-            Powered by{" "}
-            <span className="text-[#777777]">Gemini AI</span>
-            {" · "}
-            Built with{" "}
-            <span className="text-[#777777]">Node.js + Redis</span>
-        </p>
-    </div>
-);
-
-// ---------------------------------------------------------------------------
-// Stats Section
-// ---------------------------------------------------------------------------
-const stats = [
-    { value: "500+", label: "API Scans Run" },
-    { value: "10+",  label: "Attack Types" },
-    { value: "Live", label: "Real-time Results" },
-];
-
-const StatsSection = () => (
-    <section className="w-full px-8 pt-16 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stats.map((s) => (
-                <div
-                    key={s.label}
-                    className="bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl p-6 flex flex-col items-center justify-center text-center"
-                >
-                    <span
-                        className="text-white mb-1"
-                        style={{
-                            fontFamily: '"Satoshi Variable", sans-serif',
-                            fontWeight: 400,
-                            fontSize: "40px",
-                            lineHeight: "48px",
-                        }}
-                    >
-                        {s.value}
-                    </span>
-                    <span className="font-['Inter',sans-serif] text-[#A1A1AA] text-[15px]">
-                        {s.label}
-                    </span>
-                </div>
-            ))}
-        </div>
-    </section>
-);
 
 // ---------------------------------------------------------------------------
 // Pricing Section
@@ -118,105 +64,130 @@ const pricingPlans = [
 const PricingSection = () => {
     const navigate = useNavigate();
     return (
-        <section id="pricing" className="w-full pt-24 pb-32 px-8 relative">
-            {/* Section Header — mirrors FeatureShowcase pattern */}
-            <div className="mb-12">
-                <div className="flex items-center gap-6 mb-8">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="uppercase text-xs tracking-widest text-neutral-500 font-['Inter']">
-                        Pricing
-                    </span>
-                    <div className="h-px flex-1 bg-white/10" />
-                </div>
-                <h2
-                    className="max-w-2xl text-white"
-                    style={{
-                        fontFamily: '"Satoshi Variable", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "40px",
-                        lineHeight: "56px",
-                    }}
-                >
-                    Simple, transparent pricing.
-                </h2>
-                <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
-                    Start free. Upgrade when you need more power.
-                </p>
-            </div>
+        <section id="pricing" className="w-full py-16 sm:py-20 lg:py-24 px-5 sm:px-8 lg:px-12 relative overflow-hidden">
+            {/* Subtle hero-matched gradient glow behind the section */}
+            <div className="absolute inset-0 c5-animated-gradient opacity-[0.12] blur-3xl pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black pointer-events-none" />
 
-            {/* Pricing Cards — mirror feature card styling */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {pricingPlans.map((plan) => (
-                    <div
-                        key={plan.name}
-                        className={`relative group bg-[#0A0A0A] border rounded-xl flex flex-col hover:border-[#333] transition-all duration-300 overflow-hidden ${
-                            plan.highlight
-                                ? "border-[#444]"
-                                : "border-[#1A1A1A]"
-                        }`}
+            <div className="max-w-[1280px] mx-auto relative z-10">
+                {/* Section Header — centered */}
+                <div className="mb-12 flex flex-col items-start text-left">
+                    <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                        <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
+                            04
+                        </div>
+                        <span className="text-[12px] sm:text-[13px] font-medium text-white/80 border border-[#2A2A2A] rounded-full px-3 sm:px-4 py-1 sm:py-1.5">
+                            Pricing
+                        </span>
+                    </div>
+                    <h2
+                        className="text-white"
+                        style={{
+                            fontFamily: '"Satoshi Variable", sans-serif',
+                            fontWeight: 400,
+                            fontSize: "40px",
+                            lineHeight: "56px",
+                        }}
                     >
-                        {/* Hover glow — same as feature cards */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        Simple, transparent pricing.
+                    </h2>
+                    <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
+                        Start free. Upgrade when you need more power.
+                    </p>
+                </div>
 
-                        {/* Most Popular badge */}
-                        {plan.highlight && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2">
-                                <span className="bg-white text-black text-[10px] font-bold font-['Inter'] tracking-widest uppercase px-4 py-1 rounded-b-md">
-                                    Most Popular
-                                </span>
-                            </div>
-                        )}
-
-                        <div className="p-6 pt-8 relative z-10 flex flex-col flex-1">
-                            <p className="font-['Inter'] text-[#A1A1AA] text-[12px] uppercase tracking-widest mb-3">
-                                {plan.name}
-                            </p>
-                            <div className="flex items-baseline gap-1">
-                                <span
-                                    className="text-white"
-                                    style={{
-                                        fontFamily: '"Satoshi Variable", sans-serif',
-                                        fontWeight: 400,
-                                        fontSize: "40px",
-                                        lineHeight: "48px",
-                                    }}
-                                >
-                                    {plan.price}
-                                </span>
-                                <span className="font-['Inter'] text-[#A1A1AA] text-[15px]">
-                                    {plan.period}
-                                </span>
-                            </div>
-                            {plan.inrNote && (
-                                <span className="text-xs text-gray-500 mt-1 mb-6">{plan.inrNote}</span>
+                {/* Pricing Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+                    {pricingPlans.map((plan) => (
+                        <div
+                            key={plan.name}
+                            className={`relative group rounded-2xl flex flex-col transition-all duration-300 overflow-hidden ${
+                                plan.highlight
+                                    ? "c5-animated-gradient shadow-[0_10px_30px_rgba(0,0,0,0.4)] md:-my-2"
+                                    : "bg-[#0A0A0A] border border-[#1A1A1A] hover:border-[#333]"
+                            }`}
+                        >
+                            {/* Most Popular badge */}
+                            {plan.highlight && (
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20">
+                                    <span className="bg-white text-black text-[10px] font-bold font-['Inter'] tracking-widest uppercase px-4 py-1 rounded-b-md">
+                                        Most Popular
+                                    </span>
+                                </div>
                             )}
-                            {!plan.inrNote && <div className="mb-6" />}
 
-                            <ul className="flex-1 space-y-3 mb-8">
-                                {plan.features.map((f) => (
-                                    <li
-                                        key={f}
-                                        className="flex items-center gap-2.5 font-['Inter'] text-[#A1A1AA] text-[15px] leading-relaxed"
-                                    >
-                                        <Check size={14} className="text-[#22d3ee] shrink-0" />
-                                        {f}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <button
-                                onClick={() => navigate(plan.href)}
-                                className={`w-full py-2.5 rounded-md font-['Inter'] text-[14px] font-normal transition-colors ${
+                            {/* Inner panel — keeps text legible over the gradient */}
+                            <div
+                                className={`relative z-10 flex flex-col flex-1 p-6 pt-9 ${
                                     plan.highlight
-                                        ? "bg-white text-black hover:bg-neutral-200"
-                                        : "bg-transparent border border-[#333] text-[#888888] hover:border-[#555] hover:text-white"
+                                        ? "bg-black/40 backdrop-blur-[2px] m-[1.5px] rounded-2xl"
+                                        : ""
                                 }`}
                             >
-                                {plan.cta}
-                            </button>
+                                <p className="font-['Inter'] text-white/70 text-[12px] uppercase tracking-widest mb-3">
+                                    {plan.name}
+                                </p>
+                                <div className="flex items-baseline gap-1">
+                                    <span
+                                        className="text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+                                        style={{
+                                            fontFamily: '"Satoshi Variable", sans-serif',
+                                            fontWeight: 400,
+                                            fontSize: "40px",
+                                            lineHeight: "48px",
+                                        }}
+                                    >
+                                        {plan.price}
+                                    </span>
+                                    <span className="font-['Inter'] text-white/60 text-[15px]">
+                                        {plan.period}
+                                    </span>
+                                </div>
+                                {plan.inrNote && (
+                                    <span className="text-xs text-white/40 mt-1 mb-6">
+                                        {plan.inrNote}
+                                    </span>
+                                )}
+                                {!plan.inrNote && <div className="mb-6" />}
+
+                                <ul className="flex-1 space-y-3 mb-8">
+                                    {plan.features.map((f) => (
+                                        <li
+                                            key={f}
+                                            className={`flex items-center gap-2.5 font-['Inter'] text-[15px] leading-relaxed ${
+                                                plan.highlight
+                                                    ? "text-white/90"
+                                                    : "text-[#A1A1AA]"
+                                            }`}
+                                        >
+                                            <Check
+                                                size={14}
+                                                className={`shrink-0 ${plan.highlight ? "text-white" : "text-[#22d3ee]"}`}
+                                            />
+                                            {f}
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <button
+                                    onClick={() => navigate(plan.href)}
+                                    className={`group w-full py-2.5 rounded-full font-['Inter'] text-[14px] font-semibold transition-all hover:-translate-y-0.5 flex items-center justify-center ${
+                                        plan.highlight
+                                            ? "bg-white text-black hover:bg-neutral-100 shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
+                                            : "bg-transparent border border-[#333] text-[#888888] hover:border-[#555] hover:text-white"
+                                    }`}
+                                >
+                                    <span className="relative overflow-hidden h-[20px] flex flex-col leading-[20px]">
+                                        <span className="flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:-translate-y-1/2">
+                                            <span>{plan.cta}</span>
+                                            <span>{plan.cta}</span>
+                                        </span>
+                                    </span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </section>
     );
@@ -228,34 +199,22 @@ const PricingSection = () => {
 const Landing = () => {
     return (
         <div className="relative min-h-screen bg-black text-white selection:bg-cyan-400 selection:text-black font-['Inter'] overflow-x-hidden">
-            {/* Slanted Background Lines */}
-            <div
-                className="fixed inset-0 pointer-events-none z-0"
-                style={{
-                    backgroundImage:
-                        "repeating-linear-gradient(45deg, #222 0, #222 1px, transparent 1px, transparent 16px)",
-                    WebkitMaskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 100%)",
-                    maskImage:
-                        "linear-gradient(to bottom, black 10%, transparent 100%)",
-                }}
-            />
-
             <Navbar />
 
-            {/* Master Content Grid */}
-            <div className="w-[90%] max-w-6xl mx-auto min-h-screen border-x border-[#333333] relative bg-black z-10 pt-16">
-                <main>
-                    <Hero />
-                    <SocialProofBar />
-                    <StatsSection />
-                    <Pipeline />
+            <main>
+                {/* Hero — full-bleed, shader spans behind navbar too */}
+                <Hero />
+
+                {/* Full-width sections below the hero */}
+                <div className="relative bg-black w-full">
+                    <AboutSection />
+                    <HowItWorks />
                     <FeatureShowcase />
                     <PricingSection />
-                    <SupportedTech />
+                    <FaqCta />
                     <Footer />
-                </main>
-            </div>
+                </div>
+            </main>
         </div>
     );
 };

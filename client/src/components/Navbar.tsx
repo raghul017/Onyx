@@ -1,8 +1,27 @@
-import { User, LogOut, Menu, X } from "lucide-react";
+import { User, LogOut, Menu, X, Clock, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useState, useEffect } from "react";
 import { getCurrentUser, CurrentUser } from "@/services/api";
+
+// Live India time (IST), HH:MM, updates every second
+function useIndiaTime() {
+    const [time, setTime] = useState("");
+    useEffect(() => {
+        const update = () =>
+            setTime(
+                new Date().toLocaleTimeString("en-GB", {
+                    timeZone: "Asia/Kolkata",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }),
+            );
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, []);
+    return time;
+}
 
 const GithubIcon = () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
@@ -32,6 +51,7 @@ const Navbar = () => {
     const { isAuthenticated, user, logout } = useAuthStore();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [fullUser, setFullUser] = useState<CurrentUser | null>(null);
+    const indiaTime = useIndiaTime();
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -60,12 +80,8 @@ const Navbar = () => {
     ];
 
     return (
-        <nav className="w-full bg-black/80 backdrop-blur-md fixed top-0 z-50 border-b border-[#333333]">
-            <div className="w-[90%] max-w-6xl mx-auto px-8 h-16 flex items-center justify-between border-x border-[#333333] relative bg-black/80">
-                {/* Intersection Nodes */}
-                <div className="absolute -bottom-[2px] -left-[2px] w-[3px] h-[3px] bg-[#444444]" />
-                <div className="absolute -bottom-[2px] -right-[2px] w-[3px] h-[3px] bg-[#444444]" />
-
+        <nav className="w-full fixed top-0 z-50">
+            <div className="w-full max-w-6xl mx-auto px-8 h-16 flex items-center justify-between relative">
                 {/* Logo */}
                 <div
                     className="flex items-center gap-2 cursor-pointer"
@@ -88,7 +104,7 @@ const Navbar = () => {
                             key={link.href}
                             href={`#${link.href}`}
                             onClick={(e) => scrollToSection(e, link.href)}
-                            className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                            className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white hover:text-white/70 transition-colors"
                         >
                             {link.label}
                         </a>
@@ -97,7 +113,7 @@ const Navbar = () => {
                         href="https://github.com/raghul017/Onyx"
                         target="_blank"
                         rel="noreferrer"
-                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white hover:text-white/70 transition-colors"
                     >
                         GitHub
                     </a>
@@ -141,27 +157,46 @@ const Navbar = () => {
                         </div>
                     ) : (
                         <>
+                            {/* Live India clock */}
+                            <div className="hidden lg:flex items-center gap-1.5 text-[13px] text-white/80">
+                                <Clock size={14} />
+                                <span className="tabular-nums">
+                                    {indiaTime} in India
+                                </span>
+                            </div>
                             <Link
                                 to="/signin"
-                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
+                                className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white hover:text-white/70 transition-colors"
                             >
                                 Sign In
                             </Link>
+                            {/* CTA with text-roll hover animation */}
                             <button
                                 onClick={handleCTA}
-                                className="bg-white text-black rounded-md px-4 py-1.5 font-['Inter'] font-normal text-[14px] leading-[21px] hover:bg-neutral-200 transition-colors"
+                                className="group flex items-center gap-2 bg-white text-black rounded-full pl-5 pr-2 py-1.5 font-['Inter'] text-[13px] font-medium transition-colors hover:bg-neutral-200"
                             >
-                                Get Started
+                                <span className="relative overflow-hidden h-[20px] flex flex-col leading-[20px]">
+                                    <span className="flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:-translate-y-1/2">
+                                        <span>Get Started</span>
+                                        <span>Get Started</span>
+                                    </span>
+                                </span>
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black">
+                                    <ArrowRight
+                                        size={13}
+                                        className="text-white transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:-rotate-45"
+                                    />
+                                </span>
                             </button>
                         </>
                     )}
 
-                    <div className="flex items-center gap-4 border-l border-white/5 pl-6">
+                    <div className="flex items-center gap-4 border-l border-white/20 pl-6">
                         <a
                             href="https://x.com/RaghulAR7"
                             target="_blank"
                             rel="noreferrer"
-                            className="text-neutral-500 hover:text-white transition-colors"
+                            className="text-white hover:text-white/60 transition-colors"
                         >
                             <XIcon />
                         </a>
@@ -169,7 +204,7 @@ const Navbar = () => {
                             href="https://github.com/raghul017/Onyx"
                             target="_blank"
                             rel="noreferrer"
-                            className="text-neutral-500 hover:text-white transition-colors"
+                            className="text-white hover:text-white/60 transition-colors"
                         >
                             <GithubIcon />
                         </a>

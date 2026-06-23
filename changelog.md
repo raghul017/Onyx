@@ -1,0 +1,168 @@
+# Onyx — Changelog & Roadmap
+
+> AI-Powered API Security Testing Platform  
+> Live at: https://onyx-engine.vercel.app  
+> Backend: https://onyx-server-a38v.onrender.com  
+> GitHub: https://github.com/raghul017/Onyx
+
+---
+
+## ✅ What's Been Built (Phase 1 — Complete)
+
+### Core Product (Pre-Session)
+
+- OpenAPI spec ingestion (v3 + Swagger URL)
+- Gemini 2.5 Flash AI payload generation (SQLi, XSS, auth bypass, SSRF, etc.)
+- BullMQ + Redis job queue for attack execution
+- WebSocket real-time telemetry streaming to React frontend
+- PostgreSQL persistence via Prisma ORM
+- JWT authentication
+- WAF bypass (Chrome header spoofing)
+- SSRF guard (custom DNS resolver blocking internal network requests)
+- IP-based rate limiting on attack endpoints
+
+---
+
+### Billing & Monetization
+
+- **Razorpay subscriptions** integrated (India-based, KYC approved, live mode active)
+- **Lazy initialization** pattern for Razorpay SDK (prevents server crash on missing env vars)
+- **Three subscription tiers:**
+
+| Plan | Price          | Test Runs/mo | Endpoints/run |
+| ---- | -------------- | ------------ | ------------- |
+| Free | $0             | 5            | 10            |
+| Pro  | $9/mo (₹900)   | 100          | 50            |
+| Team | $18/mo (₹1800) | 500          | Unlimited     |
+
+- **Quota middleware** (`checkQuota`) — enforces plan limits before each test run, returns 429 `QUOTA_EXCEEDED` with `{ limit, used, plan, upgradeUrl }`
+- **Webhook handler** with raw Buffer HMAC-SHA256 signature verification
+- **Webhook events handled:** `subscription.activated`, `subscription.charged`, `subscription.cancelled`, `payment.failed`
+- **Prisma schema additions:** `Plan` enum, `plan`, `razorpaySubId`, `planExpiresAt` on User model
+- **Billing routes:** `POST /api/billing/subscribe`, `POST /api/billing/cancel`, `POST /api/billing/webhook`
+- **`GET /api/user/me`** endpoint returning `{ id, email, plan, planExpiresAt }`
+- **In-app Razorpay modal** (no redirect to external page)
+- **Smart polling** after payment — polls backend every 2s until plan upgrades in DB
+- **PRO/TEAM badge** in navbar and dashboard for paid users
+- **USD pricing display** with INR note (₹900/mo) for transparency
+
+---
+
+### PDF Report Export
+
+- **`generateTestRunPDF(testRunId, userId)`** service using PDFKit
+- **Ownership verification** — 403 if userId doesn't match test run
+- **Plan gate** — FREE users get 403 `PLAN_REQUIRED` → redirects to `/billing`
+- **Report sections:**
+    - Dark header with run ID, timestamp, spec URL
+    - Executive summary with 6 metrics + risk label (CLEAN / MEDIUM / HIGH / CRITICAL)
+    - Attack results table sorted VULNERABLE → SUSPICIOUS → PASS with alternating row shading
+    - Auto page breaks for large result sets
+    - Dark footer with page numbers
+- **`GET /api/test-runs/:id/export/pdf`** route with correct Content-Type + Content-Disposition headers
+- **Frontend export button** — visible only on COMPLETED runs, triggers browser download, shows spinner, redirects FREE users to billing
+
+---
+
+### Landing Page
+
+- Hero: "Break Your API. Before They Do." with cyan gradient on tagline
+- Updated subtitle focused on pain, not features
+- Social proof bar below hero
+- Stats section (500+ scans, 10+ attack types, real-time results)
+- Full pricing section with Free/Pro/Team cards
+- "View Live Demo" CTA button
+- Footer with Pricing link
+- **Visual enhancements:**
+    - `min-h-screen` hero, `font-black text-6xl md:text-8xl` headline
+    - Cyan gradient on "Before They Do."
+    - Radial glow behind terminal (removed mountain background image)
+    - Terminal: `border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.1)]`
+    - Pro pricing card: `border-2 border-cyan-500` + `shadow-[0_0_60px_rgba(6,182,212,0.15)]`
+    - Stats cards: `border-t-2 border-cyan-500` + cyan number gradient
+    - Frosted glass navbar: `backdrop-blur-md bg-black/80`
+    - Section headings: `text-4xl md:text-5xl font-bold`
+
+---
+
+### DevOps & CI/CD
+
+- **`.github/workflows/ci.yml`** — triggers on push/PR to main, runs `prisma generate` + `tsc --noEmit` on both client and server + Vitest
+- **`.github/workflows/deploy-check.yml`** — deploy gate, runs tsc on push to main
+- **`.github/ISSUE_TEMPLATE/bug_report.md`** and `feature_request.md`
+- **`.github/PULL_REQUEST_TEMPLATE.md`**
+- **README.md** rewritten with full architecture, API reference, setup guide, tech stack table
+- Deployed on **Render** (backend) + **Vercel** (frontend)
+- All secrets managed via environment variables (never committed)
+
+---
+
+## 🔜 What's Next (Phase 2–5)
+
+### Phase 2 — Enterprise Readiness (Next Up)
+
+- [ ] **CVSS Severity Scoring** — Critical/High/Medium/Low per finding based on attack type + response + data leaked. Overall API security score (0–100) per test run
+- [ ] **Organization / Workspace model** — `Org → Users → TestRun` multi-tenant schema
+- [ ] **RBAC** — Owner / Admin / Viewer roles per org
+- [ ] **Audit logs** — immutable log of every sensitive action (who ran what, when, from where)
+- [ ] **Target authorization verification** — require `onyx-verify.txt` file or DNS TXT record before firing attacks (legal protection + enterprise trust)
+
+### Phase 3 — Growth Engine
+
+- [ ] **Public REST API + API keys** — `POST /v1/test-runs` with Bearer token for CI/CD integration
+- [ ] **CLI tool** — `npx onyx-scan https://api.example.com/openapi.json`
+- [ ] **GitHub Actions integration** — scan on every PR
+- [ ] **Scheduled/recurring scans** — cron-based re-scanning with regression detection
+- [ ] **Slack/email alerts** — notify when critical vulns found
+
+### Phase 4 — Retention & Depth
+
+- [ ] **Onboarding flow** — guided first scan using PetStore demo API, tooltips, empty states
+- [ ] **Diff / regression view** — compare two test runs side by side ("3 new vulnerabilities since last scan")
+- [ ] **Custom payload rules** — Pro users define their own payload templates in YAML
+- [ ] **SARIF export** — GitHub Security tab compatible format
+- [ ] **GitHub Issues integration** — auto-create issues from critical findings
+
+### Phase 5 — SOC 2 Readiness
+
+- [ ] All PII encrypted at rest
+- [ ] Secret management via vault (not plain `.env` in prod)
+- [ ] Immutable audit trail
+- [ ] SOC 2 Type II readiness audit
+
+---
+
+## 🏗️ Current Tech Stack
+
+| Layer      | Technology                            |
+| ---------- | ------------------------------------- |
+| Frontend   | React, TypeScript, Tailwind CSS, Vite |
+| Backend    | Node.js, Express, TypeScript          |
+| AI         | Gemini 2.5 Flash                      |
+| Queue      | BullMQ + Redis                        |
+| Database   | PostgreSQL (Neon) via Prisma ORM      |
+| Auth       | JWT                                   |
+| Payments   | Razorpay (Live mode)                  |
+| PDF        | PDFKit                                |
+| Realtime   | WebSockets (native ws)                |
+| Deployment | Vercel (frontend) + Render (backend)  |
+| CI/CD      | GitHub Actions                        |
+
+---
+
+## 📊 Business Status
+
+| Metric                | Status          |
+| --------------------- | --------------- |
+| Razorpay KYC          | ✅ Approved     |
+| Live payments         | ✅ Active       |
+| Test mode             | ✅ Fully tested |
+| Free tier             | ✅ Live         |
+| Pro tier ($9/mo)      | ✅ Live         |
+| Team tier ($18/mo)    | ✅ Live         |
+| PDF export (Pro gate) | ✅ Working      |
+| Quota enforcement     | ✅ Working      |
+
+---
+
+_Last updated: May 2026 | Built by Raghul A.R_

@@ -15,7 +15,7 @@ const features = [
                 style={{ height: "100%", width: "100%" }}
             />
         ),
-        span: "md:col-span-1 lg:col-span-2",
+        span: "lg:col-span-2",
         height: "h-64",
     },
     {
@@ -35,7 +35,7 @@ const features = [
                 }}
             />
         ),
-        span: "md:col-span-1",
+        span: "lg:col-span-1",
         height: "h-64",
     },
     {
@@ -116,48 +116,50 @@ const item = {
 
 const FeatureShowcase = () => {
     return (
-        <section id="features" className="w-full pt-24 pb-32 px-8 relative">
-            {/* Section Header */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.5 }}
-                className="mb-12"
-            >
-                <div className="flex items-center gap-6 mb-8">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="uppercase text-xs tracking-widest text-neutral-500 font-['Inter']">
-                        Features
-                    </span>
-                    <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <h2
-                    className="max-w-2xl text-white"
-                    style={{
-                        fontFamily: '"Satoshi Variable", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "40px",
-                        lineHeight: "56px",
-                    }}
+        <section id="features" className="w-full py-16 sm:py-20 lg:py-24 px-5 sm:px-8 lg:px-12 relative">
+            <div className="max-w-[1280px] mx-auto">
+                {/* Section Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-100px" }}
+                    transition={{ duration: 0.5 }}
+                    className="mb-12 flex flex-col items-start text-left"
                 >
-                    Everything you need to stress-test your API.
-                </h2>
-                <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
-                    From schema parsing to vulnerability detection — all
-                    automated, all real-time.
-                </p>
-            </motion.div>
+                    <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                        <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
+                            03
+                        </div>
+                        <span className="text-[12px] sm:text-[13px] font-medium text-white/80 border border-[#2A2A2A] rounded-full px-3 sm:px-4 py-1 sm:py-1.5">
+                            Features
+                        </span>
+                    </div>
 
-            {/* Bento Grid */}
-            <motion.div
-                variants={container}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-80px" }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            >
+                    <h2
+                        className="text-white"
+                        style={{
+                            fontFamily: '"Satoshi Variable", sans-serif',
+                            fontWeight: 400,
+                            fontSize: "40px",
+                            lineHeight: "56px",
+                        }}
+                    >
+                        Everything you need to stress-test your API.
+                    </h2>
+                    <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
+                        From schema parsing to vulnerability detection — all
+                        automated, all real-time.
+                    </p>
+                </motion.div>
+
+                {/* Bento Grid */}
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-80px" }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                >
                 {features.map((feature, idx) => (
                     <motion.div
                         key={idx}
@@ -174,7 +176,7 @@ const FeatureShowcase = () => {
                             {feature.component}
                         </div>
 
-                        <div className="p-6 relative z-10">
+                        <div className="p-6 relative z-10 text-left">
                             <h3 className="font-['Inter'] text-white text-xl font-medium mb-3 tracking-tight">
                                 {feature.title}
                             </h3>
@@ -184,7 +186,8 @@ const FeatureShowcase = () => {
                         </div>
                     </motion.div>
                 ))}
-            </motion.div>
+                </motion.div>
+            </div>
         </section>
     );
 };

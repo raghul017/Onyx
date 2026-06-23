@@ -13,12 +13,27 @@ const ColdStartBanner = () => {
 
     if (serverStatus === "offline") {
         return (
-            <div className="shrink-0 bg-red-500/10 border-b border-red-500/20 px-4 py-3 flex items-center justify-center gap-3 font-['JetBrains_Mono'] text-[12px]">
-                <WifiOff size={14} className="text-red-400 shrink-0" />
-                <span className="text-red-400">
-                    Server unreachable — the backend may be down. Please try
-                    again later.
+            <div className="shrink-0 bg-red-500/[0.06] border-b border-red-500/10 px-4 py-3 flex items-center justify-center gap-3 font-['JetBrains_Mono'] text-[12px] overflow-hidden">
+                {/* Static status dot */}
+                <div className="relative shrink-0">
+                    <div className="w-2 h-2 bg-red-400 rounded-full" />
+                    <div className="absolute inset-0 w-2 h-2 bg-red-400 rounded-full animate-ping opacity-30" />
+                </div>
+
+                <Server size={13} className="text-red-500/60 shrink-0" />
+
+                <span className="text-red-300/90">
+                    Server unreachable
+                    <span className="text-red-500/50 mx-1">—</span>
+                    <span className="text-neutral-500">
+                        the backend may be down, please try again later
+                    </span>
                 </span>
+
+                <WifiOff
+                    size={13}
+                    className="text-red-500/30 shrink-0 hidden sm:block"
+                />
             </div>
         );
     }
