@@ -1,7 +1,7 @@
 # 🛡️ Onyx — Build Progress Log
 
 > Full history of what has been built, when, and what's left.
-> Updated: 2026-06-17 (Feature #2 complete)
+> Updated: 2026-06-23 (UI redesign — landing + app pages)
 
 ---
 
@@ -15,6 +15,7 @@
 | Severity scoring & PDF reports | ✅ Complete |
 | Domain ownership verification | ✅ Complete (Jun 17) |
 | Multi-tenancy / org model | ✅ Complete (Jun 17) |
+| UI redesign (landing + app pages) | ✅ Complete (Jun 23) |
 | Public REST API + API keys | ⬜ Not started |
 | Scheduled scanning | ⬜ Not started |
 | Audit logging | ⬜ Not started |
@@ -321,6 +322,44 @@ TestRun additions: `orgId String?` with `onDelete: SetNull` (preserves runs when
 - `getEffectivePlan(userId, orgId)` — org plan always overrides personal plan
 - Invite URL built from `CLIENT_URL` env var — no SMTP, pure copy-link
 - `x-org-id` header is opt-in — all existing personal flows unaffected (backward compatible)
+
+---
+
+## ✅ Phase 6 — UI Redesign (Jun 23, 2026)
+
+### What was built
+
+A full visual redesign unifying the marketing site and the authed app under one theme (Axion-inspired layout + animated gradient accents), with no logic changes — every data flow, WebSocket wire, and payment path preserved.
+
+**Landing page**
+- Hero converted to bottom-anchored Axion layout with the WebGL `ShaderBackground` gradient (teal/orange/slate-blue sphere)
+- New sections in narrative order: **01 Introducing Onyx** (About), **02 How it works** (Key-Benefits 3-card layout w/ video), **03 Features** (bento), **04 Pricing**
+- New `FaqCta` (FAQ accordion + animated `c5-animated-gradient` CTA card) and redesigned newsletter-style `Footer`
+- Removed unverifiable content (fake stats, "used by 10+ countries" bar) and the old `SupportedTech` "Built with" section
+- Shared `RollButton` (text-roll hover + rotating arrow); pill buttons everywhere
+- Standardized all sections to `max-w-[1280px]` + `px-5 sm:px-8 lg:px-12`, uniform `py-16/20/24` rhythm
+
+**Auth pages (SignIn / SignUp)**
+- Aurora-style two-column layout: `ShaderBackground` hero panel + form, social buttons, eye toggle, `StepItem` onboarding list
+- Onyx-branded copy, IST not London on the navbar clock
+
+**App pages (Dashboard / Billing / History)**
+- New shared `AppHeader` — one consistent nav (Onyx wordmark, active-state links, OrgSwitcher/Settings/Billing) across all three
+- **Dashboard:** full-width, top nav + dedicated launch panel + rounded card telemetry + live-stream panel; gradient accent; pill inputs/buttons
+- **Billing:** full-width, gradient Pro card (frosted inner panel), pill buttons, Satoshi heading — Razorpay flow untouched
+- **History:** swapped landing Navbar → AppHeader, rounded audit table, pill score chips, Satoshi heading
+- Tokens unified to `#0A0A0A` cards / `#1A1A1A` borders / `white/70` muted text; Satoshi display headings to match landing
+- `ShaderBackground` perf: `pixelDensity={1}`, `lazyLoad`, pauses when scrolled off-screen
+
+**New components**
+- `client/src/components/AppHeader.tsx` — shared authed-app nav
+- `client/src/components/RollButton.tsx` — text-roll CTA
+- `client/src/components/ShaderBackground.tsx` — WebGL gradient
+- `client/src/components/AboutSection.tsx`, `HowItWorks.tsx`, `FaqCta.tsx`
+
+**Infra fix (same day)**
+- `/health` moved above the global-auth org router so health checks return 200 (was 401 → "Server unreachable")
+- `useServerStatus` health URL hardened to strip a trailing `/api`
 
 ---
 

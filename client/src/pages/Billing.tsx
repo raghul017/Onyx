@@ -282,7 +282,18 @@ const Billing = () => {
                 <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
                     <div className="max-w-[1100px] mx-auto">
                         <div className="mb-8">
-                            <h1 className="text-3xl font-medium tracking-tight">Subscription</h1>
+                            <h1
+                                className="text-white"
+                                style={{
+                                    fontFamily: '"Satoshi Variable", sans-serif',
+                                    fontWeight: 400,
+                                    fontSize: "clamp(1.75rem,4vw,2.5rem)",
+                                    lineHeight: 1.1,
+                                    letterSpacing: "-0.03em",
+                                }}
+                            >
+                                Subscription
+                            </h1>
                             <p className="text-white/50 text-sm mt-2">
                                 Choose the plan that fits your security testing needs.
                             </p>

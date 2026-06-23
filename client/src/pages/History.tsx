@@ -99,7 +99,16 @@ const History = () => {
 
                 <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
                     {/* Page Header */}
-                    <h1 className="text-3xl font-medium leading-tight text-white mb-2 tracking-tight">
+                    <h1
+                        className="text-white mb-2"
+                        style={{
+                            fontFamily: '"Satoshi Variable", sans-serif',
+                            fontWeight: 400,
+                            fontSize: "clamp(1.75rem,4vw,2.5rem)",
+                            lineHeight: 1.1,
+                            letterSpacing: "-0.03em",
+                        }}
+                    >
                         Execution History
                     </h1>
                     <p className="text-white/50 text-sm mb-8">

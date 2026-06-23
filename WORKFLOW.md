@@ -69,6 +69,23 @@ Before Onyx fires a single payload, you must prove you own the target domain. Th
 
 Without verification, anyone could point Onyx at `https://someones-bank-api.com/openapi.json`. The verification step closes this liability.
 
+### Step-by-step (what actually happens)
+
+1. **Paste a spec URL** in the dashboard (e.g. `https://api.acme.com/openapi.json`). Onyx extracts the hostname → `api.acme.com` (`extractDomain`).
+2. **Initiate** — click *Verify Domain*. `POST /api/verify-target` generates a unique token `onyx-verify-<40-hex>` (`crypto.randomBytes(20)`), upserts a `VerifiedTarget` row (`userId` + `domain` + `token`, `verifiedAt = null`), and returns the token.
+3. **Prove ownership** — choose ONE:
+   - **File:** host the token (exact contents, nothing else) at `https://api.acme.com/.well-known/onyx-verify.txt`.
+   - **DNS:** add a TXT record `_onyx-verify.api.acme.com` with the token as its value.
+4. **Check** — click *Check Verification*. `POST /api/verify-target/check` runs `verifyDomain`:
+   - **File probe first** — `GET https://<domain>/.well-known/onyx-verify.txt` (5s timeout, `User-Agent: Onyx-Verify/1.0`). If the HTTPS connection *fails*, it retries over `http://`. Passes if the trimmed body `=== token`.
+   - **DNS fallback** — resolves TXT `_onyx-verify.<domain>` and passes if any record equals the token.
+   - On success → `verifiedAt = now()`, returns `"file"` or `"dns"`.
+5. **Gate** — `createTestRun` looks up a `VerifiedTarget` with matching `userId` + `domain` and `verifiedAt != null`. None → `403 DOMAIN_NOT_VERIFIED`. Verified → scan launches.
+6. **Persistence** — verification is permanent per `(userId, domain)`. The dashboard pre-checks verified domains on load; switching to a new domain resets the gate.
+
+> [!NOTE]
+> The token must be the **only** content in the file (leading/trailing whitespace is trimmed, but nothing else may be present). DNS propagation can take minutes — if the DNS method fails immediately after adding the record, wait and re-check.
+
 ### Two verification methods
 
 **Method A — File probe (fastest)**
