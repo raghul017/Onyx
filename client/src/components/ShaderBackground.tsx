@@ -1,41 +1,24 @@
 // =============================================================================
-// ShaderBackground — animated WebGL gradient sphere (ShaderGradient + R3F)
-// Perf: capped pixel density + pauses when scrolled off-screen
+// ShaderBackground — animated WebGL gradient (ShaderGradient + R3F)
+// Mounts ONCE and never re-configures, so scrolling stays smooth (no re-init).
+// React.memo guarantees the canvas isn't re-rendered by parent updates.
 // =============================================================================
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, memo } from "react";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 
-export default function ShaderBackground() {
-    const ref = useRef<HTMLDivElement>(null);
-    // Only animate while the hero is actually visible in the viewport
-    const [visible, setVisible] = useState(true);
-
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const io = new IntersectionObserver(
-            ([entry]) => setVisible(entry.isIntersecting),
-            { threshold: 0 },
-        );
-        io.observe(el);
-        return () => io.disconnect();
-    }, []);
-
+function ShaderBackgroundBase() {
     return (
-        <div ref={ref} className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute inset-0 z-0 overflow-hidden">
             <Suspense fallback={<div className="absolute inset-0 bg-black" />}>
                 <ShaderGradientCanvas
                     style={{ width: "100%", height: "100%" }}
                     pointerEvents="none"
-                    // Cap device pixel ratio — biggest GPU win on retina/large screens
                     pixelDensity={1}
-                    // Lazy-load + pause the render loop when off-screen
-                    lazyLoad
                     fov={45}
                 >
                     <ShaderGradient
-                        animate={visible ? "on" : "off"}
+                        animate="on"
                         brightness={0.8}
                         cAzimuthAngle={270}
                         cDistance={0.5}
@@ -68,3 +51,7 @@ export default function ShaderBackground() {
         </div>
     );
 }
+
+// memo with no props → never re-renders after first mount.
+const ShaderBackground = memo(ShaderBackgroundBase);
+export default ShaderBackground;

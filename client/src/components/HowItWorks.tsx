@@ -2,9 +2,9 @@
 // HowItWorks — "Key Benefits"-style 3-card layout, Onyx content (dark theme)
 // =============================================================================
 
-// Hero-matched gradient blob (purple/slate water-plane palette)
+// Hero-matched gradient blob (teal / orange / slate sphere palette)
 const BLOB_GRADIENT =
-    "radial-gradient(circle at 30% 30%, #8d7dca, transparent 60%), radial-gradient(circle at 70% 70%, #606080, transparent 60%), radial-gradient(circle at 50% 50%, #8d7dca, transparent 70%)";
+    "radial-gradient(circle at 30% 30%, #73bfc4, transparent 60%), radial-gradient(circle at 70% 70%, #ff810a, transparent 60%), radial-gradient(circle at 50% 50%, #8da0ce, transparent 70%)";
 
 const HowItWorks = () => {
     return (
@@ -44,7 +44,7 @@ const HowItWorks = () => {
                         />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                            <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
                                 [01]
                             </div>
                             <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
@@ -71,7 +71,7 @@ const HowItWorks = () => {
                         />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                            <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
                                 [02]
                             </div>
                             <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
@@ -98,7 +98,7 @@ const HowItWorks = () => {
                         />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="text-[#8d7dca] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
+                            <div className="text-[#06b6d4] text-[13px] tracking-widest font-['JetBrains_Mono'] mb-4">
                                 [03]
                             </div>
                             <h3 className="text-white text-xl sm:text-2xl font-light leading-tight">
