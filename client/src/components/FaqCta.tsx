@@ -3,7 +3,8 @@
 // =============================================================================
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import RollButton from "./RollButton";
 
@@ -45,13 +46,15 @@ const FaqCta = () => {
                     {/* Left — Animated gradient CTA                          */}
                     {/* ----------------------------------------------------- */}
                     <div
-                        className="c5-animated-gradient rounded-[24px] py-20 px-10 text-white flex flex-col justify-center items-center text-center"
+                        className="c5-animated-gradient rounded-[24px] py-16 sm:py-20 px-8 sm:px-10 text-white flex flex-col justify-center items-center text-center"
                         style={{ boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)" }}
                     >
                         <h2
-                            className="font-normal leading-[1.1] mb-[15px] drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]"
+                            className="font-normal mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]"
                             style={{
-                                fontSize: "3.5rem",
+                                fontFamily: '"Satoshi Variable", sans-serif',
+                                fontSize: "clamp(2rem, 4.5vw, 3.25rem)",
+                                lineHeight: 1.1,
                                 letterSpacing: "-0.03em",
                             }}
                         >
@@ -59,7 +62,7 @@ const FaqCta = () => {
                             <br />
                             Before They Do.
                         </h2>
-                        <p className="text-[0.95rem] mb-[30px] font-normal text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                        <p className="text-[15px] sm:text-base leading-[1.6] mb-7 sm:mb-8 font-normal text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] max-w-sm">
                             Find vulnerabilities before attackers exploit them.
                         </p>
                         <RollButton
@@ -75,11 +78,12 @@ const FaqCta = () => {
                     <div className="flex flex-col justify-center gap-3">
                         {faqs.map((item, i) => {
                             const active = activeIndex === i;
+                            const panelId = `faq-panel-${i}`;
+                            const buttonId = `faq-button-${i}`;
                             return (
                                 <div
                                     key={i}
-                                    onClick={() => toggle(i)}
-                                    className={`bg-[#0A0A0A] border rounded-[10px] py-[18px] px-5 cursor-pointer transition-all duration-200 ${
+                                    className={`bg-[#0A0A0A] border rounded-[10px] transition-colors duration-200 ${
                                         active
                                             ? "border-[#2A2A2A]"
                                             : "border-[#1A1A1A] hover:border-[#2A2A2A]"
@@ -90,25 +94,38 @@ const FaqCta = () => {
                                             : "0 2px 8px rgba(0,0,0,0.2)",
                                     }}
                                 >
-                                    <div className="flex justify-between items-center font-normal text-[0.9rem] text-white gap-4">
+                                    <button
+                                        id={buttonId}
+                                        onClick={() => toggle(i)}
+                                        aria-expanded={active}
+                                        aria-controls={panelId}
+                                        className="w-full flex justify-between items-center text-left font-medium text-[15px] leading-snug text-white gap-4 py-[18px] px-5 cursor-pointer rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
+                                    >
                                         <span>{item.q}</span>
-                                        {active ? (
-                                            <ChevronUp
-                                                size={20}
-                                                className="text-neutral-400 shrink-0"
-                                            />
-                                        ) : (
-                                            <ChevronDown
-                                                size={20}
-                                                className="text-neutral-500 shrink-0"
-                                            />
+                                        <ChevronDown
+                                            size={20}
+                                            className={`text-neutral-400 shrink-0 transition-transform duration-300 ${active ? "rotate-180" : ""}`}
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+                                    <AnimatePresence initial={false}>
+                                        {active && (
+                                            <motion.div
+                                                id={panelId}
+                                                role="region"
+                                                aria-labelledby={buttonId}
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: "auto", opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="px-5 pb-[18px] text-[14px] text-[#A1A1AA] leading-[1.65]">
+                                                    {item.a}
+                                                </div>
+                                            </motion.div>
                                         )}
-                                    </div>
-                                    {active && (
-                                        <div className="mt-3 text-[0.9rem] text-[#A1A1AA] leading-[1.6]">
-                                            {item.a}
-                                        </div>
-                                    )}
+                                    </AnimatePresence>
                                 </div>
                             );
                         })}

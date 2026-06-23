@@ -13,6 +13,7 @@ import { useServerStatus } from "./store/useServerStatus";
 // Route-level code splitting — each page loads only when navigated to
 // ---------------------------------------------------------------------------
 const Landing = lazy(() => import("./pages/Landing"));
+const Docs = lazy(() => import("./pages/Docs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
 const Report = lazy(() => import("./pages/Report"));
@@ -54,6 +55,7 @@ const App = () => {
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             <Route path="/" element={<Landing />} />
+                            <Route path="/docs" element={<Docs />} />
                             <Route path="/signin" element={<SignIn />} />
                             <Route path="/signup" element={<SignUp />} />
 

@@ -72,6 +72,14 @@ const Footer = () => {
                         <ul>
                             <li className="mb-3">
                                 <a
+                                    href="/docs"
+                                    className="text-[#888] no-underline text-[0.85rem] transition-colors duration-200 hover:text-white"
+                                >
+                                    Documentation
+                                </a>
+                            </li>
+                            <li className="mb-3">
+                                <a
                                     href="/dashboard"
                                     className="text-[#888] no-underline text-[0.85rem] transition-colors duration-200 hover:text-white"
                                 >

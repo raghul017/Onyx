@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
@@ -71,8 +72,8 @@ const PricingSection = () => {
 
             <div className="max-w-[1280px] mx-auto relative z-10">
                 {/* Section Header — centered */}
-                <div className="mb-12 flex flex-col items-start text-left">
-                    <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                <div className="mb-10 sm:mb-12 flex flex-col items-start text-left">
+                    <div className="flex items-center gap-3 mb-5 sm:mb-6">
                         <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
                             04
                         </div>
@@ -81,26 +82,41 @@ const PricingSection = () => {
                         </span>
                     </div>
                     <h2
-                        className="text-white"
+                        className="text-white max-w-2xl"
                         style={{
                             fontFamily: '"Satoshi Variable", sans-serif',
                             fontWeight: 400,
-                            fontSize: "40px",
-                            lineHeight: "56px",
+                            fontSize: "clamp(1.875rem, 4vw, 2.75rem)",
+                            lineHeight: 1.1,
+                            letterSpacing: "-0.03em",
                         }}
                     >
                         Simple, transparent pricing.
                     </h2>
-                    <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
+                    <p className="font-['Inter'] text-[16px] sm:text-[17px] leading-[1.6] text-[#ADADAD] mt-4 max-w-xl">
                         Start free. Upgrade when you need more power.
+                    </p>
+                    <p className="font-['Inter'] text-[13px] text-white/50 mt-4 flex items-center gap-2">
+                        <Check size={13} className="text-[#22d3ee] shrink-0" />
+                        No credit card required · Cancel anytime
                     </p>
                 </div>
 
                 {/* Pricing Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-80px" }}
+                    variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch"
+                >
                     {pricingPlans.map((plan) => (
-                        <div
+                        <motion.div
                             key={plan.name}
+                            variants={{
+                                hidden: { opacity: 0, y: 24 },
+                                visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+                            }}
                             className={`relative group rounded-2xl flex flex-col transition-all duration-300 overflow-hidden ${
                                 plan.highlight
                                     ? "c5-animated-gradient shadow-[0_10px_30px_rgba(0,0,0,0.4)] md:-my-2"
@@ -171,7 +187,8 @@ const PricingSection = () => {
 
                                 <button
                                     onClick={() => navigate(plan.href)}
-                                    className={`group w-full py-2.5 rounded-full font-['Inter'] text-[14px] font-semibold transition-all hover:-translate-y-0.5 flex items-center justify-center ${
+                                    aria-label={`${plan.cta} — ${plan.name} plan`}
+                                    className={`group w-full py-2.5 rounded-full font-['Inter'] text-[14px] font-semibold transition-all hover:-translate-y-0.5 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:ring-[#22d3ee] cursor-pointer ${
                                         plan.highlight
                                             ? "bg-white text-black hover:bg-neutral-100 shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
                                             : "bg-transparent border border-[#333] text-[#888888] hover:border-[#555] hover:text-white"
@@ -185,9 +202,9 @@ const PricingSection = () => {
                                     </span>
                                 </button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     );

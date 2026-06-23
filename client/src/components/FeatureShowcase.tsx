@@ -124,9 +124,9 @@ const FeatureShowcase = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-100px" }}
                     transition={{ duration: 0.5 }}
-                    className="mb-12 flex flex-col items-start text-left"
+                    className="mb-10 sm:mb-12 flex flex-col items-start text-left"
                 >
-                    <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                    <div className="flex items-center gap-3 mb-5 sm:mb-6">
                         <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
                             03
                         </div>
@@ -136,17 +136,18 @@ const FeatureShowcase = () => {
                     </div>
 
                     <h2
-                        className="text-white"
+                        className="text-white max-w-2xl"
                         style={{
                             fontFamily: '"Satoshi Variable", sans-serif',
                             fontWeight: 400,
-                            fontSize: "40px",
-                            lineHeight: "56px",
+                            fontSize: "clamp(1.875rem, 4vw, 2.75rem)",
+                            lineHeight: 1.1,
+                            letterSpacing: "-0.03em",
                         }}
                     >
                         Everything you need to stress-test your API.
                     </h2>
-                    <p className="font-['Inter'] text-[17px] leading-[29px] text-[#ADADAD] mt-3 max-w-xl">
+                    <p className="font-['Inter'] text-[16px] sm:text-[17px] leading-[1.6] text-[#ADADAD] mt-4 max-w-xl">
                         From schema parsing to vulnerability detection — all
                         automated, all real-time.
                     </p>
@@ -164,10 +165,10 @@ const FeatureShowcase = () => {
                     <motion.div
                         key={idx}
                         variants={item}
-                        className={`${feature.span} group bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl flex flex-col hover:border-[#333] transition-all duration-300 relative overflow-hidden`}
+                        className={`${feature.span} group bg-[#0A0A0A] border border-[#1A1A1A] rounded-2xl flex flex-col hover:border-[#333] transition-colors duration-300 relative overflow-hidden`}
                     >
                         {/* Hover glow */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                         {/* Native Motion Animation Container */}
                         <div
@@ -176,11 +177,11 @@ const FeatureShowcase = () => {
                             {feature.component}
                         </div>
 
-                        <div className="p-6 relative z-10 text-left">
-                            <h3 className="font-['Inter'] text-white text-xl font-medium mb-3 tracking-tight">
+                        <div className="p-6 sm:p-7 relative z-10 text-left">
+                            <h3 className="font-['Inter'] text-white text-[19px] sm:text-xl font-medium mb-2.5 tracking-tight leading-snug">
                                 {feature.title}
                             </h3>
-                            <p className="font-['Inter'] text-[#A1A1AA] text-[15px] leading-relaxed">
+                            <p className="font-['Inter'] text-[#A1A1AA] text-[15px] leading-[1.6]">
                                 {feature.description}
                             </p>
                         </div>

@@ -1,5 +1,6 @@
 import { User, LogOut, Menu, X, Clock, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuthStore } from "../store/useAuthStore";
 import { useState, useEffect } from "react";
 import { getCurrentUser, CurrentUser } from "@/services/api";
@@ -51,7 +52,19 @@ const Navbar = () => {
     const { isAuthenticated, user, logout } = useAuthStore();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [fullUser, setFullUser] = useState<CurrentUser | null>(null);
+    const [scrolled, setScrolled] = useState(false);
     const indiaTime = useIndiaTime();
+
+    // Scroll-aware chrome: transparent over the hero, frosted-glass once scrolled.
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 24);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    // Float into a pill once scrolled — but stay a full bar while the mobile menu is open.
+    const pill = scrolled && !mobileOpen;
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -80,8 +93,24 @@ const Navbar = () => {
     ];
 
     return (
-        <nav className="w-full fixed top-0 z-50">
-            <div className="w-full max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between relative">
+        <nav className="w-full fixed top-0 inset-x-0 z-50 flex justify-center">
+            {/* Animated container: full-bleed flush bar at top → floating glass pill on scroll */}
+            <motion.div
+                animate={{
+                    maxWidth: pill ? 980 : 1440,
+                    marginTop: pill ? 12 : 0,
+                    borderRadius: pill ? 9999 : 0,
+                    height: pill ? 56 : 64,
+                }}
+                transition={{ type: "spring", stiffness: 320, damping: 34, mass: 0.7 }}
+                className={`w-[calc(100%-1.5rem)] sm:w-[calc(100%-3rem)] flex items-center justify-between relative ${
+                    pill ? "px-4 sm:px-5" : "px-5 sm:px-8 lg:px-12"
+                } ${
+                    scrolled || mobileOpen
+                        ? "bg-black/65 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
+                        : "bg-transparent border border-transparent"
+                } transition-[background-color,border-color,box-shadow,padding] duration-300`}
+            >
                 {/* Logo */}
                 <div
                     className="flex items-center gap-2 cursor-pointer"
@@ -98,7 +127,7 @@ const Navbar = () => {
                 </div>
 
                 {/* Center Nav Links (Desktop) */}
-                <div className="hidden md:flex items-center gap-8">
+                <div className={`hidden md:flex items-center transition-all duration-300 ${pill ? "gap-6" : "gap-8"}`}>
                     {navLinks.map((link) => (
                         <a
                             key={link.href}
@@ -109,6 +138,12 @@ const Navbar = () => {
                             {link.label}
                         </a>
                     ))}
+                    <Link
+                        to="/docs"
+                        className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white hover:text-white/70 transition-colors"
+                    >
+                        Docs
+                    </Link>
                     <a
                         href="https://github.com/raghul017/Onyx"
                         target="_blank"
@@ -120,9 +155,9 @@ const Navbar = () => {
                 </div>
 
                 {/* Right Actions (Desktop) */}
-                <div className="hidden md:flex items-center gap-6">
+                <div className={`hidden md:flex items-center transition-all duration-300 ${pill ? "gap-3" : "gap-6"}`}>
                     {isAuthenticated && user ? (
-                        <div className="flex items-center gap-4">
+                        <div className={`flex items-center transition-all duration-300 ${pill ? "gap-3" : "gap-4"}`}>
                             <button
                                 onClick={() => navigate("/dashboard")}
                                 className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
@@ -157,8 +192,8 @@ const Navbar = () => {
                         </div>
                     ) : (
                         <>
-                            {/* Live India clock */}
-                            <div className="hidden lg:flex items-center gap-1.5 text-[13px] text-white/80">
+                            {/* Live India clock — hidden in compact pill mode */}
+                            <div className={`${pill ? "hidden" : "hidden lg:flex"} items-center gap-1.5 text-[13px] text-white/80`}>
                                 <Clock size={14} />
                                 <span className="tabular-nums">
                                     {indiaTime} in India
@@ -191,7 +226,8 @@ const Navbar = () => {
                         </>
                     )}
 
-                    <div className="flex items-center gap-4 border-l border-white/20 pl-6">
+                    {/* Social icons + separator — collapse in compact pill mode */}
+                    <div className={`${pill ? "hidden" : "flex"} items-center gap-4 border-l border-white/20 pl-6`}>
                         <a
                             href="https://x.com/RaghulAR7"
                             target="_blank"
@@ -218,11 +254,11 @@ const Navbar = () => {
                 >
                     {mobileOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
-            </div>
+            </motion.div>
 
             {/* Mobile Menu */}
             {mobileOpen && (
-                <div className="md:hidden bg-black border-t border-[#222] px-8 py-6 flex flex-col gap-4">
+                <div className="md:hidden absolute top-full inset-x-0 bg-black/95 backdrop-blur-xl border-t border-[#222] px-8 py-6 flex flex-col gap-4">
                     {navLinks.map((link) => (
                         <a
                             key={link.href}
@@ -236,6 +272,13 @@ const Navbar = () => {
                             {link.label}
                         </a>
                     ))}
+                    <Link
+                        to="/docs"
+                        onClick={() => setMobileOpen(false)}
+                        className="font-['Inter'] text-[14px] text-white/70 hover:text-white transition-colors"
+                    >
+                        Docs
+                    </Link>
                     <a
                         href="https://github.com/raghul017/Onyx"
                         target="_blank"

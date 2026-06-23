@@ -40,9 +40,15 @@ const Hero = () => {
             {/* Bottom-anchored hero content */}
             <div className="relative z-10 w-full max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 pb-14 sm:pb-16 lg:pb-20">
                 {/* Small label */}
-                <p className="text-[13px] sm:text-[14px] text-white/70 tracking-wide mb-6 sm:mb-10">
-                    Onyx — API Security Testing
-                </p>
+                <div className="flex items-center gap-2.5 mb-6 sm:mb-10">
+                    <span className="relative flex h-2 w-2" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#22d3ee] opacity-75 motion-safe:animate-ping" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22d3ee]" />
+                    </span>
+                    <p className="text-[13px] sm:text-[14px] text-white/70 tracking-wide">
+                        Onyx — API Security Testing
+                    </p>
+                </div>
 
                 {/* Headline */}
                 <h1
@@ -60,20 +66,25 @@ const Hero = () => {
                 </h1>
 
                 {/* Subheadline */}
-                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] text-white/70 mt-6 max-w-xl drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] leading-[1.6] text-white/70 mt-6 max-w-xl drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
                     Most API vulnerabilities are found by hackers, not developers.
-                    Onyx changes that.
+                    Onyx reads your OpenAPI spec, lets Gemini craft schema-aware
+                    attack payloads, and streams every result back live.
                 </p>
 
                 {/* Interactive CTA Group */}
                 <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full max-w-2xl">
+                    <label htmlFor="hero-api-url" className="sr-only">
+                        API specification URL
+                    </label>
                     <input
+                        id="hero-api-url"
                         type="text"
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="https://api.example.com/openapi.json"
-                        className="flex-1 bg-black/30 backdrop-blur-md border border-white/20 text-white font-['JetBrains_Mono'] text-[14px] px-4 py-3 rounded-full outline-none focus:border-white/50 transition-colors placeholder:text-white/40"
+                        className="flex-1 bg-black/30 backdrop-blur-md border border-white/20 text-white font-['JetBrains_Mono'] text-[14px] px-4 py-3 rounded-full outline-none focus:border-white/50 focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 transition-colors placeholder:text-white/40"
                         spellCheck={false}
                         autoComplete="off"
                     />
@@ -88,10 +99,33 @@ const Hero = () => {
                             e.preventDefault();
                             document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className="bg-white/5 backdrop-blur-md border border-white/30 text-white font-['Inter',sans-serif] text-[13px] sm:text-[14px] px-6 py-3 rounded-full hover:bg-white/10 hover:border-white/50 transition-colors flex items-center justify-center whitespace-nowrap"
+                        className="bg-white/5 backdrop-blur-md border border-white/30 text-white font-['Inter',sans-serif] text-[13px] sm:text-[14px] px-6 py-3 rounded-full hover:bg-white/10 hover:border-white/50 focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 transition-colors flex items-center justify-center whitespace-nowrap"
                     >
                         How it works
                     </a>
+                </div>
+
+                {/* Trust markers — credibility row under the CTA */}
+                <div className="mt-8 sm:mt-10 flex flex-wrap items-center gap-x-5 sm:gap-x-7 gap-y-4">
+                    {[
+                        { label: "Attack categories", value: "8" },
+                        { label: "Payloads / run", value: "up to 400" },
+                        { label: "Spec formats", value: "OpenAPI · Swagger" },
+                    ].map((stat, i) => (
+                        <div key={stat.label} className="flex items-center gap-x-5 sm:gap-x-7">
+                            {i > 0 && (
+                                <span className="h-8 w-px bg-white/15" aria-hidden="true" />
+                            )}
+                            <div className="flex flex-col gap-1">
+                                <span className="font-['Satoshi_Variable',sans-serif] text-[18px] sm:text-[20px] font-medium text-white leading-none drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                                    {stat.value}
+                                </span>
+                                <span className="text-[11px] sm:text-[12px] text-white/55 tracking-wide leading-none">
+                                    {stat.label}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </section>
