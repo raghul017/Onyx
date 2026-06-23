@@ -46,7 +46,10 @@ const Dashboard = () => {
     const [aborting, setAborting] = useState(false);
     const [activeTestRunId, setActiveTestRunId] = useState<string | null>(null);
     const [user, setUser] = useState<CurrentUser | null>(null);
-    const [domainVerified, setDomainVerified] = useState(false);
+    // When the backend bypass is enabled, skip the client-side domain gate too
+    // so the Execute button isn't disabled. Set VITE_SKIP_DOMAIN_VERIFY=true.
+    const skipDomainVerify = import.meta.env.VITE_SKIP_DOMAIN_VERIFY === "true";
+    const [domainVerified, setDomainVerified] = useState(skipDomainVerify);
     const [lastVerifiedDomain, setLastVerifiedDomain] = useState<string | null>(null);
 
     const {
@@ -82,6 +85,7 @@ const Dashboard = () => {
 
     // -- Reset verification when the domain changes -------------------------
     useEffect(() => {
+        if (skipDomainVerify) return; // bypass on — stay "verified"
         if (!inputUrl.trim()) return;
         try {
             const domain = new URL(inputUrl).hostname.toLowerCase();

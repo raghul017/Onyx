@@ -180,23 +180,29 @@ export async function createTestRun(
             return;
         }
 
-        // Domain Ownership Gate — user must verify the target domain before attacking it
+        // Domain Ownership Gate — user must verify the target domain before attacking it.
+        // Bypassed when SKIP_DOMAIN_VERIFY=true (dev/testing only — never enable in prod
+        // unless you accept scanning unverified domains).
+        const skipDomainVerify = process.env.SKIP_DOMAIN_VERIFY === "true";
         const targetDomain = new URL(specUrl).hostname.toLowerCase();
-        const verified = await prisma.verifiedTarget.findFirst({
-            where: {
-                userId: req.user?.id,
-                domain: targetDomain,
-                verifiedAt: { not: null },
-            },
-        });
 
-        if (!verified) {
-            res.status(403).json({
-                error: "DOMAIN_NOT_VERIFIED",
-                domain: targetDomain,
-                message: `You must verify ownership of "${targetDomain}" before scanning it. Go to Dashboard → Verify Domain.`,
+        if (!skipDomainVerify) {
+            const verified = await prisma.verifiedTarget.findFirst({
+                where: {
+                    userId: req.user?.id,
+                    domain: targetDomain,
+                    verifiedAt: { not: null },
+                },
             });
-            return;
+
+            if (!verified) {
+                res.status(403).json({
+                    error: "DOMAIN_NOT_VERIFIED",
+                    domain: targetDomain,
+                    message: `You must verify ownership of "${targetDomain}" before scanning it. Go to Dashboard → Verify Domain.`,
+                });
+                return;
+            }
         }
 
         // Create the test run record
