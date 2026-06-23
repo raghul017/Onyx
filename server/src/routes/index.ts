@@ -27,6 +27,7 @@ import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
 import { injectOrgContext } from "../middleware/org.middleware.js";
 import { generateTestRunPDF } from "../services/pdf.service.js";
+import { openApiSpec } from "../openapi.js";
 
 const router = Router();
 
@@ -40,6 +41,14 @@ router.get("/health", (_req, res) => {
         service: "onyx-server",
         timestamp: new Date().toISOString(),
     });
+});
+
+// ---------------------------------------------------------------------------
+// OpenAPI spec — PUBLIC, so Onyx (or any tool) can fetch & scan this API.
+// Served on the Render-owned domain → passes domain verification.
+// ---------------------------------------------------------------------------
+router.get("/openapi.json", (_req, res) => {
+    res.json(openApiSpec);
 });
 
 // ---------------------------------------------------------------------------

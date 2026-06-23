@@ -86,6 +86,59 @@ Without verification, anyone could point Onyx at `https://someones-bank-api.com/
 > [!NOTE]
 > The token must be the **only** content in the file (leading/trailing whitespace is trimmed, but nothing else may be present). DNS propagation can take minutes — if the DNS method fails immediately after adding the record, wait and re-check.
 
+### Beginner walkthrough (how to actually do it)
+
+Pick **one** method: **File** if you can upload files to the website, **DNS** if you manage the domain's DNS.
+
+**Step 1 — Start verification (in Onyx)**
+1. Open the **Dashboard**.
+2. Paste your spec URL in the URL box, e.g. `https://api.acme.com/openapi.json`.
+3. Click the **"Verify Domain"** button that appears.
+4. A panel shows the detected domain, a **token** (`onyx-verify-...`), and two tabs: **FILE** / **DNS**. Click the copy icon to copy the token.
+
+**Method A — FILE (easiest if you can upload to the site)**
+1. Keep the **FILE** tab selected. It shows the exact path:
+   `https://api.acme.com/.well-known/onyx-verify.txt`
+2. Create a plain text file named exactly `onyx-verify.txt`.
+3. Its content must be **only the token** — no quotes, no extra spaces, no blank lines:
+   ```
+   onyx-verify-a3f9c2b1...
+   ```
+4. Upload it so it's reachable at that exact URL (inside a `.well-known` folder at the site root).
+5. **Test it yourself:** open the URL in a browser — you should see only the token. A 404 or HTML means the path is wrong.
+
+   Where the file goes, by host:
+   - **Netlify / Vercel / S3:** `public/.well-known/onyx-verify.txt`, then redeploy.
+   - **Nginx / Apache:** `<web-root>/.well-known/onyx-verify.txt`.
+   - **Express / Node app:** serve the `.well-known` folder statically, or add a route returning the token.
+
+**Method B — DNS (if you can't upload files)**
+1. Click the **DNS** tab. It shows the record name: `_onyx-verify.api.acme.com`.
+2. In your DNS provider (Cloudflare, GoDaddy, Namecheap, Route53…), add a **TXT record**:
+
+   | Field | Value |
+   |---|---|
+   | Type | `TXT` |
+   | Name / Host | `_onyx-verify` (see gotcha below) |
+   | Value / Content | `onyx-verify-a3f9c2b1...` (the token) |
+   | TTL | default / lowest |
+
+   > **Name field gotcha:** providers differ. For `api.acme.com` the full record is `_onyx-verify.api.acme.com`. Some panels auto-append the domain (enter just `_onyx-verify.api`); others want the full name. If unsure, check your provider's docs.
+   >
+   > **DNS takes time** — a few minutes to ~1 hour to propagate. If the check fails right after saving, wait and retry.
+
+**Step 2 — Confirm in Onyx**
+1. Click **"Check Verification"** in the panel.
+2. Onyx checks the file first, then DNS — whichever it finds wins.
+3. On success the panel becomes a green **"DOMAIN VERIFIED"** badge and the **Execute Run** button unlocks.
+
+If it says *"Verification not found yet"*: re-open the file URL to confirm it shows only the token, or wait for DNS to propagate, then click Check again.
+
+**After verifying**
+- Verification is **permanent** for that domain + your account — no need to redo it.
+- You can delete the file or DNS record afterward (it's only needed at check time).
+- Scanning a **different** domain requires verifying that new domain once.
+
 ### Two verification methods
 
 **Method A — File probe (fastest)**
