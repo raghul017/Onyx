@@ -21,7 +21,7 @@ Unlike generic fuzzers, Onyx reads your actual API schema — request bodies, pa
 
 ## Features
 
-- **AI payload synthesis** — Gemini generates targeted payloads per endpoint: SQLi, NoSQLi, XSS, SSRF, boundary overflows, auth bypass, and more
+- **AI payload synthesis** — Gemini generates targeted payloads per endpoint across 8 attack categories (SQL injection, XSS, auth bypass, path traversal, boundary, oversized payload, type confusion, rate-limit), up to 20 payloads per endpoint
 - **Real-time attack telemetry** — WebSocket streaming pushes status codes, latency, and response snippets to the dashboard as each attack fires
 - **BullMQ job queue** — decoupled worker architecture prevents thread exhaustion and controls concurrency against the target API
 - **WAF bypass headers** — outbound requests spoof realistic browser headers to avoid WAF false-negatives during testing

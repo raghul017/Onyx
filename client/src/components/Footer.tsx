@@ -126,7 +126,7 @@ const Footer = () => {
                                 }}
                             />
                             <button
-                                className="group bg-white text-black border-none font-semibold cursor-pointer transition-all duration-200 hover:-translate-y-0.5 text-[0.9rem] flex items-center justify-center"
+                                className="group bg-white text-black border-none font-semibold cursor-pointer transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.96] text-[0.9rem] flex items-center justify-center"
                                 style={{
                                     padding: "12px 28px",
                                     borderRadius: "10px",

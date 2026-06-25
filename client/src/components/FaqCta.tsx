@@ -15,11 +15,11 @@ const faqs = [
     },
     {
         q: "Do I need to own the API I'm testing?",
-        a: "Yes. Onyx requires domain ownership verification — via a file probe or DNS TXT record — before it will fire a single payload at any target.",
+        a: "Yes. Onyx requires domain ownership verification (via a file probe or DNS TXT record) before it will fire a single payload at any target.",
     },
     {
         q: "How are the attack payloads generated?",
-        a: "Gemini 2.5 Flash analyzes your specific endpoints and crafts targeted payloads — SQL injection, XSS, auth bypass, type confusion, and more — with a static fallback set if AI is unavailable.",
+        a: "Gemini 2.5 Flash analyzes your specific endpoints and crafts targeted payloads (SQL injection, XSS, auth bypass, type confusion, and more), with a static fallback set if AI is unavailable.",
     },
     {
         q: "Is it safe to run against production?",
@@ -66,7 +66,7 @@ const FaqCta = () => {
                             Find vulnerabilities before attackers exploit them.
                         </p>
                         <RollButton
-                            label="Start Testing Free"
+                            label="Start free scan"
                             onClick={() => navigate("/signup")}
                             variant="white"
                         />

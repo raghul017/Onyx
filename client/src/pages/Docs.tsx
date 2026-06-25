@@ -197,7 +197,7 @@ const SEVERITY = [
     { label: "HIGH", color: "#f97316", rule: "Any other 5xx, or a 401/403 on an auth-bypass attempt", deduct: "−15" },
     { label: "MEDIUM", color: "#eab308", rule: "4xx where the response leaks an error, stack, or trace", deduct: "−8" },
     { label: "LOW", color: "#22d3ee", rule: "Any other 4xx response", deduct: "−3" },
-    { label: "INFO", color: "#71717a", rule: "2xx / 3xx / no response — no deduction", deduct: "0" },
+    { label: "INFO", color: "#71717a", rule: "2xx / 3xx / no response, no deduction", deduct: "0" },
 ];
 
 const PLANS = [
@@ -209,32 +209,32 @@ const PLANS = [
 const FLOW = [
     ["Parse", "The spec is fetched with WAF-bypass headers, then every endpoint, parameter, and request body is extracted."],
     ["Generate", "Gemini crafts up to 20 schema-aware payloads per endpoint (with a 35-payload static fallback)."],
-    ["Queue", "Payloads are added to a BullMQ Redis queue — 5 concurrent workers, 10 jobs/second, 10s timeout each."],
+    ["Queue", "Payloads are added to a BullMQ Redis queue: 5 concurrent workers, 10 jobs/second, 10s timeout each."],
     ["Fire", "Each worker re-checks SSRF, fires the payload, and records status code, latency, and a response snippet."],
-    ["Score", "Every result is classified with CVSS-inspired severity and folded into an overall 0–100 API security score."],
+    ["Score", "Every result is classified with CVSS-inspired severity and folded into an overall 0-100 API security score."],
     ["Stream", "Results broadcast live to your dashboard over WebSockets as each attack completes."],
 ];
 
 const SECURITY_LAYERS = [
-    ["SSRF guard", "DNS resolution on every URL before any outbound request — loopback, private, link-local, and cloud-metadata ranges are blocked at both spec-fetch and attack time."],
+    ["SSRF guard", "DNS resolution on every URL before any outbound request. Loopback, private, link-local, and cloud-metadata ranges are blocked at both spec-fetch and attack time."],
     ["Domain ownership gate", "Every run checks for a verified (user, domain) record. No verified record returns a 403 before anything fires."],
     ["Rate limiting", "Auth endpoints: 5 req/min per IP. Attack endpoints: 5 req/hour per IP. Plan quotas enforced per calendar month."],
     ["JWT security", "7-day token expiry; the server hard-crashes on boot if JWT_SECRET is missing, preventing weak-key deployments."],
     ["WAF bypass (fetch only)", "Spec fetch spoofs a real Chrome user-agent so Cloudflare/AWS WAFs don't false-negative during parsing."],
-    ["Graceful AI fallback", "If Gemini fails, 35 static payloads keep every scan completing — the pipeline never stalls."],
+    ["Graceful AI fallback", "If Gemini fails, 35 static payloads keep every scan completing, so the pipeline never stalls."],
 ];
 
 const QUICK_START = [
     ["Create an account", "Sign up with an email and password. The Free plan needs no credit card and gives you 5 runs a month."],
     ["Paste a spec URL", "Drop your OpenAPI / Swagger URL into the dashboard. Onyx parses every endpoint the moment it loads."],
     ["Verify the domain", "Prove ownership once via a file or DNS record. The Execute Run button unlocks the instant it passes."],
-    ["Execute the run", "Onyx generates payloads, queues them, and fires. Watch results stream in live — no refresh needed."],
+    ["Execute the run", "Onyx generates payloads, queues them, and fires. Watch results stream in live, no refresh needed."],
     ["Review & export", "Triage findings by CVSS severity, drill into any endpoint, and export a PDF report on Pro and Team."],
 ];
 
 const RUN_PHASES = [
     ["PARSING", "Fetching the spec and extracting every endpoint, parameter, and request body."],
-    ["GENERATING", "Asking Gemini for schema-aware payloads — up to 20 per endpoint."],
+    ["GENERATING", "Asking Gemini for schema-aware payloads, up to 20 per endpoint."],
     ["ATTACKING", "Workers fire payloads from the queue and log each response."],
     ["COMPLETED", "All jobs done. The overall score and severity breakdown are computed."],
 ];
@@ -250,8 +250,8 @@ const ARCH_STAGES = [
 
 const GLOSSARY = [
     ["OpenAPI / Swagger", "A machine-readable description of an API's endpoints, parameters, and responses. Onyx's only required input."],
-    ["SSRF", "Server-Side Request Forgery — tricking a server into calling internal resources. Onyx blocks it via DNS resolution on every URL."],
-    ["CVSS", "Common Vulnerability Scoring System — the industry standard Onyx's severity labels are inspired by."],
+    ["SSRF", "Server-Side Request Forgery, which tricks a server into calling internal resources. Onyx blocks it via DNS resolution on every URL."],
+    ["CVSS", "Common Vulnerability Scoring System. The industry standard Onyx's severity labels are inspired by."],
     ["BullMQ", "A Redis-backed job queue. Onyx uses it to fire attacks concurrently without overwhelming the target or Node.js."],
     ["WebSocket", "A persistent two-way connection. Onyx streams every attack result over it so the dashboard updates in real time."],
     ["Domain verification", "Proof that you own a target, via a file probe or DNS TXT record, required once before scanning."],
@@ -260,7 +260,7 @@ const GLOSSARY = [
 const DOC_FAQ = [
     {
         q: "Do I need to own the API I'm testing?",
-        a: "Yes. Onyx requires domain ownership verification — via a file probe or DNS TXT record — before it will fire a single payload at any target. This is both a legal protection and a trust layer.",
+        a: "Yes. Onyx requires domain ownership verification (via a file probe or DNS TXT record) before it will fire a single payload at any target. This is both a legal protection and a trust layer.",
     },
     {
         q: "What happens if Gemini is unavailable?",
@@ -272,7 +272,7 @@ const DOC_FAQ = [
     },
     {
         q: "How many requests will Onyx send?",
-        a: "Up to 20 payloads per endpoint, across a maximum of 20 endpoints per spec — so up to 400 attacks per run. Jobs run through a BullMQ queue capped at 5 concurrent workers and 10 jobs/second.",
+        a: "Up to 20 payloads per endpoint, across a maximum of 20 endpoints per spec, so up to 400 attacks per run. Jobs run through a BullMQ queue capped at 5 concurrent workers and 10 jobs/second.",
     },
 ];
 
@@ -417,7 +417,7 @@ const Docs = () => {
                         <p className="font-['Inter'] text-[16px] sm:text-[18px] leading-[1.7] text-[#B4B4B4] mt-6 max-w-[60ch]">
                             Everything from the moment you paste a spec URL to the
                             final severity-scored result streaming to your
-                            dashboard — the full pipeline, the safeguards, and the
+                            dashboard. The full pipeline, the safeguards, and the
                             answers to the questions people ask most.
                         </p>
 
@@ -441,16 +441,16 @@ const Docs = () => {
                         <H2>What is Onyx?</H2>
                         <P>
                             Onyx is an AI-native API penetration-testing platform.
-                            You provide a link to any API's documentation — an
-                            OpenAPI / Swagger specification — and it autonomously
+                            You provide a link to any API's documentation, an
+                            OpenAPI / Swagger specification, and it autonomously
                             verifies ownership, parses every endpoint, generates
                             schema-aware attack payloads with Google Gemini 2.5
                             Flash, fires them through a rate-limited distributed
                             queue, and streams severity-scored results back live.
                         </P>
                         <P>
-                            Unlike a generic fuzzer, Onyx reads your actual schema —
-                            request bodies, path parameters, query strings — and
+                            Unlike a generic fuzzer, Onyx reads your actual schema:
+                            request bodies, path parameters, query strings, and
                             asks an LLM to reason about what would break each
                             specific endpoint. The result is context-sensitive
                             coverage across the OWASP Top 10 without writing a
@@ -469,7 +469,7 @@ const Docs = () => {
                                 ["8", "Attack categories"],
                                 ["≤ 400", "Payloads / run"],
                                 ["5", "Concurrent workers"],
-                                ["0–100", "Security score"],
+                                ["0-100", "Security score"],
                             ].map(([v, l]) => (
                                 <motion.div
                                     key={l}
@@ -518,7 +518,7 @@ const Docs = () => {
                             ))}
                         </motion.div>
                         <Callout tone="info" title="No setup, no agents">
-                            Onyx runs entirely from the spec URL — there's nothing to
+                            Onyx runs entirely from the spec URL. There's nothing to
                             install on your servers and no SDK to wire in. If your API
                             publishes an OpenAPI document, you're ready.
                         </Callout>
@@ -531,7 +531,7 @@ const Docs = () => {
                         <P>
                             Every modern API ships a machine-readable spec
                             describing its endpoints, parameters, and response
-                            formats — written in OpenAPI (formerly Swagger). Most
+                            formats, written in OpenAPI (formerly Swagger). Most
                             APIs expose it at a path like{" "}
                             <Code>/openapi.json</Code>, <Code>/swagger.json</Code>,
                             or <Code>/v2/api-docs</Code>.
@@ -549,8 +549,8 @@ const Docs = () => {
                             <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 hover:border-[#F26522]/30 transition-colors">
                                 <p className="text-[13px] font-medium text-[#F26522] mb-3">Blocked</p>
                                 <ul className="space-y-2 font-['JetBrains_Mono'] text-[12.5px] text-[#A1A1AA] leading-relaxed">
-                                    <li>google.com — HTML, not a spec</li>
-                                    <li>192.168.1.5/api — private IP (SSRF)</li>
+                                    <li>google.com (HTML, not a spec)</li>
+                                    <li>192.168.1.5/api (private IP, SSRF)</li>
                                     <li>any domain you don't own</li>
                                 </ul>
                             </div>
@@ -559,7 +559,7 @@ const Docs = () => {
                         <Callout tone="warn" title="SSRF protection is strictly enforced">
                             Onyx performs DNS resolution on every URL. Any hostname
                             resolving to <Code>127.x</Code>, <Code>10.x</Code>,{" "}
-                            <Code>172.16–31.x</Code>, <Code>192.168.x</Code>,{" "}
+                            <Code>172.16-31.x</Code>, <Code>192.168.x</Code>,{" "}
                             <Code>169.254.x</Code>, <Code>.local</Code>, or{" "}
                             <Code>.internal</Code> is instantly blocked.
                         </Callout>
@@ -567,7 +567,7 @@ const Docs = () => {
                         <H3>Can't find your spec URL?</H3>
                         <P>
                             If your team uses Swagger UI, the spec is the JSON the UI
-                            loads — open the network tab and look for the{" "}
+                            loads. Open the network tab and look for the{" "}
                             <Code>.json</Code> request, or try appending one of these
                             common paths to your API's base URL:
                         </P>
@@ -581,7 +581,7 @@ const Docs = () => {
                         <P>
                             Before Onyx fires a single payload, you must prove you
                             own the target domain. Without it, anyone could point
-                            Onyx at someone else's API — verification closes that
+                            Onyx at someone else's API. Verification closes that
                             liability and is required once per domain, per account.
                         </P>
 
@@ -625,7 +625,7 @@ const Docs = () => {
                                 >
                                     <P>
                                         Host a file containing only your verification
-                                        token at this exact path — no quotes, no extra
+                                        token at this exact path. No quotes, no extra
                                         whitespace, nothing else:
                                     </P>
                                     <CodeBlock code={`https://your-domain.com/.well-known/onyx-verify.txt\n\nonyx-verify-a3f9c2b1...`} />
@@ -648,7 +648,7 @@ const Docs = () => {
                         </AnimatePresence>
 
                         <Callout tone="info" title="Verification is permanent">
-                            Once verified, a domain stays verified for your account —
+                            Once verified, a domain stays verified for your account.
                             you can delete the file or DNS record afterward. DNS can
                             take a few minutes to propagate; if a check fails right
                             after saving the record, wait and retry.
@@ -703,7 +703,7 @@ const Docs = () => {
                         <H3>Run status phases</H3>
                         <P>
                             As a run progresses, its status moves through four phases
-                            — the dashboard reflects each one live:
+                            , and the dashboard reflects each one live:
                         </P>
                         <div className="flex flex-wrap items-center gap-2 my-5 max-w-[68ch]">
                             {RUN_PHASES.map(([phase, desc], i) => (
@@ -759,7 +759,7 @@ const Docs = () => {
                         <P>
                             HTTP polling is too slow for watching attacks land. Onyx
                             opens an authenticated WebSocket and streams every result
-                            the instant a worker records it — the dashboard's metrics,
+                            the instant a worker records it, and the dashboard's metrics,
                             charts, and endpoint rows update without a refresh.
                         </P>
                         <P>
@@ -770,7 +770,7 @@ const Docs = () => {
                         <CodeBlock code={`{\n  "type": "ATTACK_RESULT",\n  "data": {\n    "method": "POST",\n    "endpoint": "/users/login",\n    "statusCode": 500,\n    "latency": 412,\n    "attackType": "SQL_INJECTION",\n    "severity": "CRITICAL"\n  }\n}`} />
                         <div className="grid sm:grid-cols-3 gap-3 mt-6 max-w-[68ch]">
                             {[
-                                ["Per-run isolation", "Each run has its own subscriber set — you only ever receive your own results."],
+                                ["Per-run isolation", "Each run has its own subscriber set, so you only ever receive your own results."],
                                 ["Heartbeat", "Ping/pong every 30s drops dead connections so the stream stays clean."],
                                 ["Ownership-checked", "The server verifies you own a run in the database before allowing a subscription."],
                             ].map(([t, d]) => (
@@ -789,7 +789,7 @@ const Docs = () => {
                         <P>
                             Each result is classified by status code and response
                             content. The overall score starts at 100 and deducts per
-                            finding — giving you a single 0–100 number to track.
+                            finding, giving you a single 0-100 number to track.
                         </P>
                         <div className="space-y-2 my-6 max-w-[68ch]">
                             {SEVERITY.map((s) => (
@@ -810,9 +810,9 @@ const Docs = () => {
                         </div>
                         <P>
                             The final number maps to a label: <Code>CLEAN</Code>{" "}
-                            (100), <Code>LOW</Code> (76–99), <Code>MEDIUM</Code>{" "}
-                            (51–75), <Code>HIGH</Code> (26–50), and{" "}
-                            <Code>CRITICAL</Code> (0–25).
+                            (100), <Code>LOW</Code> (76-99), <Code>MEDIUM</Code>{" "}
+                            (51-75), <Code>HIGH</Code> (26-50), and{" "}
+                            <Code>CRITICAL</Code> (0-25).
                         </P>
                     </Section>
 
@@ -847,7 +847,7 @@ const Docs = () => {
                         <P>
                             Onyx is a decoupled pipeline: a React client, a guarded
                             Express API, an AI payload stage, a Redis-backed queue,
-                            and a worker pool — with Postgres for persistence and
+                            and a worker pool, with Postgres for persistence and
                             WebSockets for telemetry. Each stage hands off to the
                             next, so a slow target never blocks the UI.
                         </P>
@@ -905,7 +905,7 @@ const Docs = () => {
                                             <td className="py-3 px-4 text-[14px] text-[#A1A1AA] border-b border-[#141414]">{p.runs}</td>
                                             <td className="py-3 px-4 text-[14px] text-[#A1A1AA] border-b border-[#141414]">{p.endpoints}</td>
                                             <td className="py-3 px-4 border-b border-[#141414]">
-                                                {p.pdf ? <Check size={15} className="text-[#22d3ee]" /> : <span className="text-white/30">—</span>}
+                                                {p.pdf ? <Check size={15} className="text-[#22d3ee]" /> : <span className="text-white/30">-</span>}
                                             </td>
                                         </tr>
                                     ))}
@@ -914,7 +914,7 @@ const Docs = () => {
                         </div>
                         <P>
                             Billing runs through Razorpay with webhook-verified plan
-                            upgrades — no manual provisioning. Prices are charged in
+                            upgrades, with no manual provisioning. Prices are charged in
                             INR (₹900 / ₹1800 per month).
                         </P>
                     </Section>
@@ -984,13 +984,13 @@ const Docs = () => {
                                     Ready to break your API?
                                 </h3>
                                 <p className="text-[14px] text-white/70 mb-6">
-                                    Start free — no credit card required.
+                                    Start free. No credit card required.
                                 </p>
                                 <Link
                                     to="/signup"
                                     className="inline-flex items-center justify-center bg-white text-black rounded-full px-6 py-2.5 text-[14px] font-semibold hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:ring-[#22d3ee] cursor-pointer"
                                 >
-                                    Get started free
+                                    Start free scan
                                 </Link>
                             </div>
                         </div>

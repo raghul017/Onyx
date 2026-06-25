@@ -127,7 +127,7 @@ const Navbar = () => {
                 </div>
 
                 {/* Center Nav Links (Desktop) */}
-                <div className={`hidden md:flex items-center transition-all duration-300 ${pill ? "gap-6" : "gap-8"}`}>
+                <div className={`hidden md:flex items-center transition-[gap] duration-300 ${pill ? "gap-6" : "gap-8"}`}>
                     {navLinks.map((link) => (
                         <a
                             key={link.href}
@@ -155,9 +155,9 @@ const Navbar = () => {
                 </div>
 
                 {/* Right Actions (Desktop) */}
-                <div className={`hidden md:flex items-center transition-all duration-300 ${pill ? "gap-3" : "gap-6"}`}>
+                <div className={`hidden md:flex items-center transition-[gap] duration-300 ${pill ? "gap-3" : "gap-6"}`}>
                     {isAuthenticated && user ? (
-                        <div className={`flex items-center transition-all duration-300 ${pill ? "gap-3" : "gap-4"}`}>
+                        <div className={`flex items-center transition-[gap] duration-300 ${pill ? "gap-3" : "gap-4"}`}>
                             <button
                                 onClick={() => navigate("/dashboard")}
                                 className="font-['Inter'] font-normal text-[14px] leading-[21px] text-white/70 hover:text-white transition-colors"
@@ -208,12 +208,12 @@ const Navbar = () => {
                             {/* CTA with text-roll hover animation */}
                             <button
                                 onClick={handleCTA}
-                                className="group flex items-center gap-2 bg-white text-black rounded-full pl-5 pr-2 py-1.5 font-['Inter'] text-[13px] font-medium transition-colors hover:bg-neutral-200"
+                                className="group flex items-center gap-2 bg-white text-black rounded-full pl-5 pr-2 py-1.5 font-['Inter'] text-[13px] font-medium transition-[background-color,transform] duration-200 hover:bg-neutral-200 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
                             >
                                 <span className="relative overflow-hidden h-[20px] flex flex-col leading-[20px]">
                                     <span className="flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:-translate-y-1/2">
-                                        <span>Get Started</span>
-                                        <span>Get Started</span>
+                                        <span>Start free scan</span>
+                                        <span>Start free scan</span>
                                     </span>
                                 </span>
                                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black">
@@ -343,7 +343,7 @@ const Navbar = () => {
                                     }}
                                     className="bg-white text-black rounded-md px-4 py-2 font-['Inter'] text-[14px] hover:bg-neutral-200 transition-colors text-center"
                                 >
-                                    Get Started
+                                    Start free scan
                                 </button>
                             </>
                         )}

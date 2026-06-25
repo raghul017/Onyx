@@ -308,6 +308,36 @@
     c5-size5 3s ease-in-out infinite;
 }
 
+/* Same moving hero gradient, but clipped INSIDE text glyphs.
+   Brighter stops so the colors read against dark when masked to thin strokes. */
+.c5-text-gradient {
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at var(--c5-x1) var(--c5-y1), #9fe6ea 0px, transparent var(--c5-s1)),
+    radial-gradient(circle at var(--c5-x2) var(--c5-y2), #22d3ee 0px, transparent var(--c5-s2)),
+    radial-gradient(circle at var(--c5-x3) var(--c5-y3), #aebbe6 0px, transparent var(--c5-s3)),
+    radial-gradient(circle at var(--c5-x4) var(--c5-y4), #ffa64d 0px, transparent var(--c5-s4)),
+    radial-gradient(circle at var(--c5-x5) var(--c5-y5), #73bfc4 0px, transparent var(--c5-s5));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation:
+    c5-blob1 5s ease-in-out infinite,
+    c5-blob2 6s ease-in-out infinite,
+    c5-blob3 5.5s ease-in-out infinite,
+    c5-blob4 6.5s ease-in-out infinite,
+    c5-blob5 4s ease-in-out infinite,
+    c5-size1 3.5s ease-in-out infinite,
+    c5-size2 4.2s ease-in-out infinite,
+    c5-size3 3.8s ease-in-out infinite,
+    c5-size4 4.6s ease-in-out infinite,
+    c5-size5 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .c5-text-gradient { animation: none; }
+}
+
 @keyframes c5-blob1 {
   0%,100% { --c5-x1: 5%;  --c5-y1: 5%;  }
   25%     { --c5-x1: 45%; --c5-y1: 20%; }
@@ -344,4 +374,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   .c5-animated-gradient { animation: none; }
+}
+
+/* Logo marquee — seamless loop (track is duplicated, translate -50%) */
+.onyx-marquee {
+  animation: onyx-marquee-scroll 30s linear infinite;
+}
+.group:hover .onyx-marquee {
+  animation-play-state: paused;
+}
+@keyframes onyx-marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onyx-marquee { animation: none; }
 }

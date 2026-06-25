@@ -32,7 +32,7 @@ const Hero = () => {
             {/* Shader spans the whole hero including the area behind the navbar */}
             <ShaderBackground />
             {/* Scrim at the bottom so content stays legible and blends into black sections below */}
-            <div className="absolute inset-x-0 bottom-0 h-1/2 z-[1] bg-gradient-to-b from-transparent to-black pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-1/2 z-[1] bg-gradient-to-b from-transparent to-[#080808] pointer-events-none" />
 
             {/* Spacer pushes content to the bottom (Axion-style) */}
             <div className="flex-1" />
@@ -46,7 +46,7 @@ const Hero = () => {
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22d3ee]" />
                     </span>
                     <p className="text-[13px] sm:text-[14px] text-white/70 tracking-wide">
-                        Onyx — API Security Testing
+                        Onyx · API security testing
                     </p>
                 </div>
 
@@ -66,7 +66,7 @@ const Hero = () => {
                 </h1>
 
                 {/* Subheadline */}
-                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] leading-[1.6] text-white/70 mt-6 max-w-xl drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                <p className="font-['Inter',sans-serif] text-[16px] sm:text-[18px] leading-[1.6] text-white/70 mt-6 max-w-xl text-pretty drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
                     Most API vulnerabilities are found by hackers, not developers.
                     Onyx reads your OpenAPI spec, lets Gemini craft schema-aware
                     attack payloads, and streams every result back live.
@@ -89,7 +89,7 @@ const Hero = () => {
                         autoComplete="off"
                     />
                     <RollButton
-                        label="Start a scan"
+                        label="Start free scan"
                         onClick={handleLaunch}
                         className="whitespace-nowrap"
                     />

@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
+import PoweredBy from "../components/PoweredBy";
 import FeatureShowcase from "../components/FeatureShowcase";
 import HowItWorks from "../components/HowItWorks";
 import AboutSection from "../components/AboutSection";
@@ -23,7 +26,7 @@ const pricingPlans = [
             "5 attack types",
             "Community support",
         ],
-        cta: "Get Started Free",
+        cta: "Start free scan",
         href: "/dashboard",
         highlight: false,
     },
@@ -68,21 +71,13 @@ const PricingSection = () => {
         <section id="pricing" className="w-full py-16 sm:py-20 lg:py-24 px-5 sm:px-8 lg:px-12 relative overflow-hidden">
             {/* Subtle hero-matched gradient glow behind the section */}
             <div className="absolute inset-0 c5-animated-gradient opacity-[0.12] blur-3xl pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#080808] via-transparent to-[#080808] pointer-events-none" />
 
             <div className="max-w-[1280px] mx-auto relative z-10">
                 {/* Section Header — centered */}
                 <div className="mb-10 sm:mb-12 flex flex-col items-start text-left">
-                    <div className="flex items-center gap-3 mb-5 sm:mb-6">
-                        <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
-                            04
-                        </div>
-                        <span className="text-[12px] sm:text-[13px] font-medium text-white/80 border border-[#2A2A2A] rounded-full px-3 sm:px-4 py-1 sm:py-1.5">
-                            Pricing
-                        </span>
-                    </div>
                     <h2
-                        className="text-white max-w-2xl"
+                        className="text-white max-w-2xl text-balance"
                         style={{
                             fontFamily: '"Satoshi Variable", sans-serif',
                             fontWeight: 400,
@@ -117,7 +112,7 @@ const PricingSection = () => {
                                 hidden: { opacity: 0, y: 24 },
                                 visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
                             }}
-                            className={`relative group rounded-2xl flex flex-col transition-all duration-300 overflow-hidden ${
+                            className={`relative group rounded-2xl flex flex-col transition-colors duration-300 overflow-hidden ${
                                 plan.highlight
                                     ? "c5-animated-gradient shadow-[0_10px_30px_rgba(0,0,0,0.4)] md:-my-2"
                                     : "bg-[#0A0A0A] border border-[#1A1A1A] hover:border-[#333]"
@@ -187,8 +182,8 @@ const PricingSection = () => {
 
                                 <button
                                     onClick={() => navigate(plan.href)}
-                                    aria-label={`${plan.cta} — ${plan.name} plan`}
-                                    className={`group w-full py-2.5 rounded-full font-['Inter'] text-[14px] font-semibold transition-all hover:-translate-y-0.5 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:ring-[#22d3ee] cursor-pointer ${
+                                    aria-label={`${plan.cta}, ${plan.name} plan`}
+                                    className={`group w-full py-2.5 rounded-full font-['Inter'] text-[14px] font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.96] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:ring-[#22d3ee] cursor-pointer ${
                                         plan.highlight
                                             ? "bg-white text-black hover:bg-neutral-100 shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
                                             : "bg-transparent border border-[#333] text-[#888888] hover:border-[#555] hover:text-white"
@@ -214,16 +209,30 @@ const PricingSection = () => {
 // Page
 // ---------------------------------------------------------------------------
 const Landing = () => {
+    // Recalculate ScrollTrigger positions once fonts and lazy assets settle, so
+    // scrubbed animations don't "stick" against post-load layout shifts.
+    useEffect(() => {
+        const refresh = () => ScrollTrigger.refresh();
+        const t = window.setTimeout(refresh, 400);
+        if (document.fonts?.ready) document.fonts.ready.then(refresh);
+        window.addEventListener("load", refresh);
+        return () => {
+            window.clearTimeout(t);
+            window.removeEventListener("load", refresh);
+        };
+    }, []);
+
     return (
-        <div className="relative min-h-screen bg-black text-white selection:bg-cyan-400 selection:text-black font-['Inter'] overflow-x-hidden">
+        <div className="relative min-h-screen bg-[#080808] text-white selection:bg-cyan-400 selection:text-black font-['Inter'] overflow-x-hidden antialiased">
             <Navbar />
 
             <main>
-                {/* Hero — full-bleed, shader spans behind navbar too */}
+                {/* Hero, full-bleed; shader spans behind navbar too */}
                 <Hero />
 
                 {/* Full-width sections below the hero */}
-                <div className="relative bg-black w-full">
+                <div className="relative bg-[#080808] w-full">
+                    <PoweredBy />
                     <AboutSection />
                     <HowItWorks />
                     <FeatureShowcase />

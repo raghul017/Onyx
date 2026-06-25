@@ -19,7 +19,7 @@ const RollButton = ({
     className = "",
 }: RollButtonProps) => {
     const base =
-        "group inline-flex items-center gap-3 rounded-full pl-5 sm:pl-6 pr-2 py-2 transition-colors w-fit text-[13px] sm:text-[14px] font-medium";
+        "group inline-flex items-center gap-3 rounded-full pl-5 sm:pl-6 pr-2 py-2 transition-[background-color,border-color,transform] duration-200 active:scale-[0.96] w-fit text-[13px] sm:text-[14px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60";
 
     const variants = {
         orange: "bg-[#F26522] hover:bg-[#e05a1a] text-white",

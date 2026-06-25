@@ -5,7 +5,7 @@ const features = [
     {
         title: "AI Payload Generation",
         description:
-            "Gemini 2.5 Flash analyzes your API schema and crafts targeted attack payloads — SQL injection, XSS, type confusion, and auth bypass vectors.",
+            "Gemini 2.5 Flash analyzes your API schema and crafts targeted attack payloads: SQL injection, XSS, type confusion, and auth bypass vectors.",
         component: (
             <Player
                 src="/lottie/scanning.json"
@@ -41,7 +41,7 @@ const features = [
     {
         title: "Real-Time Dashboard",
         description:
-            "A command center for your test runs. Track critical failures and drill into individual endpoint results — all updating live.",
+            "A command center for your test runs. Track critical failures and drill into individual endpoint results, all updating live.",
         component: (
             <Player
                 src="/lottie/analytics.json"
@@ -126,17 +126,8 @@ const FeatureShowcase = () => {
                     transition={{ duration: 0.5 }}
                     className="mb-10 sm:mb-12 flex flex-col items-start text-left"
                 >
-                    <div className="flex items-center gap-3 mb-5 sm:mb-6">
-                        <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-black text-[11px] sm:text-[12px] font-semibold">
-                            03
-                        </div>
-                        <span className="text-[12px] sm:text-[13px] font-medium text-white/80 border border-[#2A2A2A] rounded-full px-3 sm:px-4 py-1 sm:py-1.5">
-                            Features
-                        </span>
-                    </div>
-
                     <h2
-                        className="text-white max-w-2xl"
+                        className="text-white max-w-2xl text-balance"
                         style={{
                             fontFamily: '"Satoshi Variable", sans-serif',
                             fontWeight: 400,
@@ -148,7 +139,7 @@ const FeatureShowcase = () => {
                         Everything you need to stress-test your API.
                     </h2>
                     <p className="font-['Inter'] text-[16px] sm:text-[17px] leading-[1.6] text-[#ADADAD] mt-4 max-w-xl">
-                        From schema parsing to vulnerability detection — all
+                        From schema parsing to vulnerability detection. All
                         automated, all real-time.
                     </p>
                 </motion.div>
