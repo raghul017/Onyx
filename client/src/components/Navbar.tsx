@@ -1,4 +1,4 @@
-import { User, LogOut, Menu, X, Clock, ArrowRight } from "lucide-react";
+import { LogOut, Menu, X, Clock, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../store/useAuthStore";
@@ -176,18 +176,25 @@ const Navbar = () => {
                             >
                                 Billing
                             </button>
-                            <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-3 py-1.5 rounded-full">
-                                <User size={14} className="text-[#22d3ee]" />
-                                <span className="text-xs font-mono text-neutral-300">
+                            <div className="flex items-center gap-2.5 rounded-full pl-1.5 pr-3.5 py-1.5 bg-white/[0.03] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                                <span
+                                    className="flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold text-black shrink-0"
+                                    style={{ background: "linear-gradient(135deg,#9fe6ea,#73bfc4 55%,#8da0ce)" }}
+                                    aria-hidden="true"
+                                >
+                                    {user.email.charAt(0).toUpperCase()}
+                                </span>
+                                <span className="font-['Inter'] text-[13px] text-white/85 max-w-[120px] truncate">
                                     {user.email.split("@")[0]}
                                 </span>
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="text-neutral-500 hover:text-red-400 transition-colors"
-                                title="Sign Out"
+                                className="flex items-center justify-center w-8 h-8 rounded-full text-white/45 hover:text-white hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50"
+                                title="Sign out"
+                                aria-label="Sign out"
                             >
-                                <LogOut size={16} />
+                                <LogOut size={15} />
                             </button>
                         </div>
                     ) : (
