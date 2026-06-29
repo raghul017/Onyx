@@ -58,7 +58,7 @@ const SignIn = () => {
             const res = await api.post("/auth/signin", { email, password });
             const { token, user } = res.data;
             setAuth(token, user);
-            navigate("/");
+            navigate("/dashboard");
         } catch (err: any) {
             if (err.response?.data?.error) {
                 setError(err.response.data.error);
