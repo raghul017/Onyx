@@ -24,7 +24,7 @@ const ColdStartBanner = () => {
 
                 <span className="text-red-300/90">
                     Server unreachable
-                    <span className="text-red-500/50 mx-1">—</span>
+                    <span className="text-red-500/50 mx-1.5">·</span>
                     <span className="text-neutral-500">
                         the backend may be down, please try again later
                     </span>
@@ -51,7 +51,7 @@ const ColdStartBanner = () => {
 
             <span className="text-cyan-300/90">
                 Server is waking up
-                <span className="text-cyan-500/50 mx-1">—</span>
+                <span className="text-cyan-500/50 mx-1.5">·</span>
                 <span className="text-neutral-500">
                     Render free-tier cold start
                 </span>

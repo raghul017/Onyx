@@ -19,6 +19,7 @@ const History = lazy(() => import("./pages/History"));
 const Report = lazy(() => import("./pages/Report"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const SignUp = lazy(() => import("./pages/SignUp"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Settings = lazy(() => import("./pages/Settings"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
@@ -58,6 +59,7 @@ const App = () => {
                             <Route path="/docs" element={<Docs />} />
                             <Route path="/signin" element={<SignIn />} />
                             <Route path="/signup" element={<SignUp />} />
+                            <Route path="/auth/callback" element={<OAuthCallback />} />
 
                             {/* Protected Routes */}
                             <Route element={<ProtectedRoute />}>

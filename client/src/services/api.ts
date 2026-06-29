@@ -21,6 +21,15 @@ export const api = axios.create({
     timeout: 30_000, // 30s — generous enough for Render cold-start scenarios
 });
 
+// Exposed for full-page OAuth redirects (not axios — the browser must navigate
+// to the provider). Locally this resolves to "/api" via the Vite proxy.
+export const API_ORIGIN = API_BASE_URL;
+
+/** Full-page navigate to start a server-side OAuth flow. */
+export function startOAuth(provider: "google" | "github"): void {
+    window.location.href = `${API_ORIGIN}/auth/${provider}`;
+}
+
 // Auto-inject JWT token and active org into every request
 api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;

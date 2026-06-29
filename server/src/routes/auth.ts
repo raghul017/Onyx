@@ -1,6 +1,11 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { signup, signin } from "../controllers/auth.controller.js";
+import {
+    signup,
+    signin,
+    oauthRedirect,
+    oauthCallback,
+} from "../controllers/auth.controller.js";
 
 const router = Router();
 
@@ -22,5 +27,10 @@ router.post("/signup", authLimiter, signup);
 
 // POST /api/auth/signin
 router.post("/signin", authLimiter, signin);
+
+// OAuth (server-side redirect flow): GET /api/auth/:provider[/callback]
+// Not rate-limited the same way — these are full-page browser redirects.
+router.get("/:provider", oauthRedirect);
+router.get("/:provider/callback", oauthCallback);
 
 export default router;

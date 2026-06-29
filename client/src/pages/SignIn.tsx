@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Shield, Chrome, Github, Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeOff, Check } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
-import { api } from "../services/api";
+import { api, startOAuth } from "../services/api";
 import { useServerStatus } from "../store/useServerStatus";
 import ColdStartBanner from "../components/ColdStartBanner";
 import ShaderBackground from "../components/ShaderBackground";
+import { GoogleIcon, GithubIcon } from "../components/BrandIcons";
 
 // ---------------------------------------------------------------------------
 // Animation variants
@@ -63,7 +64,7 @@ const SignIn = () => {
                 setError(err.response.data.error);
             } else if (!err.response) {
                 setError(
-                    "Server is starting up — please wait a moment and try again.",
+                    "Server is starting up. Please wait a moment and try again.",
                 );
             } else {
                 setError("Failed to sign in. Please try again.");
@@ -74,7 +75,7 @@ const SignIn = () => {
     };
 
     return (
-        <main className="flex min-h-screen w-full bg-black text-white selection:bg-white/30 p-2 transition-all duration-500 lg:h-screen lg:overflow-hidden lg:p-4">
+        <main className="flex min-h-screen w-full bg-[#080808] text-white antialiased selection:bg-cyan-400 selection:text-black p-2 lg:h-screen lg:overflow-hidden lg:p-4">
             {/* Cold-start banner */}
             <div className="fixed top-0 left-0 right-0 z-50">
                 <ColdStartBanner />
@@ -98,13 +99,9 @@ const SignIn = () => {
                     animate="visible"
                     className="z-10 w-full max-w-xs space-y-8"
                 >
-                    {/* Brand / Logo */}
-                    <motion.div
-                        variants={heroChild}
-                        className="flex items-center gap-2"
-                    >
-                        <Shield size={20} className="text-white" />
-                        <span className="text-xl font-semibold tracking-tight">
+                    {/* Brand / Logo — matches the navbar wordmark */}
+                    <motion.div variants={heroChild}>
+                        <span className="font-['Inter'] text-white text-[24px] tracking-tight">
                             Onyx
                         </span>
                     </motion.div>
@@ -143,10 +140,13 @@ const SignIn = () => {
                 >
                     {/* Header */}
                     <div className="space-y-2">
-                        <h2 className="text-3xl font-medium tracking-tight">
+                        <h2
+                            className="text-white text-3xl tracking-tight text-balance"
+                            style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
+                        >
                             Sign in to Onyx
                         </h2>
-                        <p className="text-white/40 text-sm">
+                        <p className="text-white/55 text-sm">
                             Enter your credentials to access your dashboard.
                         </p>
                     </div>
@@ -157,16 +157,24 @@ const SignIn = () => {
                         </div>
                     )}
 
-                    {/* Social buttons */}
+                    {/* Social buttons — server-side OAuth redirect */}
                     <div className="grid grid-cols-2 gap-4">
-                        <SocialButton icon={<Chrome size={18} />} label="Google" />
-                        <SocialButton icon={<Github size={18} />} label="Github" />
+                        <SocialButton
+                            icon={<GoogleIcon size={18} />}
+                            label="Google"
+                            onClick={() => startOAuth("google")}
+                        />
+                        <SocialButton
+                            icon={<GithubIcon size={18} />}
+                            label="GitHub"
+                            onClick={() => startOAuth("github")}
+                        />
                     </div>
 
                     {/* Divider */}
                     <div className="relative flex items-center">
                         <div className="flex-1 border-t border-white/10" />
-                        <span className="bg-black px-4 text-xs font-medium text-white/40 uppercase tracking-widest">
+                        <span className="bg-[#080808] px-4 text-xs font-medium text-white/45 uppercase tracking-widest">
                             Or
                         </span>
                         <div className="flex-1 border-t border-white/10" />
@@ -192,17 +200,9 @@ const SignIn = () => {
 
                         {/* Password with eye toggle */}
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium text-white">
-                                    Password
-                                </label>
-                                <button
-                                    type="button"
-                                    className="text-xs text-white/40 hover:text-white transition-colors"
-                                >
-                                    Forgot password?
-                                </button>
-                            </div>
+                            <label className="text-sm font-medium text-white">
+                                Password
+                            </label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -215,12 +215,12 @@ const SignIn = () => {
                                         }))
                                     }
                                     placeholder="••••••••"
-                                    className="w-full bg-[#1A1A1A] border-none rounded-xl h-11 px-4 pr-12 text-white placeholder:text-white/20 focus:ring-2 focus:ring-white/20 outline-none"
+                                    className="w-full bg-[#0E0F10] rounded-xl h-11 px-4 pr-12 text-white placeholder:text-white/25 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] focus:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.5)] outline-none transition-shadow"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword((s) => !s)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
                                     aria-label={
                                         showPassword
                                             ? "Hide password"
@@ -252,7 +252,7 @@ const SignIn = () => {
                                 !!emailError ||
                                 !!passwordError
                             }
-                            className="w-full h-14 bg-white text-black font-semibold rounded-xl hover:bg-white/90 active:scale-[0.98] mt-4 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                            className="w-full h-14 bg-white text-black font-semibold rounded-xl hover:bg-neutral-100 active:scale-[0.98] mt-4 transition-[background-color,transform] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] focus-visible:ring-[#73bfc4]"
                         >
                             {!serverReady
                                 ? "Waiting for server..."
@@ -263,11 +263,11 @@ const SignIn = () => {
                     </form>
 
                     {/* Footer link */}
-                    <p className="text-center text-sm text-white/40">
+                    <p className="text-center text-sm text-white/55">
                         Don't have an account?{" "}
                         <Link
                             to="/signup"
-                            className="text-white font-medium hover:underline"
+                            className="text-white font-medium hover:text-[#73bfc4] transition-colors"
                         >
                             Create one
                         </Link>
@@ -297,13 +297,13 @@ function StepItem({
         <div
             className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors ${
                 active
-                    ? "bg-white text-black border border-white"
-                    : "bg-[#1A1A1A]/80 backdrop-blur-sm text-white border-none"
+                    ? "bg-white text-black"
+                    : "bg-white/[0.06] backdrop-blur-sm text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
             }`}
         >
             <div
                 className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold shrink-0 ${
-                    active ? "bg-black text-white" : "bg-white/10 text-white/40"
+                    active ? "bg-[#0B0C0D] text-[#73bfc4]" : "bg-white/10 text-white/45"
                 }`}
             >
                 {active ? <Check size={13} /> : number}
@@ -316,14 +316,17 @@ function StepItem({
 function SocialButton({
     icon,
     label,
+    onClick,
 }: {
     icon: React.ReactNode;
     label: string;
+    onClick?: () => void;
 }) {
     return (
         <button
             type="button"
-            className="flex items-center justify-center gap-2 h-11 bg-black border border-white/10 rounded-xl hover:bg-white/5 transition-colors text-sm font-medium"
+            onClick={onClick}
+            className="flex items-center justify-center gap-2.5 h-11 bg-[#0B0C0D] rounded-xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.4)] active:scale-[0.98] transition-[box-shadow,transform] duration-200 text-sm font-medium text-white/90 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
         >
             {icon}
             {label}
@@ -355,7 +358,7 @@ function InputGroup({
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 onBlur={onBlur}
-                className="w-full bg-[#1A1A1A] border-none rounded-xl h-11 px-4 text-white placeholder:text-white/20 focus:ring-2 focus:ring-white/20 outline-none"
+                className="w-full bg-[#0E0F10] rounded-xl h-11 px-4 text-white placeholder:text-white/25 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] focus:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.5)] outline-none transition-shadow"
             />
         </div>
     );

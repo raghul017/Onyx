@@ -26,7 +26,10 @@ enum OrgRole {
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
-  passwordHash    String
+  passwordHash    String?   // null for OAuth-only accounts (Google / GitHub)
+  googleId        String?   @unique
+  githubId        String?   @unique
+  avatarUrl       String?
   createdAt       DateTime  @default(now())
   plan            Plan      @default(FREE)
   razorpaySubId   String?

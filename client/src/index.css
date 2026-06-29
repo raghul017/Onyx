@@ -390,3 +390,43 @@
 @media (prefers-reduced-motion: reduce) {
   .onyx-marquee { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Animated gradient border (brand teal/cyan/slate — no orange, reserved for
+   severity). Uses a rotating conic gradient masked to a 1px+ ring via the
+   border-box / padding-box mask trick. --gb-w sets ring thickness.
+--------------------------------------------------------------------------- */
+@property --gb-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+.onyx-gradient-border {
+  position: relative;
+  --gb-w: 1.5px;
+}
+.onyx-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--gb-w);
+  background: conic-gradient(
+    from var(--gb-angle),
+    #155e63, #06b6d4, #73bfc4, #8da0ce, #22d3ee, #155e63
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: onyx-gb-spin 6s linear infinite;
+}
+/* hover-reveal variant: ring is faint until hovered */
+.onyx-gradient-border--hover::before { opacity: 0; transition: opacity 0.4s ease; }
+.onyx-gradient-border--hover:hover::before { opacity: 1; }
+
+@keyframes onyx-gb-spin {
+  to { --gb-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onyx-gradient-border::before { animation: none; }
+}
