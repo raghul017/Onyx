@@ -1,6 +1,7 @@
 // =============================================================================
 // Dashboard — "Onyx Command Center"
-// High-Density Enterprise UI — Pure black + charcoal panels
+// High-density command UI on the brand off-black surface (#080808 / #0B0C0D),
+// teal live-accent, semantic severity colors. Matches the landing design system.
 // =============================================================================
 
 import { useState, useEffect, useMemo } from "react";
@@ -204,7 +205,7 @@ const Dashboard = () => {
     const getMethodColor = (method: string) => {
         switch (method) {
             case "GET":
-                return "text-cyan-400";
+                return "text-[#73bfc4]";
             case "POST":
                 return "text-emerald-400";
             case "PUT":
@@ -227,10 +228,10 @@ const Dashboard = () => {
     // Render
     // =======================================================================
     return (
-        <div className="relative min-h-screen bg-black text-white font-['Inter'] selection:bg-cyan-500/20 overflow-x-hidden">
-            {/* Subtle gradient accent — ties the dashboard to the landing theme */}
+        <div className="relative min-h-screen bg-[#080808] text-white font-['Inter'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
+            {/* Subtle gradient accent, ties the dashboard to the landing theme */}
             <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
-            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
+            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-[#080808] to-[#080808]" />
 
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
@@ -244,7 +245,7 @@ const Dashboard = () => {
                     {/* --------------------------------------------------------- */}
                     {/* 2. Launch Panel                                           */}
                     {/* --------------------------------------------------------- */}
-                    <section className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A]/80 backdrop-blur-sm p-4 sm:p-5">
+                    <section className="rounded-2xl bg-[#0B0C0D]/80 backdrop-blur-sm shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 sm:p-5">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
                                 <Terminal size={13} />
@@ -255,7 +256,7 @@ const Dashboard = () => {
                                 <span
                                     className={`w-2 h-2 rounded-full ${
                                         status === "attacking"
-                                            ? "bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                                            ? "bg-[#73bfc4] animate-pulse shadow-[0_0_8px_rgba(115,191,196,0.6)]"
                                             : status === "completed"
                                               ? "bg-neutral-500"
                                               : "bg-neutral-700"
@@ -264,7 +265,7 @@ const Dashboard = () => {
                                 <span
                                     className={
                                         status === "attacking"
-                                            ? "text-cyan-400"
+                                            ? "text-[#73bfc4]"
                                             : "text-neutral-500"
                                     }
                                 >
@@ -285,7 +286,7 @@ const Dashboard = () => {
                                 value={inputUrl}
                                 onChange={(e) => setInputUrl(e.target.value)}
                                 placeholder="https://petstore.swagger.io/v2/swagger.json"
-                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-200 font-['JetBrains_Mono'] text-[13px] px-4 py-3 outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700 rounded-full"
+                                className="flex-1 bg-[#070809] text-neutral-200 font-['JetBrains_Mono'] text-[13px] px-4 py-3 outline-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)] focus:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.5)] transition-shadow placeholder:text-neutral-700 rounded-full"
                                 disabled={launching}
                             />
                             {inputUrl.trim() && !domainVerified && (
@@ -326,7 +327,7 @@ const Dashboard = () => {
                     {/* --------------------------------------------------------- */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {/* Payloads Fired */}
-                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
+                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <Crosshair size={11} />
                                 Payloads Fired
@@ -342,7 +343,7 @@ const Dashboard = () => {
                             {totalPayloads > 0 && (
                                 <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-neutral-900">
                                     <motion.div
-                                        className="h-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.4)]"
+                                        className="h-full bg-[#73bfc4] shadow-[0_0_6px_rgba(115,191,196,0.4)]"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${progressPct}%` }}
                                         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -352,7 +353,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Critical Failures */}
-                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
+                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <AlertTriangle size={11} className="text-red-500" />
                                 Critical Failures
@@ -370,7 +371,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Payloads Blocked */}
-                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px]">
+                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px]">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <ShieldAlert size={11} className="text-orange-500" />
                                 Payloads Blocked
@@ -383,7 +384,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Queue Status */}
-                        <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 flex flex-col min-h-[96px]">
+                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px]">
                             <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
                                 <Radio size={11} />
                                 Queue Status
@@ -392,7 +393,7 @@ const Dashboard = () => {
                                 <span
                                     className={`w-2 h-2 rounded-full ${
                                         connectionStatus === "connected"
-                                            ? "bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                                            ? "bg-[#73bfc4] animate-pulse shadow-[0_0_6px_rgba(115,191,196,0.5)]"
                                             : connectionStatus === "connecting"
                                               ? "bg-yellow-400 animate-pulse"
                                               : "bg-neutral-600"
@@ -401,7 +402,7 @@ const Dashboard = () => {
                                 <span
                                     className={`text-lg font-['JetBrains_Mono'] ${
                                         connectionStatus === "connected"
-                                            ? "text-emerald-400"
+                                            ? "text-[#73bfc4]"
                                             : connectionStatus === "connecting"
                                               ? "text-yellow-400"
                                               : "text-neutral-600"
@@ -416,9 +417,9 @@ const Dashboard = () => {
                     {/* --------------------------------------------------------- */}
                     {/* 4. Live Attack Stream                                     */}
                     {/* --------------------------------------------------------- */}
-                    <section className="flex-1 flex flex-col rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] overflow-hidden min-h-[400px]">
+                    <section className="flex-1 flex flex-col rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] overflow-hidden min-h-[400px]">
                         {/* Panel header */}
-                        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#1A1A1A]">
+                        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/[0.06]">
                             <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
                                 <Radio size={12} />
                                 Live Attack Stream
@@ -427,7 +428,7 @@ const Dashboard = () => {
                                 <span
                                     className={`w-1.5 h-1.5 rounded-full ${
                                         connectionStatus === "connected"
-                                            ? "bg-emerald-500"
+                                            ? "bg-[#73bfc4]"
                                             : "bg-neutral-700"
                                     }`}
                                 />
@@ -438,7 +439,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Column headers — desktop */}
-                        <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#050505] border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                        <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#070809] border-b border-white/[0.06] font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
                             <span>Time</span>
                             <span>Method</span>
                             <span>Endpoint</span>
@@ -462,9 +463,9 @@ const Dashboard = () => {
                                     {status === "attacking" ? (
                                         <>
                                             <div className="relative">
-                                                <div className="w-8 h-8 border border-cyan-500/30 rounded-full animate-ping absolute inset-0" />
-                                                <div className="w-8 h-8 border border-cyan-500/60 rounded-full flex items-center justify-center">
-                                                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                                                <div className="w-8 h-8 border border-[#73bfc4]/30 rounded-full animate-ping absolute inset-0" />
+                                                <div className="w-8 h-8 border border-[#73bfc4]/60 rounded-full flex items-center justify-center">
+                                                    <div className="w-2 h-2 bg-[#73bfc4] rounded-full animate-pulse" />
                                                 </div>
                                             </div>
                                             <span className="text-neutral-500">
@@ -494,7 +495,7 @@ const Dashboard = () => {
                                         className={`${getRowClass(log.statusCode)} ${index === 0 ? "onyx-row-enter" : ""}`}
                                     >
                                         {/* Desktop row */}
-                                        <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.015] transition-colors">
+                                        <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.025] transition-colors">
                                             <span className="text-neutral-600 text-[11px] tabular-nums">
                                                 {formatTime(log.timestamp)}
                                             </span>
@@ -520,7 +521,7 @@ const Dashboard = () => {
                                         </div>
 
                                         {/* Mobile card */}
-                                        <div className="md:hidden px-4 py-3 border-b border-[#1A1A1A] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.015] transition-colors space-y-1.5">
+                                        <div className="md:hidden px-4 py-3 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors space-y-1.5">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>
@@ -551,7 +552,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Panel footer status */}
-                        <div className="shrink-0 h-8 bg-[#050505] border-t border-[#1A1A1A] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
+                        <div className="shrink-0 h-8 bg-[#070809] border-t border-white/[0.06] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
                             <span>
                                 {completedCount} / {totalPayloads || "—"} results
                                 {criticalCount > 0 && (

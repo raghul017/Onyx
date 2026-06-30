@@ -17,17 +17,17 @@ const AppHeader = ({ user }: AppHeaderProps) => {
 
     const linkClass = (active: boolean) =>
         active
-            ? "text-white text-[14px] font-medium"
-            : "text-white/70 hover:text-white text-[14px] font-medium transition-colors";
+            ? "text-white text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded"
+            : "text-white/65 hover:text-white text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded";
 
     return (
-        <header className="sticky top-0 z-30 border-b border-[#1A1A1A] bg-black/70 backdrop-blur-md">
+        <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#080808]/80 backdrop-blur-xl">
             <div className="w-full px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
                 {/* Left — back + brand + nav */}
                 <div className="flex items-center gap-5 shrink-0">
                     <button
                         onClick={() => navigate("/")}
-                        className="text-neutral-500 hover:text-white transition-colors"
+                        className="text-white/40 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded"
                         aria-label="Back to landing"
                     >
                         <ArrowLeft size={18} />
@@ -40,7 +40,7 @@ const AppHeader = ({ user }: AppHeaderProps) => {
                             Onyx
                         </span>
                         {user && user.plan !== "FREE" && (
-                            <span className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-cyan-400 translate-y-[2px]">
+                            <span className="px-1.5 py-[1px] rounded bg-[#73bfc4]/10 border border-[#73bfc4]/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-[#73bfc4] translate-y-[2px]">
                                 {user.plan}
                             </span>
                         )}
