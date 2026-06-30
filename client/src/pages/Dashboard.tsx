@@ -6,11 +6,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
-    Crosshair,
     AlertTriangle,
-    ShieldAlert,
     Radio,
     Terminal,
     Play,
@@ -21,6 +18,7 @@ import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, Curren
 import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
 import AppHeader from "@/components/AppHeader";
+import DashboardStats from "@/components/DashboardStats";
 
 // =============================================================================
 // Component
@@ -165,12 +163,6 @@ const Dashboard = () => {
               ? "SEQUENCE COMPLETE"
               : "STANDING BY";
 
-    const queueLabel =
-        connectionStatus === "connected"
-            ? "LIVE"
-            : connectionStatus === "connecting"
-              ? "CONNECTING..."
-              : "OFFLINE";
 
     const getRowClass = (code: number) => {
         if (code >= 500) return "bg-red-500/[0.06] border-l-2 border-l-red-500";
@@ -323,96 +315,18 @@ const Dashboard = () => {
                     </section>
 
                     {/* --------------------------------------------------------- */}
-                    {/* 3. Telemetry Cards                                        */}
+                    {/* 3. Telemetry — mission-control KPI row                    */}
                     {/* --------------------------------------------------------- */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        {/* Payloads Fired */}
-                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
-                            <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <Crosshair size={11} />
-                                Payloads Fired
-                            </div>
-                            <div className="mt-auto flex items-baseline gap-1">
-                                <span className="text-3xl font-['JetBrains_Mono'] text-white tabular-nums">
-                                    {completedCount}
-                                </span>
-                                <span className="text-sm font-['JetBrains_Mono'] text-neutral-600">
-                                    / {totalPayloads}
-                                </span>
-                            </div>
-                            {totalPayloads > 0 && (
-                                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-neutral-900">
-                                    <motion.div
-                                        className="h-full bg-[#73bfc4] shadow-[0_0_6px_rgba(115,191,196,0.4)]"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progressPct}%` }}
-                                        transition={{ duration: 0.3, ease: "easeOut" }}
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Critical Failures */}
-                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px] relative overflow-hidden">
-                            <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <AlertTriangle size={11} className="text-red-500" />
-                                Critical Failures
-                            </div>
-                            <div className="mt-auto flex items-baseline gap-2">
-                                <span className="text-3xl font-['JetBrains_Mono'] text-red-500 font-bold tabular-nums">
-                                    {criticalCount}
-                                </span>
-                                {criticalCount > 0 && (
-                                    <span className="text-[10px] font-['JetBrains_Mono'] text-red-500/80 uppercase tracking-wider animate-pulse">
-                                        VULN DETECTED
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Payloads Blocked */}
-                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px]">
-                            <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <ShieldAlert size={11} className="text-orange-500" />
-                                Payloads Blocked
-                            </div>
-                            <div className="mt-auto flex items-baseline gap-2">
-                                <span className="text-3xl font-['JetBrains_Mono'] tabular-nums text-yellow-500">
-                                    {blockedCount}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Queue Status */}
-                        <div className="rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] p-4 flex flex-col min-h-[96px]">
-                            <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <Radio size={11} />
-                                Queue Status
-                            </div>
-                            <div className="mt-auto flex items-center gap-2">
-                                <span
-                                    className={`w-2 h-2 rounded-full ${
-                                        connectionStatus === "connected"
-                                            ? "bg-[#73bfc4] animate-pulse shadow-[0_0_6px_rgba(115,191,196,0.5)]"
-                                            : connectionStatus === "connecting"
-                                              ? "bg-yellow-400 animate-pulse"
-                                              : "bg-neutral-600"
-                                    }`}
-                                />
-                                <span
-                                    className={`text-lg font-['JetBrains_Mono'] ${
-                                        connectionStatus === "connected"
-                                            ? "text-[#73bfc4]"
-                                            : connectionStatus === "connecting"
-                                              ? "text-yellow-400"
-                                              : "text-neutral-600"
-                                    }`}
-                                >
-                                    {queueLabel}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <DashboardStats
+                        logs={logs}
+                        totalPayloads={totalPayloads}
+                        completedCount={completedCount}
+                        criticalCount={criticalCount}
+                        blockedCount={blockedCount}
+                        infoCount={infoCount}
+                        connectionStatus={connectionStatus}
+                        progressPct={progressPct}
+                    />
 
                     {/* --------------------------------------------------------- */}
                     {/* 4. Live Attack Stream                                     */}
