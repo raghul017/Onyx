@@ -4,21 +4,15 @@
 // teal live-accent, semantic severity colors. Matches the landing design system.
 // =============================================================================
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import {
-    AlertTriangle,
-    Radio,
-    Terminal,
-    Play,
-    Square,
-} from "lucide-react";
+import { Terminal, Play, Square } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
 import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, CurrentUser } from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
 import AppHeader from "@/components/AppHeader";
-import DashboardStats from "@/components/DashboardStats";
+import DashboardCommand from "@/components/DashboardCommand";
 
 // =============================================================================
 // Component
@@ -146,75 +140,19 @@ const Dashboard = () => {
 
     const completedCount = logs.length;
 
-    // Cap rendered rows to prevent DOM performance cliff on large runs.
-    // All logs are still counted in metrics — only rendering is limited.
-    const visibleLogs = useMemo(() => logs.slice(0, 300), [logs]);
-
     const progressPct =
         totalPayloads > 0
             ? Math.min(100, Math.round((completedCount / totalPayloads) * 100))
             : 0;
 
-    // -- Helpers ------------------------------------------------------------
+    // Row rendering, severity badges, latency series, etc. now live inside
+    // DashboardCommand (the bento body). This page owns launch + lifecycle only.
     const statusLabel =
         status === "attacking"
             ? "ATTACK IN PROGRESS"
             : status === "completed"
               ? "SEQUENCE COMPLETE"
               : "STANDING BY";
-
-
-    const getRowClass = (code: number) => {
-        if (code >= 500) return "bg-red-500/[0.06] border-l-2 border-l-red-500";
-        if (code >= 400)
-            return "bg-orange-500/[0.04] border-l-2 border-l-orange-500/50";
-        if (code >= 200 && code < 300) return "bg-neutral-500/[0.02]";
-        return "";
-    };
-
-    const getStatusBadge = (code: number) => {
-        if (code >= 500)
-            return (
-                <span className="text-red-500 font-bold drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
-                    [CRITICAL]
-                </span>
-            );
-        if (code >= 400)
-            return (
-                <span className="text-orange-500 font-bold drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]">
-                    [WARNING]
-                </span>
-            );
-        if (code >= 200 && code < 300)
-            return (
-                <span className="text-neutral-500 font-semibold">[INFO]</span>
-            );
-        return (
-            <span className="text-neutral-600 font-semibold">[UNKNOWN]</span>
-        );
-    };
-
-    const getMethodColor = (method: string) => {
-        switch (method) {
-            case "GET":
-                return "text-[#73bfc4]";
-            case "POST":
-                return "text-emerald-400";
-            case "PUT":
-                return "text-yellow-400";
-            case "DELETE":
-                return "text-red-400";
-            case "PATCH":
-                return "text-purple-400";
-            default:
-                return "text-neutral-400";
-        }
-    };
-
-    const formatTime = (ts: number | string) => {
-        const d = new Date(ts);
-        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-    };
 
     // =======================================================================
     // Render
@@ -315,175 +253,20 @@ const Dashboard = () => {
                     </section>
 
                     {/* --------------------------------------------------------- */}
-                    {/* 3. Telemetry — mission-control KPI row                    */}
+                    {/* 3. Command center — bento layout (telemetry + stream)     */}
                     {/* --------------------------------------------------------- */}
-                    <DashboardStats
+                    <DashboardCommand
                         logs={logs}
+                        status={status}
+                        connectionStatus={connectionStatus}
+                        error={error}
                         totalPayloads={totalPayloads}
-                        completedCount={completedCount}
                         criticalCount={criticalCount}
                         blockedCount={blockedCount}
                         infoCount={infoCount}
-                        connectionStatus={connectionStatus}
                         progressPct={progressPct}
+                        targetUrl={inputUrl}
                     />
-
-                    {/* --------------------------------------------------------- */}
-                    {/* 4. Live Attack Stream                                     */}
-                    {/* --------------------------------------------------------- */}
-                    <section className="flex-1 flex flex-col rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] overflow-hidden min-h-[400px]">
-                        {/* Panel header */}
-                        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/[0.06]">
-                            <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
-                                <Radio size={12} />
-                                Live Attack Stream
-                            </div>
-                            <span className="flex items-center gap-1.5 text-[10px] font-['JetBrains_Mono'] text-neutral-600">
-                                <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                        connectionStatus === "connected"
-                                            ? "bg-[#73bfc4]"
-                                            : "bg-neutral-700"
-                                    }`}
-                                />
-                                {connectionStatus === "connected"
-                                    ? "Connected"
-                                    : "Disconnected"}
-                            </span>
-                        </div>
-
-                        {/* Column headers — desktop */}
-                        <div className="shrink-0 hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 bg-[#070809] border-b border-white/[0.06] font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
-                            <span>Time</span>
-                            <span>Method</span>
-                            <span>Endpoint</span>
-                            <span>Severity</span>
-                            <span>Status</span>
-                            <span>Latency</span>
-                            <span>Payload</span>
-                        </div>
-
-                        {/* Scrollable rows */}
-                        <div className="flex-1 overflow-y-auto">
-                            {error && (
-                                <div className="mx-4 sm:mx-6 mt-3 px-3 py-2.5 border border-red-500/30 bg-red-500/5 text-red-400 text-[11px] font-['JetBrains_Mono'] flex items-center gap-2 rounded-lg">
-                                    <AlertTriangle size={12} className="shrink-0" />
-                                    {error}
-                                </div>
-                            )}
-
-                            {logs.length === 0 && !error && (
-                                <div className="flex flex-col items-center justify-center h-64 text-neutral-700 font-['JetBrains_Mono'] text-xs gap-3">
-                                    {status === "attacking" ? (
-                                        <>
-                                            <div className="relative">
-                                                <div className="w-8 h-8 border border-[#73bfc4]/30 rounded-full animate-ping absolute inset-0" />
-                                                <div className="w-8 h-8 border border-[#73bfc4]/60 rounded-full flex items-center justify-center">
-                                                    <div className="w-2 h-2 bg-[#73bfc4] rounded-full animate-pulse" />
-                                                </div>
-                                            </div>
-                                            <span className="text-neutral-500">
-                                                Initializing attack sequence...
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Terminal size={22} className="text-neutral-800" />
-                                            <span>Enter a target URL above to begin</span>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
-                            {visibleLogs.map((log, index) => {
-                                const payloadStr =
-                                    typeof log.payload === "string"
-                                        ? log.payload
-                                        : JSON.stringify(log.payload);
-
-                                const isCritical = log.statusCode >= 400;
-
-                                return (
-                                    <div
-                                        key={log.id}
-                                        className={`${getRowClass(log.statusCode)} ${index === 0 ? "onyx-row-enter" : ""}`}
-                                    >
-                                        {/* Desktop row */}
-                                        <div className="hidden md:grid grid-cols-[72px_60px_1fr_90px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.025] transition-colors">
-                                            <span className="text-neutral-600 text-[11px] tabular-nums">
-                                                {formatTime(log.timestamp)}
-                                            </span>
-                                            <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>
-                                                {log.method}
-                                            </span>
-                                            <span className={`truncate pr-3 ${isCritical ? "text-white" : "text-neutral-300"}`}>
-                                                {log.endpoint}
-                                            </span>
-                                            <span className="flex items-center text-[11px] tracking-wide">
-                                                {getStatusBadge(log.statusCode)}
-                                            </span>
-                                            <span className="text-neutral-500 tabular-nums">
-                                                {log.statusCode || "ERR"}
-                                            </span>
-                                            <span className="text-neutral-500 text-[11px] tabular-nums">
-                                                {log.latencyMs}
-                                                <span className="text-neutral-700">ms</span>
-                                            </span>
-                                            <span className="text-neutral-500 text-[11px] truncate" title={payloadStr}>
-                                                {payloadStr}
-                                            </span>
-                                        </div>
-
-                                        {/* Mobile card */}
-                                        <div className="md:hidden px-4 py-3 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>
-                                                        {log.method}
-                                                    </span>
-                                                    <span className="text-neutral-500 tabular-nums text-[11px]">
-                                                        {log.statusCode || "ERR"}
-                                                    </span>
-                                                    <span className="text-[11px] tracking-wide">
-                                                        {getStatusBadge(log.statusCode)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
-                                                    <span className="tabular-nums">{log.latencyMs}ms</span>
-                                                    <span className="tabular-nums">{formatTime(log.timestamp)}</span>
-                                                </div>
-                                            </div>
-                                            <div className={`text-[11px] truncate ${isCritical ? "text-white" : "text-neutral-400"}`}>
-                                                {log.endpoint}
-                                            </div>
-                                            <div className="text-neutral-600 text-[10px] truncate" title={payloadStr}>
-                                                {payloadStr}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Panel footer status */}
-                        <div className="shrink-0 h-8 bg-[#070809] border-t border-white/[0.06] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
-                            <span>
-                                {completedCount} / {totalPayloads || "—"} results
-                                {criticalCount > 0 && (
-                                    <span className="text-red-500/80 ml-2">● {criticalCount} critical</span>
-                                )}
-                                {blockedCount > 0 && (
-                                    <span className="text-orange-500/80 ml-2">● {blockedCount} blocked</span>
-                                )}
-                                {totalPayloads > 0 && (
-                                    <span className="text-neutral-700 ml-2">({progressPct}%)</span>
-                                )}
-                            </span>
-                            <span className="text-neutral-700">
-                                {infoCount} info / passed
-                            </span>
-                        </div>
-                    </section>
                 </main>
             </div>
         </div>
