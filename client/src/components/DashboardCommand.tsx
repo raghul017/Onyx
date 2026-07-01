@@ -132,21 +132,63 @@ const DashboardCommand = ({
 
     if (!hasRun) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-20 gap-5">
-                <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#73bfc4]/10 shadow-[inset_0_0_0_1px_rgba(115,191,196,0.25)]">
-                    <Target size={26} className="text-[#73bfc4]" />
-                </span>
-                <div>
-                    <h2
-                        className="text-white text-[22px] tracking-tight"
-                        style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
-                    >
-                        Ready when you are.
-                    </h2>
-                    <p className="mt-2 text-[14px] text-neutral-500 max-w-sm">
-                        Paste an OpenAPI or Swagger spec above and execute a run. Live
-                        results, severity scoring, and the attack stream appear here.
-                    </p>
+            <div className="relative flex-1 flex flex-col items-center justify-center text-center py-16 overflow-hidden">
+                {/* Landing-matched animated gradient glow */}
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[520px] w-[520px] rounded-full c5-animated-gradient opacity-[0.14] blur-[90px]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#080808_75%)]" />
+
+                <div className="relative z-10 flex flex-col items-center gap-6 max-w-md">
+                    {/* Pulsing radar target inside an animated gradient-border ring */}
+                    <div className="onyx-gradient-border rounded-3xl" style={{ ["--gb-w" as string]: "1.5px" }}>
+                        <span className="relative flex items-center justify-center w-20 h-20 rounded-3xl bg-[#0B0C0D]">
+                            <span className="absolute inline-flex h-12 w-12 rounded-full border border-[#73bfc4]/40 motion-safe:animate-ping" />
+                            <Target size={30} className="text-[#73bfc4]" />
+                        </span>
+                    </div>
+
+                    {/* Gradient-text headline (same moving hero gradient as landing) */}
+                    <div>
+                        <h2
+                            className="text-[26px] sm:text-[30px] leading-tight tracking-tight"
+                            style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
+                        >
+                            <span className="text-white">Your command center is </span>
+                            <span className="c5-text-gradient">armed.</span>
+                        </h2>
+                        <p className="mt-3 text-[14px] leading-relaxed text-neutral-400">
+                            Paste an OpenAPI or Swagger spec above and execute a run.
+                            A live security score, severity breakdown, and the attack
+                            stream light up here the moment it starts.
+                        </p>
+                    </div>
+
+                    {/* What lights up — preview chips so the space feels designed */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+                        {[
+                            { icon: ShieldCheck, t: "Live CVSS score" },
+                            { icon: Crosshair, t: "Severity breakdown" },
+                            { icon: Radio, t: "Streaming results" },
+                            { icon: Target, t: "Top vulnerable endpoints" },
+                        ].map(({ icon: Ic, t }) => (
+                            <span
+                                key={t}
+                                className="inline-flex items-center gap-1.5 text-[12px] text-neutral-400 rounded-full px-3 py-1.5 bg-white/[0.03] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+                            >
+                                <Ic size={12} className="text-[#73bfc4]" />
+                                {t}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Ghost preview of the bento zones (very faint) so the page has structure */}
+                <div className="relative z-10 mt-14 w-full max-w-4xl grid grid-cols-3 gap-3 opacity-[0.35]" aria-hidden="true">
+                    {["Security Posture", "Findings", "Avg Latency"].map((t) => (
+                        <div key={t} className={`${panel} h-20 p-4`}>
+                            <span className={label}>{t}</span>
+                            <div className="mt-3 h-2 w-2/3 rounded-full bg-white/[0.05]" />
+                        </div>
+                    ))}
                 </div>
             </div>
         );

@@ -3,9 +3,10 @@
 // =============================================================================
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, CreditCard } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import type { CurrentUser } from "@/services/api";
 import OrgSwitcher from "./OrgSwitcher";
+import GoBackButton from "./GoBackButton";
 
 interface AppHeaderProps {
     user: CurrentUser | null;
@@ -25,13 +26,7 @@ const AppHeader = ({ user }: AppHeaderProps) => {
             <div className="w-full px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
                 {/* Left — back + brand + nav */}
                 <div className="flex items-center gap-5 shrink-0">
-                    <button
-                        onClick={() => navigate("/")}
-                        className="text-white/40 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded"
-                        aria-label="Back to landing"
-                    >
-                        <ArrowLeft size={18} />
-                    </button>
+                    <GoBackButton to="/" label="Home" size="sm" className="hidden sm:block" />
                     <div
                         className="flex items-center gap-2 cursor-pointer"
                         onClick={() => navigate("/")}
