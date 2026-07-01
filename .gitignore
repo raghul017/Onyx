@@ -28,3 +28,6 @@ dist-ssr
 
 # Personal project explainer — keep local only
 EXPLAIN.md
+
+# local UI preview screenshots (not committed)
+.screenshots/
