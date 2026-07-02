@@ -9,25 +9,40 @@ import net from "node:net";
  * Returns true if the IP address belongs to a private, loopback, or
  * link-local range that should never be reached by outbound requests.
  */
-function isPrivateIP(ip: string): boolean {
-    if (net.isIPv6(ip)) {
-        return (
-            ip === "::1" ||
-            ip === "::ffff:127.0.0.1" ||
-            ip.startsWith("fe80:") ||
-            ip.startsWith("fc00:") ||
-            ip.startsWith("fd00:")
-        );
-    }
-
+function isPrivateIPv4(ip: string): boolean {
     return (
         ip.startsWith("127.") ||
         ip.startsWith("10.") ||
         ip.startsWith("192.168.") ||
-        ip.startsWith("169.254.") ||
+        ip.startsWith("169.254.") || // link-local + cloud metadata 169.254.169.254
         ip.startsWith("0.") ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+        ip === "255.255.255.255" ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip) // 100.64.0.0/10 CGNAT
     );
+}
+
+function isPrivateIP(ip: string): boolean {
+    if (net.isIPv6(ip)) {
+        const lower = ip.toLowerCase();
+        // IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible IPv6 — extract the v4
+        // tail and evaluate it as IPv4, so ::ffff:10.0.0.1 is caught too.
+        const mapped = lower.match(/(?:::ffff:|::)(\d+\.\d+\.\d+\.\d+)$/);
+        if (mapped) return isPrivateIPv4(mapped[1]!);
+        return (
+            lower === "::1" ||          // loopback
+            lower === "::" ||           // unspecified / all-zeros
+            lower.startsWith("fe80:") || // link-local
+            lower.startsWith("fc") ||    // unique local fc00::/7
+            lower.startsWith("fd") ||
+            lower.startsWith("ff")       // multicast
+        );
+    }
+
+    // Reject anything that isn't a well-formed dotted-quad IPv4 (e.g. decimal
+    // "2130706433" or hex "0x7f.1" encodings that resolve to loopback).
+    if (!net.isIPv4(ip)) return true;
+    return isPrivateIPv4(ip);
 }
 
 /**
@@ -51,21 +66,39 @@ export async function assertNotSSRF(url: string): Promise<void> {
         throw new Error(`SSRF blocked: internal hostname "${hostname}"`);
     }
 
-    // Resolve DNS and check the actual IP the hostname points to
+    // If the hostname is already a literal IP (in any encoding Node accepts),
+    // check it directly. isPrivateIP fails closed on non-dotted-quad IPv4 such
+    // as decimal (2130706433) or hex forms.
+    if (net.isIP(hostname) !== 0) {
+        if (isPrivateIP(hostname)) {
+            throw new Error(`SSRF blocked: literal private IP "${hostname}"`);
+        }
+        return;
+    }
+
+    // Resolve ALL addresses (A + AAAA) and block if ANY is private. Using
+    // { all: true } closes the gap where dns.lookup returns only the first
+    // record while the actual request could connect to a different one.
+    let addresses: { address: string }[];
     try {
-        const { address } = await dns.lookup(hostname);
+        addresses = await dns.lookup(hostname, { all: true });
+    } catch (err: any) {
+        // A genuine "host not found" is safe to pass through (the real request
+        // will fail cleanly). Any OTHER resolver error fails CLOSED — we must
+        // not send a request we couldn't vet.
+        if (err?.code === "ENOTFOUND" || err?.code === "EAI_AGAIN") {
+            return;
+        }
+        throw new Error(`SSRF blocked: DNS resolution error for "${hostname}"`);
+    }
+
+    if (addresses.length === 0) return; // nothing resolved — let HTTP fail cleanly
+
+    for (const { address } of addresses) {
         if (isPrivateIP(address)) {
             throw new Error(
                 `SSRF blocked: "${hostname}" resolves to private IP ${address}`,
             );
         }
-    } catch (err) {
-        // Re-throw our own SSRF errors; DNS failures are fine (let the
-        // actual HTTP request handle ENOTFOUND gracefully).
-        if (err instanceof Error && err.message.startsWith("SSRF blocked")) {
-            throw err;
-        }
-        // DNS lookup failures (ENOTFOUND etc.) — let the caller proceed
-        // so the real HTTP call produces a user-friendly error.
     }
 }

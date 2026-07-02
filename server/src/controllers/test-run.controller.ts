@@ -23,6 +23,21 @@ import type {
 } from "../types/shared.js";
 import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
 
+/**
+ * Shared access check for a test run. Returns true when the caller owns the run
+ * OR is a member of the org that owns it. injectOrgContext must have run so that
+ * req.orgId is set to a verified membership when an org header/param is present.
+ */
+function canAccessTestRun(
+    testRun: { userId: string | null; orgId: string | null },
+    req: Request,
+): boolean {
+    const isOwner = testRun.userId != null && testRun.userId === req.user?.id;
+    const isOrgMember =
+        testRun.orgId != null && req.orgId != null && req.orgId === testRun.orgId;
+    return isOwner || isOrgMember;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/test-runs — List all test runs for the current user
 // ---------------------------------------------------------------------------
@@ -112,12 +127,14 @@ export async function deleteTestRun(
             return;
         }
 
-        const isOwner = testRun.userId === userId;
-        const isOrgMember = testRun.orgId && req.orgId === testRun.orgId;
-        if (!isOwner && !isOrgMember) {
+        if (!canAccessTestRun(testRun, req)) {
             res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
+
+        // Drain any queued/active jobs for this run BEFORE deleting the row, so
+        // orphaned jobs don't keep attacking the target or fail on missing FKs.
+        await drainTestRunJobs(id);
 
         await prisma.testRun.delete({
             where: { id },
@@ -407,8 +424,10 @@ async function processTestRunAsync(
         // If every job already finished before enqueuing wrapped up (tiny runs),
         // finalize here so the run doesn't hang in ATTACKING.
         if (totalJobs > 0 && finalRun.completedAttacks >= totalJobs) {
+            // Only an ATTACKING run may complete — never overwrite a run the
+            // user aborted (FAILED) mid-enqueue.
             const { count } = await prisma.testRun.updateMany({
-                where: { id: testRunId, status: { not: "COMPLETED" } },
+                where: { id: testRunId, status: "ATTACKING" },
                 data: { status: "COMPLETED", completedAt: new Date() },
             });
             if (count > 0) {
@@ -470,8 +489,9 @@ export async function getTestRun(
             return;
         }
 
-        // Ownership check — prevent cross-tenant data access
-        if (testRun.userId && testRun.userId !== req.user?.id) {
+        // Ownership check — prevent cross-tenant data access. Allows the owner
+        // or a member of the owning org (org runs may have userId=null).
+        if (!canAccessTestRun(testRun, req)) {
             res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
@@ -586,7 +606,7 @@ export async function getTestRunLogs(
             return;
         }
 
-        if (testRun.userId && testRun.userId !== req.user?.id) {
+        if (!canAccessTestRun(testRun, req)) {
             res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
@@ -713,7 +733,7 @@ export async function abortTestRun(
             return;
         }
 
-        if (testRun.userId && testRun.userId !== req.user?.id) {
+        if (!canAccessTestRun(testRun, req)) {
             res.status(403).json({ error: "Forbidden: Not your test run" });
             return;
         }
@@ -727,28 +747,10 @@ export async function abortTestRun(
             return;
         }
 
-        // 1. Drain all waiting jobs from the BullMQ queue for this test run
-        //    Get waiting + delayed jobs and remove ones matching this testRunId
-        const { chaosQueue } = await import("../queues/chaos-queue.js");
-
-        const [waiting, delayed] = await Promise.all([
-            chaosQueue.getJobs(["waiting", "prioritized"]),
-            chaosQueue.getJobs(["delayed"]),
-        ]);
-
-        const allJobs = [...waiting, ...delayed];
-        let removedCount = 0;
-
-        for (const job of allJobs) {
-            if (job.data?.testRunId === id) {
-                try {
-                    await job.remove();
-                    removedCount++;
-                } catch {
-                    // Job may have been picked up by the worker in the meantime
-                }
-            }
-        }
+        // 1. Drain all pending jobs from the BullMQ queue for this test run.
+        //    Active jobs already in flight are short-circuited by the worker,
+        //    which re-reads the run status and drops the job if it's terminal.
+        const removedCount = await drainTestRunJobs(id);
 
         // 2. Update test run status in database
         // We set totalAttacks to completedAttacks so the progress bar hits 100% and logic concludes.
@@ -791,6 +793,30 @@ export async function abortTestRun(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Removes all waiting/prioritized/delayed BullMQ jobs for a test run and
+ * returns how many were removed. Used by both abort and delete so a terminated
+ * run never keeps firing payloads at the target. Active (in-flight) jobs can't
+ * be removed mid-execution; the worker guards against them by re-checking the
+ * run's status at the top of processAttackJob and dropping terminal-run jobs.
+ */
+async function drainTestRunJobs(testRunId: string): Promise<number> {
+    const { chaosQueue } = await import("../queues/chaos-queue.js");
+    const jobs = await chaosQueue.getJobs(["waiting", "prioritized", "delayed"]);
+    let removed = 0;
+    for (const job of jobs) {
+        if (job.data?.testRunId === testRunId) {
+            try {
+                await job.remove();
+                removed++;
+            } catch {
+                // Job may have been picked up by the worker in the meantime.
+            }
+        }
+    }
+    return removed;
+}
 
 function extractBaseUrl(specUrl: string): string {
     try {

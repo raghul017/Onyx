@@ -51,14 +51,30 @@ router.post("/verify", authenticateToken, async (req: Request, res: Response): P
         return;
     }
 
-    // Accept any state that means payment went through
-    const activeStates = ["created", "authenticated", "active"];
-    if (!activeStates.includes(sub.status)) {
+    // Only a genuinely ACTIVE subscription grants a paid plan. "created" and
+    // "authenticated" mean the subscription exists but the first charge has NOT
+    // been captured yet — accepting those would hand out paid plans for free.
+    if (sub.status !== "active") {
         res.status(402).json({ error: `Subscription not active (status: ${sub.status})` });
         return;
     }
 
+    // The subscription must belong to THIS user. Without this check, any user
+    // could pass another user's subscriptionId and inherit their plan.
+    if (sub.notes?.userId && sub.notes.userId !== userId) {
+        console.error(
+            `[Billing] verify: subscription ${subscriptionId} belongs to ${sub.notes.userId}, not ${userId}`,
+        );
+        res.status(403).json({ error: "This subscription does not belong to you" });
+        return;
+    }
+
+    // Never grant a paid plan for an unrecognized plan id.
     const plan = resolvePlan(sub.plan_id);
+    if (plan === Plan.FREE) {
+        res.status(422).json({ error: "Unrecognized plan for this subscription" });
+        return;
+    }
 
     await prisma.user.update({
         where: { id: userId },
@@ -113,7 +129,8 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
 
     const receivedSignature = req.headers["x-razorpay-signature"] as string | undefined;
 
-    if (!receivedSignature || receivedSignature !== expectedSignature) {
+    // Constant-time comparison to avoid a signature-forging timing side channel.
+    if (!receivedSignature || !timingSafeEqualHex(receivedSignature, expectedSignature)) {
         res.status(400).json({ error: "Invalid signature" });
         return;
     }
@@ -122,18 +139,56 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
     const event = payload?.event as string | undefined;
     const subEntity = payload?.payload?.subscription?.entity;
 
+    // Idempotency / replay protection. Razorpay sends a unique event id header;
+    // record it and skip if we've already processed this exact delivery, so a
+    // replayed webhook can't re-apply plan changes or re-extend expiry.
+    const eventId =
+        (req.headers["x-razorpay-event-id"] as string | undefined) ?? undefined;
+    if (eventId) {
+        try {
+            await prisma.webhookEvent.create({ data: { eventId, event: event ?? "unknown" } });
+        } catch {
+            // Unique-constraint violation → already processed this delivery.
+            console.log(`[Billing] duplicate webhook ${eventId} ignored`);
+            res.status(200).json({ received: true, duplicate: true });
+            return;
+        }
+    }
+
     switch (event) {
         case "subscription.activated": {
             const userId: string | undefined = subEntity?.notes?.userId;
             const subId: string | undefined = subEntity?.id;
-            const planId: string | undefined = subEntity?.plan_id;
 
             if (!userId || !subId) {
                 console.error("[Billing] subscription.activated missing userId or subId", req.body);
                 break;
             }
 
-            const plan = resolvePlan(planId);
+            // Do NOT trust the plan_id / state in the webhook payload. Fetch the
+            // real subscription from Razorpay and confirm it's active before
+            // granting anything. This defeats forged/replayed activation events.
+            let verified: any;
+            try {
+                verified = await billingService.fetchSubscription(subId);
+            } catch (err: any) {
+                console.error("[Billing] webhook: could not fetch subscription", subId, err?.message);
+                break;
+            }
+            if (verified.status !== "active") {
+                console.error(`[Billing] webhook: subscription ${subId} not active (${verified.status})`);
+                break;
+            }
+            if (verified.notes?.userId && verified.notes.userId !== userId) {
+                console.error(`[Billing] webhook: subscription ${subId} userId mismatch`);
+                break;
+            }
+
+            const plan = resolvePlan(verified.plan_id);
+            if (plan === Plan.FREE) {
+                console.error(`[Billing] webhook: unrecognized plan for ${subId}`);
+                break;
+            }
 
             await prisma.user.update({
                 where: { id: userId },
@@ -146,12 +201,18 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
             const subId: string | undefined = subEntity?.id;
             if (!subId) break;
 
-            const nextMonth = new Date();
-            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            // Prefer Razorpay's authoritative period end (`current_end`, a unix
+            // timestamp in seconds) over client-side month math, which is buggy
+            // across month-length boundaries (Jan 31 → Mar 3). Fall back to +30d.
+            const currentEnd: number | undefined = subEntity?.current_end;
+            const expiresAt =
+                typeof currentEnd === "number"
+                    ? new Date(currentEnd * 1000)
+                    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
             await prisma.user.updateMany({
                 where: { razorpaySubId: subId },
-                data: { planExpiresAt: nextMonth },
+                data: { planExpiresAt: expiresAt },
             });
             break;
         }
@@ -188,10 +249,23 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
+/** Constant-time comparison of two hex signature strings. */
+function timingSafeEqualHex(a: string, b: string): boolean {
+    // Length must match for timingSafeEqual; a length diff is itself a mismatch.
+    if (a.length !== b.length) return false;
+    try {
+        return crypto.timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
+    } catch {
+        return false;
+    }
+}
+
 function resolvePlan(planId: string | undefined): Plan {
-    if (planId === process.env.RAZORPAY_TEAM_PLAN_ID) return Plan.TEAM;
-    if (planId === process.env.RAZORPAY_PRO_PLAN_ID) return Plan.PRO;
-    return Plan.PRO; // safe default for any paid plan activation
+    if (planId && planId === process.env.RAZORPAY_TEAM_PLAN_ID) return Plan.TEAM;
+    if (planId && planId === process.env.RAZORPAY_PRO_PLAN_ID) return Plan.PRO;
+    // NEVER default to a paid plan. An unknown/empty plan id (misconfigured env,
+    // forged webhook, bogus subscription) must not grant paid features.
+    return Plan.FREE;
 }
 
 export default router;

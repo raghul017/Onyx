@@ -26,6 +26,7 @@ import orgRouter from "./org.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
 import { injectOrgContext } from "../middleware/org.middleware.js";
+import { getEffectivePlan } from "../services/org.service.js";
 import { generateTestRunPDF } from "../services/pdf.service.js";
 import { openApiSpec } from "../openapi.js";
 
@@ -94,27 +95,39 @@ router.post("/test-runs", authenticateToken, injectOrgContext, attackLimiter, ch
  * POST /api/attack — The primary endpoint for the frontend.
  * Accepts { openApiUrl: string }, fetches spec, runs AI, queues attacks.
  */
-router.post("/attack", authenticateToken, injectOrgContext, attackLimiter, attackHandler);
+router.post("/attack", authenticateToken, injectOrgContext, attackLimiter, checkQuota("testRun"), attackHandler);
 
 /** Abort an in-progress test run — drains BullMQ jobs and marks as FAILED. */
-router.post("/test-runs/:id/abort", authenticateToken, abortTestRun);
+router.post("/test-runs/:id/abort", authenticateToken, injectOrgContext, abortTestRun);
 
 /** Get a test run's summary and all attack logs. */
-router.get("/test-runs/:id", authenticateToken, getTestRun);
+router.get("/test-runs/:id", authenticateToken, injectOrgContext, getTestRun);
 
 /** Delete a historical test run. */
-router.delete("/test-runs/:id", authenticateToken, deleteTestRun);
+router.delete("/test-runs/:id", authenticateToken, injectOrgContext, deleteTestRun);
 
 /** Get paginated attack logs for a test run. */
-router.get("/test-runs/:id/logs", authenticateToken, getTestRunLogs);
+router.get("/test-runs/:id/logs", authenticateToken, injectOrgContext, getTestRunLogs);
 
 /** Export a completed test run as a PDF report (Pro/Team only). */
 router.get("/test-runs/:id/export/pdf", authenticateToken, async (req, res) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
-    if (!user || user.plan === "FREE") {
+    // Resolve the run's org so we gate on the EFFECTIVE plan (org plan when the
+    // run is org-owned), not just the caller's personal plan. Expiry is enforced
+    // inside getEffectivePlan.
+    const run = await prisma.testRun.findUnique({
+        where: { id: id as string },
+        select: { orgId: true },
+    });
+    if (!run) {
+        res.status(404).json({ error: "Test run not found" });
+        return;
+    }
+
+    const effectivePlan = await getEffectivePlan(userId, run.orgId);
+    if (effectivePlan === "FREE") {
         res.status(403).json({
             error: "PLAN_REQUIRED",
             message: "PDF export is a Pro feature",

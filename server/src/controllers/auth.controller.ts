@@ -221,9 +221,11 @@ export async function oauthCallback(
             backToClient(res, "error=missing_code");
             return;
         }
-        // Validate CSRF state
+        // Validate CSRF state (pin algorithm to HS256 to match how we sign it).
         try {
-            const decoded = jwt.verify(state, JWT_SECRET) as { provider?: string };
+            const decoded = jwt.verify(state, JWT_SECRET, {
+                algorithms: ["HS256"],
+            }) as { provider?: string };
             if (decoded.provider !== provider) throw new Error("state mismatch");
         } catch {
             backToClient(res, "error=bad_state");
@@ -309,8 +311,15 @@ async function fetchGoogleProfile(
     const u = (await userRes.json()) as {
         id: string;
         email: string | null;
+        verified_email?: boolean;
         picture: string | null;
     };
+    // Only trust a verified Google email. An unverified email could be attacker-
+    // controlled, and since we link accounts by email that would allow taking
+    // over an existing account (account-linking attack).
+    if (!u.verified_email) {
+        return { id: u.id, email: null, avatarUrl: u.picture };
+    }
     return { id: u.id, email: u.email, avatarUrl: u.picture };
 }
 

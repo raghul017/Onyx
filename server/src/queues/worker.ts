@@ -56,6 +56,27 @@ export function startOnyxWorker(): Worker {
 
     worker.on("failed", (job, err) => {
         console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+
+        // CRITICAL: a permanently-failed job (retries exhausted) must still
+        // count toward completion, otherwise completedAttacks can never reach
+        // totalAttacks and the run hangs in ATTACKING forever (burning the
+        // user's active-run slot). Only act on the FINAL attempt.
+        if (!job) return;
+        const attemptsAllowed = job.opts.attempts ?? 1;
+        const isFinalAttempt = job.attemptsMade >= attemptsAllowed;
+        if (!isFinalAttempt) return;
+
+        const testRunId = job.data?.testRunId;
+        if (typeof testRunId !== "string") return;
+
+        // Fire-and-forget: record the failed attack as completed and finalize
+        // the run if this was the last outstanding job.
+        void recordFailedAttempt(testRunId).catch((e) => {
+            console.error(
+                `[Worker] Failed to record terminal failure for ${testRunId}:`,
+                e instanceof Error ? e.message : e,
+            );
+        });
     });
 
     worker.on("error", (err) => {
@@ -67,10 +88,92 @@ export function startOnyxWorker(): Worker {
 }
 
 // ---------------------------------------------------------------------------
+// Completion helpers (shared by success path, SSRF-block path, and the
+// terminal-failure handler so the logic can never diverge).
+// ---------------------------------------------------------------------------
+
+/**
+ * Atomically flip a run to COMPLETED iff all jobs are enqueued (enqueuedAt set)
+ * and every attack has been accounted for. Uses updateMany with a status filter
+ * so concurrent finishers can't double-complete. Broadcasts only if this call
+ * was the one that actually set COMPLETED. Safe to call from any path.
+ */
+async function finalizeIfComplete(testRunId: string): Promise<void> {
+    const run = await prisma.testRun.findUnique({
+        where: { id: testRunId },
+        select: {
+            enqueuedAt: true,
+            completedAttacks: true,
+            totalAttacks: true,
+            status: true,
+        },
+    });
+    if (!run) return;
+    // Don't resurrect a run the user aborted / that already failed.
+    if (run.status === "FAILED" || run.status === "COMPLETED") return;
+    if (run.enqueuedAt === null) return;
+    if (run.completedAttacks < run.totalAttacks) return;
+
+    // Only ATTACKING runs may transition to COMPLETED. This also closes the
+    // race where a run is aborted (→ FAILED) between the read above and here:
+    // the filter refuses to overwrite a FAILED/COMPLETED terminal state.
+    const { count } = await prisma.testRun.updateMany({
+        where: { id: testRunId, status: "ATTACKING" },
+        data: { status: "COMPLETED", completedAt: new Date() },
+    });
+
+    if (count > 0) {
+        const completionMessage: WsServerMessage = {
+            type: "TEST_RUN_STATUS",
+            data: {
+                testRunId,
+                status: "COMPLETED",
+                completedAttacks: run.totalAttacks,
+                totalAttacks: run.totalAttacks,
+            },
+        };
+        wsManager.broadcast(testRunId, completionMessage);
+        console.log(`[Worker] Test run ${testRunId.slice(0, 8)}... COMPLETED`);
+    }
+}
+
+/**
+ * Record a permanently-failed job as a completed attack so the run's progress
+ * can still reach 100%. Called from the worker's `failed` handler on the final
+ * attempt. Guards against counting past a run that's already terminal.
+ */
+async function recordFailedAttempt(testRunId: string): Promise<void> {
+    const run = await prisma.testRun.findUnique({
+        where: { id: testRunId },
+        select: { status: true, completedAttacks: true, totalAttacks: true },
+    });
+    // If the run is already terminal, or would exceed its total, don't inflate.
+    if (!run) return;
+    if (run.status === "FAILED" || run.status === "COMPLETED") return;
+    if (run.completedAttacks >= run.totalAttacks && run.totalAttacks > 0) return;
+
+    await prisma.testRun.update({
+        where: { id: testRunId },
+        data: { completedAttacks: { increment: 1 } },
+    });
+    await finalizeIfComplete(testRunId);
+}
+
+// ---------------------------------------------------------------------------
 // Job Processor
 // ---------------------------------------------------------------------------
 
 async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
+    // Short-circuit any job whose run was aborted/deleted while it waited in the
+    // queue: don't attack the target, don't write logs, don't resurrect state.
+    const runState = await prisma.testRun.findUnique({
+        where: { id: job.data?.testRunId },
+        select: { status: true },
+    });
+    if (!runState || runState.status === "FAILED" || runState.status === "COMPLETED") {
+        return; // run is gone or terminal — silently drop this job
+    }
+
     // Validate job data
     const validation = attackJobDataSchema.safeParse(job.data);
     if (!validation.success) {
@@ -144,15 +247,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
 
         // Check completion — only once ALL jobs are enqueued (enqueuedAt set),
         // so an early-finishing job can't complete a run mid-enqueue.
-        if (
-            testRun.enqueuedAt !== null &&
-            testRun.completedAttacks >= testRun.totalAttacks
-        ) {
-            await prisma.testRun.updateMany({
-                where: { id: testRunId, status: { not: "COMPLETED" } },
-                data: { status: "COMPLETED", completedAt: new Date() },
-            });
-        }
+        await finalizeIfComplete(testRunId);
         return;
     }
 
@@ -238,42 +333,10 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     };
     wsManager.broadcast(testRunId, statusMessage);
 
-    // Check if all attacks are complete (atomic: only update if not already
-    // COMPLETED, and only once ALL jobs are enqueued so we don't finalize early).
-    if (
-        testRun.enqueuedAt !== null &&
-        testRun.completedAttacks >= testRun.totalAttacks
-    ) {
-        // Use updateMany with a status filter to prevent double-completion race
-        const { count } = await prisma.testRun.updateMany({
-            where: {
-                id: testRunId,
-                status: { not: "COMPLETED" },
-            },
-            data: {
-                status: "COMPLETED",
-                completedAt: new Date(),
-            },
-        });
-
-        // Only broadcast if this worker was the one that actually set COMPLETED
-        if (count > 0) {
-            const completionMessage: WsServerMessage = {
-                type: "TEST_RUN_STATUS",
-                data: {
-                    testRunId,
-                    status: "COMPLETED",
-                    completedAttacks: testRun.completedAttacks,
-                    totalAttacks: testRun.totalAttacks,
-                },
-            };
-            wsManager.broadcast(testRunId, completionMessage);
-
-            console.log(
-                `[Worker] Test run ${testRunId.slice(0, 8)}... COMPLETED`,
-            );
-        }
-    }
+    // Check if all attacks are complete. Shared helper re-reads fresh counts,
+    // guards on enqueuedAt + terminal status, and broadcasts COMPLETED exactly
+    // once via an atomic status-filtered update.
+    await finalizeIfComplete(testRunId);
 }
 
 // ---------------------------------------------------------------------------

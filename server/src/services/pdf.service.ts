@@ -103,7 +103,18 @@ export async function generateTestRunPDF(testRunId: string, userId: string): Pro
         throw err;
     }
 
-    if (testRun.userId && testRun.userId !== userId) {
+    // Authorization: the caller must own the run OR be a member of the org that
+    // owns it. A run with userId=null (org-scoped) must NOT be exportable by any
+    // authenticated user — check org membership explicitly.
+    const isOwner = testRun.userId === userId;
+    let isOrgMember = false;
+    if (testRun.orgId) {
+        const membership = await prisma.orgMember.findUnique({
+            where: { orgId_userId: { orgId: testRun.orgId, userId } },
+        });
+        isOrgMember = membership !== null;
+    }
+    if (!isOwner && !isOrgMember) {
         const err = Object.assign(new Error('Forbidden'), { statusCode: 403 });
         throw err;
     }

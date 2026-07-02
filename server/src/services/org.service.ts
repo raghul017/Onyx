@@ -4,7 +4,7 @@
 
 import crypto from "crypto";
 import { prisma } from "../lib/prisma.js";
-import { OrgRole, Plan } from "@prisma/client";
+import { OrgRole, Plan, Prisma } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -100,6 +100,24 @@ export async function acceptInvite(token: string, userId: string) {
         if (invite.acceptedAt) throw Object.assign(new Error("Invite already used"), { statusCode: 409 });
         if (invite.expiresAt < new Date()) throw Object.assign(new Error("Invite expired"), { statusCode: 410 });
 
+        // Bind the invite to the invited email. Without this, the invite link is
+        // a bearer token: anyone who obtains it (leaked/forwarded/logged) could
+        // join the org at the invited role. Require the accepting user's email
+        // to match the address the invite was issued to (case-insensitive).
+        const accepting = await tx.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+        });
+        if (
+            !accepting ||
+            accepting.email.toLowerCase() !== invite.email.toLowerCase()
+        ) {
+            throw Object.assign(
+                new Error("This invite was sent to a different email address"),
+                { statusCode: 403 },
+            );
+        }
+
         const member = await tx.orgMember.upsert({
             where: { orgId_userId: { orgId: invite.orgId, userId } },
             create: { orgId: invite.orgId, userId, role: invite.role },
@@ -123,28 +141,46 @@ export async function listMembers(orgId: string) {
 }
 
 export async function updateMemberRole(orgId: string, targetUserId: string, role: OrgRole) {
-    await guardLastOwner(orgId, targetUserId, role);
-    return prisma.orgMember.update({
-        where: { orgId_userId: { orgId, userId: targetUserId } },
-        data: { role },
+    return prisma.$transaction(async (tx) => {
+        await guardLastOwner(tx, orgId, targetUserId, role);
+        return tx.orgMember.update({
+            where: { orgId_userId: { orgId, userId: targetUserId } },
+            data: { role },
+        });
     });
 }
 
 export async function removeMember(orgId: string, targetUserId: string) {
-    await guardLastOwner(orgId, targetUserId, null);
-    return prisma.orgMember.delete({
-        where: { orgId_userId: { orgId, userId: targetUserId } },
+    return prisma.$transaction(async (tx) => {
+        await guardLastOwner(tx, orgId, targetUserId, null);
+        return tx.orgMember.delete({
+            where: { orgId_userId: { orgId, userId: targetUserId } },
+        });
     });
 }
 
-async function guardLastOwner(orgId: string, targetUserId: string, newRole: OrgRole | null) {
-    const member = await prisma.orgMember.findUnique({
+/**
+ * Guards against demoting/removing the last OWNER. Runs inside the same
+ * transaction as the mutation so two concurrent requests can't each read
+ * ownerCount=2 and both proceed, leaving the org with zero owners.
+ */
+async function guardLastOwner(
+    tx: Prisma.TransactionClient,
+    orgId: string,
+    targetUserId: string,
+    newRole: OrgRole | null,
+) {
+    const member = await tx.orgMember.findUnique({
         where: { orgId_userId: { orgId, userId: targetUserId } },
     });
-    if (!member) return;
+    if (!member) {
+        throw Object.assign(new Error("Member not found in this organization"), {
+            statusCode: 404,
+        });
+    }
     if (member.role !== "OWNER") return;
     // Removing or demoting an OWNER — make sure another OWNER exists
-    const ownerCount = await prisma.orgMember.count({ where: { orgId, role: "OWNER" } });
+    const ownerCount = await tx.orgMember.count({ where: { orgId, role: "OWNER" } });
     if (ownerCount <= 1 && (!newRole || newRole !== "OWNER")) {
         throw Object.assign(new Error("Cannot remove the last OWNER"), { statusCode: 400 });
     }
@@ -162,17 +198,29 @@ export async function deleteOrg(orgId: string) {
 // Effective plan — org plan takes precedence over user plan when org active
 // ---------------------------------------------------------------------------
 
+/**
+ * A paid plan is only in effect while it hasn't expired. If planExpiresAt is in
+ * the past (e.g. a renewal charge was missed and no cancel webhook fired), the
+ * effective plan falls back to FREE so lapsed subscribers lose paid features.
+ */
+function effective(plan: Plan, planExpiresAt: Date | null): Plan {
+    if (plan === "FREE") return "FREE";
+    if (planExpiresAt && planExpiresAt.getTime() < Date.now()) return "FREE";
+    return plan;
+}
+
 export async function getEffectivePlan(userId: string, orgId?: string | null): Promise<Plan> {
     if (orgId) {
         const org = await prisma.organization.findUnique({
             where: { id: orgId },
-            select: { plan: true },
+            select: { plan: true, planExpiresAt: true },
         });
-        if (org) return org.plan;
+        if (org) return effective(org.plan, org.planExpiresAt);
     }
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { plan: true },
+        select: { plan: true, planExpiresAt: true },
     });
-    return user?.plan ?? "FREE";
+    if (!user) return "FREE";
+    return effective(user.plan, user.planExpiresAt);
 }

@@ -32,7 +32,7 @@ model User {
   avatarUrl       String?
   createdAt       DateTime  @default(now())
   plan            Plan      @default(FREE)
-  razorpaySubId   String?
+  razorpaySubId   String?   @unique
   planExpiresAt   DateTime?
 
   testRuns        TestRun[]
@@ -125,7 +125,21 @@ model TestRun {
   endpoints TargetEndpoint[]
   logs      AttackLog[]
 
+  @@index([userId, createdAt])
+  @@index([orgId, createdAt])
   @@map("test_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Webhook Event — idempotency ledger for Razorpay webhook deliveries
+// ---------------------------------------------------------------------------
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique // Razorpay x-razorpay-event-id
+  event       String
+  processedAt DateTime @default(now())
+
+  @@map("webhook_events")
 }
 
 // ---------------------------------------------------------------------------

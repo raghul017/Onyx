@@ -36,7 +36,11 @@ export function authenticateToken(
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+        // Pin the algorithm to HS256. Without this, a token signed with
+        // alg:none (or an attacker-chosen algorithm) could be accepted.
+        const decoded = jwt.verify(token, JWT_SECRET, {
+            algorithms: ["HS256"],
+        }) as JwtPayload;
         req.user = decoded; // Attached to Express.Request via types/express.d.ts
         next();
     } catch (err) {
