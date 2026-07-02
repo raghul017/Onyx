@@ -7,6 +7,44 @@
 
 ---
 
+## 🔒 Security & Reliability Hardening (Jul 2026)
+
+A full backend audit (auth, attack pipeline, billing, orgs, data) closed every
+confirmed CRITICAL and HIGH defect in one pass. See
+[AGENTS.md](AGENTS.md) for the running work-log.
+
+**Critical**
+
+- **Attack-run hang fixed** — a BullMQ job that exhausted its retries never
+  incremented `completedAttacks`, so runs could stick in `ATTACKING` forever and
+  permanently consume the user's active-run slot. A shared
+  `finalizeIfComplete` / `recordFailedAttempt` path now accounts for terminal
+  failures. Aborted/deleted runs are also short-circuited by the worker.
+- **Billing `/verify` hardened** — requires a genuinely `active` Razorpay
+  subscription (previously accepted `created`/`authenticated`, which handed out
+  paid plans before payment) and confirms the subscription belongs to the caller.
+- **Webhook forgery/replay protection** — constant-time HMAC comparison, a
+  `WebhookEvent` idempotency ledger, and server-side re-verification against
+  Razorpay's real subscription state before any plan upgrade.
+- **`resolvePlan` defaults to FREE** (never PRO) for unknown plan ids.
+
+**High**
+
+- JWT verification pinned to `HS256`; Google OAuth requires a verified email
+  before account-linking (account-takeover fix).
+- PDF export gated on the **effective** plan (org-aware + expiry-aware); org-owned
+  runs authorized by org membership.
+- Expired paid plans (`planExpiresAt < now`) fall back to FREE.
+- Last-owner guard made transactional (no zero-owner race); org invites bound to
+  the invited email (no longer a shareable bearer link).
+- `/attack` now enforces `checkQuota`; SSRF guard fails closed and blocks
+  IPv4-mapped IPv6, `::`, decimal/hex IP literals, and CGNAT.
+
+**Schema:** `WebhookEvent` model, `users.razorpaySubId` unique, `TestRun`
+`(userId, createdAt)` + `(orgId, createdAt)` indexes.
+
+---
+
 ## ✅ What's Been Built (Phase 1 — Complete)
 
 ### Core Product (Pre-Session)
@@ -165,4 +203,4 @@
 
 ---
 
-_Last updated: May 2026 | Built by Raghul A.R_
+_Last updated: Jul 2026 | Built by Raghul A.R_

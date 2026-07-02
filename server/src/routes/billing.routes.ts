@@ -4,6 +4,7 @@ import { authenticateToken } from "../middleware/auth.js";
 import * as billingService from "../services/billing.service.js";
 import { prisma } from "../lib/prisma.js";
 import { Plan } from "@prisma/client";
+import { subscribeSchema, verifySubscriptionSchema } from "../validators/schemas.js";
 
 const router = Router();
 
@@ -12,12 +13,12 @@ const router = Router();
 // ---------------------------------------------------------------------------
 router.post("/subscribe", authenticateToken, async (req: Request, res: Response): Promise<void> => {
     const userId = req.user!.id;
-    const { planId } = req.body as { planId?: string };
-
-    if (!planId) {
-        res.status(400).json({ error: "planId is required" });
+    const parsed = subscribeSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
         return;
     }
+    const { planId } = parsed.data;
 
     const subscription = await billingService.createSubscription(planId, userId) as any;
 
@@ -35,12 +36,12 @@ router.post("/subscribe", authenticateToken, async (req: Request, res: Response)
 // ---------------------------------------------------------------------------
 router.post("/verify", authenticateToken, async (req: Request, res: Response): Promise<void> => {
     const userId = req.user!.id;
-    const { subscriptionId } = req.body as { subscriptionId?: string };
-
-    if (!subscriptionId) {
-        res.status(400).json({ error: "subscriptionId is required" });
+    const parsed = verifySubscriptionSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
         return;
     }
+    const { subscriptionId } = parsed.data;
 
     let sub: any;
     try {

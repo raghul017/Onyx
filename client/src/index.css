@@ -259,12 +259,38 @@
    ========================================================================= */
 
 @keyframes onyx-row-enter {
-    from { opacity: 0; transform: translateY(-10px); }
+    from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Subtle, GPU-composited (opacity + transform only) so a 30/sec burst stays
+   smooth. cubic-bezier(0.2,0,0,1) is a soft decelerate — feels "settled" not
+   "sprung". will-change hints the compositor for the first frame. */
 .onyx-row-enter {
-    animation: onyx-row-enter 0.18s ease-out forwards;
+    animation: onyx-row-enter 0.22s cubic-bezier(0.2, 0, 0, 1) forwards;
+    will-change: opacity, transform;
+}
+
+/* Smooth progress-bar fill — eases between values instead of snapping as each
+   result lands. */
+.onyx-progress-fill {
+    transition: width 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Faint highlight sweep on the newest row so the eye can follow the stream
+   without the list feeling like it "jumps". */
+@keyframes onyx-row-flash {
+    from { background-color: rgba(115, 191, 196, 0.10); }
+    to   { background-color: rgba(115, 191, 196, 0); }
+}
+.onyx-row-flash {
+    animation: onyx-row-flash 0.9s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .onyx-row-enter,
+    .onyx-row-flash { animation: none; }
+    .onyx-progress-fill { transition: none; }
 }
 
 /* =========================================================================

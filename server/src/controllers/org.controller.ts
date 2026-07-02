@@ -17,6 +17,14 @@ import {
     updateMemberRole,
     removeMember,
 } from "../services/org.service.js";
+import { prisma } from "../lib/prisma.js";
+import {
+    createOrgSchema,
+    updateOrgSchema,
+    createInviteSchema,
+    updateMemberRoleSchema,
+    acceptInviteSchema,
+} from "../validators/schemas.js";
 
 const CLIENT_URL = process.env.CLIENT_URL ?? "http://localhost:5173";
 
@@ -45,12 +53,12 @@ export async function getMyOrgs(req: Request, res: Response, next: NextFunction)
 
 export async function createOrgHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { name } = req.body;
-        if (!name || typeof name !== "string" || !name.trim()) {
-            res.status(400).json({ error: "name is required" });
+        const parsed = createOrgSchema.safeParse(req.body);
+        if (!parsed.success) {
+            res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
             return;
         }
-        const org = await createOrg(name.trim(), req.user!.id);
+        const org = await createOrg(parsed.data.name, req.user!.id);
         res.status(201).json({ org });
     } catch (err) { next(err); }
 }
@@ -73,15 +81,14 @@ export async function getOrgHandler(req: Request, res: Response, next: NextFunct
 
 export async function updateOrgHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { name } = req.body;
-        if (!name || typeof name !== "string" || !name.trim()) {
-            res.status(400).json({ error: "name is required" });
+        const parsed = updateOrgSchema.safeParse(req.body);
+        if (!parsed.success) {
+            res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
             return;
         }
-        const { prisma } = await import("../lib/prisma.js");
         const org = await prisma.organization.update({
             where: { id: req.params.orgId as string },
-            data: { name: name.trim() },
+            data: { name: parsed.data.name },
         });
         res.json({ org });
     } catch (err) { next(err); }
@@ -123,15 +130,15 @@ export async function listMembersHandler(req: Request, res: Response, next: Next
 
 export async function updateMemberRoleHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { role } = req.body;
-        if (!["OWNER", "ADMIN", "VIEWER"].includes(role)) {
+        const parsed = updateMemberRoleSchema.safeParse(req.body);
+        if (!parsed.success) {
             res.status(400).json({ error: "role must be OWNER | ADMIN | VIEWER" });
             return;
         }
         const member = await updateMemberRole(
             req.params.orgId as string,
             req.params.userId as string,
-            role as OrgRole,
+            parsed.data.role as OrgRole,
         );
         res.json({ member });
     } catch (err: any) {
@@ -160,19 +167,21 @@ export async function removeMemberHandler(req: Request, res: Response, next: Nex
 
 export async function createInviteHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { email, role } = req.body;
-        if (!email || typeof email !== "string") {
-            res.status(400).json({ error: "email is required" });
+        const parsed = createInviteSchema.safeParse(req.body);
+        if (!parsed.success) {
+            res.status(400).json({ error: "Validation failed", details: parsed.error.issues });
             return;
         }
-        if (!["ADMIN", "VIEWER"].includes(role ?? "")) {
+        // Invites may only grant ADMIN or VIEWER — an OWNER seat is never handed
+        // out via a link (prevents ADMINs, who can invite, from minting OWNERs).
+        if (parsed.data.role === "OWNER") {
             res.status(400).json({ error: "role must be ADMIN | VIEWER" });
             return;
         }
         const invite = await createInvite(
             req.params.orgId as string,
-            email.trim().toLowerCase(),
-            role as OrgRole,
+            parsed.data.email.trim().toLowerCase(),
+            parsed.data.role as OrgRole,
             req.user!.id,
         );
         res.status(201).json({
@@ -215,12 +224,12 @@ export async function revokeInviteHandler(req: Request, res: Response, next: Nex
 
 export async function acceptInviteHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { token } = req.body;
-        if (!token || typeof token !== "string") {
+        const parsed = acceptInviteSchema.safeParse(req.body);
+        if (!parsed.success) {
             res.status(400).json({ error: "token is required" });
             return;
         }
-        const result = await acceptInvite(token, req.user!.id);
+        const result = await acceptInvite(parsed.data.token, req.user!.id);
         res.json({ orgId: result.orgId, role: result.member.role });
     } catch (err: any) {
         if (err.statusCode) { res.status(err.statusCode).json({ error: err.message }); return; }

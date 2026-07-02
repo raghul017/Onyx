@@ -104,3 +104,42 @@ export const initiateVerificationSchema = z.object({
 export const checkVerificationSchema = z.object({
     domain: z.string().min(1, "Domain is required"),
 });
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+export const subscribeSchema = z.object({
+    planId: z.string().min(1, "planId is required").max(200),
+});
+
+export const verifySubscriptionSchema = z.object({
+    subscriptionId: z.string().min(1, "subscriptionId is required").max(200),
+});
+
+// ---------------------------------------------------------------------------
+// Organizations
+// ---------------------------------------------------------------------------
+
+const orgRoleEnum = z.enum(["OWNER", "ADMIN", "VIEWER"]);
+
+export const createOrgSchema = z.object({
+    name: z.string().trim().min(2, "Name must be at least 2 characters").max(60),
+});
+
+export const updateOrgSchema = z.object({
+    name: z.string().trim().min(2, "Name must be at least 2 characters").max(60),
+});
+
+export const createInviteSchema = z.object({
+    email: z.string().email("Invalid email format").max(254),
+    role: orgRoleEnum.default("VIEWER"),
+});
+
+export const updateMemberRoleSchema = z.object({
+    role: orgRoleEnum,
+});
+
+export const acceptInviteSchema = z.object({
+    token: z.string().min(1, "token is required"),
+});

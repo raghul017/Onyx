@@ -25,6 +25,7 @@ import {
     Target,
 } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
+import { useCountUp } from "@/hooks/useCountUp";
 
 const TEAL = "#73bfc4";
 const RED = "#ef4444";
@@ -75,12 +76,20 @@ const DashboardCommand = ({
     const completed = logs.length;
     const live = connectionStatus === "connected";
 
+    // Smoothly tweened copies of the streaming counters so KPI numbers settle
+    // instead of snapping as results land. tabular-nums (below) keeps width fixed.
+    const completedCU = useCountUp(completed);
+    const criticalCU = useCountUp(criticalCount);
+    const blockedCU = useCountUp(blockedCount);
+    const infoCU = useCountUp(Math.max(0, infoCount));
+
     // ---- Derived: live security score (same CVSS deductions as the report) ----
     const score = useMemo(() => {
         let s = 100 - criticalCount * 25 - blockedCount * 8;
         return Math.max(0, Math.min(100, s));
     }, [criticalCount, blockedCount]);
 
+    const scoreCU = useCountUp(score);
     const scoreLabel =
         score >= 90 ? "CLEAN" : score >= 70 ? "LOW" : score >= 50 ? "MEDIUM" : score >= 25 ? "HIGH" : "CRITICAL";
     const scoreColor =
@@ -230,18 +239,18 @@ const DashboardCommand = ({
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06]">
                 {[
                     { icon: Crosshair, l: "Payloads Fired", node: (
-                        <span className="tabular-nums text-white">{completed}<span className="text-neutral-600 text-sm"> / {totalPayloads}</span></span>
+                        <span className="tabular-nums text-white">{completedCU}<span className="text-neutral-600 text-sm"> / {totalPayloads}</span></span>
                     ), active: totalPayloads > 0 },
                     { icon: ShieldCheck, l: "Critical Failures", node: (
-                        <span className="tabular-nums" style={{ color: criticalCount > 0 ? RED : "#71717a" }}>{criticalCount}
+                        <span className="tabular-nums" style={{ color: criticalCount > 0 ? RED : "#71717a" }}>{criticalCU}
                             {criticalCount > 0 && <span className="ml-2 text-[9px] tracking-wider text-red-500/80 uppercase align-middle motion-safe:animate-pulse">vuln detected</span>}
                         </span>
                     ) },
                     { icon: Target, l: "Payloads Blocked", node: (
-                        <span className="tabular-nums" style={{ color: blockedCount > 0 ? AMBER : "#71717a" }}>{blockedCount}</span>
+                        <span className="tabular-nums" style={{ color: blockedCount > 0 ? AMBER : "#71717a" }}>{blockedCU}</span>
                     ) },
                     { icon: Radio, l: "Info / Passed", node: (
-                        <span className="tabular-nums text-neutral-500">{Math.max(0, infoCount)}</span>
+                        <span className="tabular-nums text-neutral-500">{infoCU}</span>
                     ) },
                 ].map((c, i) => {
                     const Ic = c.icon;
@@ -252,7 +261,7 @@ const DashboardCommand = ({
                             </span>
                             <div className="mt-1.5 font-['JetBrains_Mono'] text-2xl leading-none">{c.node}</div>
                             {c.active && i === 0 && (
-                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.05]"><div className="h-full" style={{ width: progressPct + "%", backgroundColor: TEAL }} /></div>
+                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.05]"><div className="onyx-progress-fill h-full" style={{ width: progressPct + "%", backgroundColor: TEAL }} /></div>
                             )}
                         </div>
                     );
@@ -263,14 +272,14 @@ const DashboardCommand = ({
             <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 sm:px-5 py-3 border-t border-white/[0.06] bg-[#080808]">
                 {/* score chip */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="font-['Satoshi_Variable'] text-2xl tabular-nums leading-none" style={{ color: scoreColor }}>{score}<span className="text-neutral-600 text-sm">/100</span></span>
+                    <span className="font-['Satoshi_Variable'] text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-neutral-600 text-sm">/100</span></span>
                     <span className="font-['JetBrains_Mono'] text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{ color: scoreColor, backgroundColor: scoreColor + "1A" }}>{scoreLabel} RISK</span>
                 </div>
                 {/* severity bar + legend */}
                 <div className="flex-1 min-w-0">
                     <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/[0.05]">
                         {sevTotal === 0 ? <div className="h-full w-full" /> : sev.map((s) => s.value > 0 ? (
-                            <div key={s.name} className="h-full" style={{ width: (s.value / sevTotal) * 100 + "%", backgroundColor: s.color }} title={s.name + ": " + s.value} />
+                            <div key={s.name} className="onyx-progress-fill h-full" style={{ width: (s.value / sevTotal) * 100 + "%", backgroundColor: s.color }} title={s.name + ": " + s.value} />
                         ) : null)}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1">
@@ -325,7 +334,7 @@ const DashboardCommand = ({
                             const tint = sv === "critical" ? "bg-red-500/[0.05]" : sv === "high" ? "bg-[#ff810a]/[0.04]" : "";
                             const chip = { critical: RED, high: AMBER, medium: "#d8b24a", low: TEAL, info: SLATE }[sv];
                             return (
-                                <div key={log.id} className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 items-center px-4 sm:px-5 py-1.5 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors " + tint + (i === 0 ? " onyx-row-enter" : "")}>
+                                <div key={log.id} className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 items-center px-4 sm:px-5 py-1.5 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors " + tint + (i === 0 ? " onyx-row-enter onyx-row-flash" : "")}>
                                     <span className="text-neutral-600 text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
                                     <span className="font-semibold text-[11px]" style={{ color: methodColor(log.method) }}>{log.method}</span>
                                     <span className={"truncate " + (sv === "critical" ? "text-white" : "text-neutral-300")}>{log.endpoint}</span>

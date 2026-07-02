@@ -32,13 +32,35 @@ async function uniqueSlug(base: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export async function createOrg(name: string, creatorUserId: string) {
-    const slug = await uniqueSlug(toSlug(name));
-    return prisma.$transaction(async (tx) => {
-        const org = await tx.organization.create({ data: { name, slug } });
-        await tx.orgMember.create({
-            data: { orgId: org.id, userId: creatorUserId, role: "OWNER" },
-        });
-        return org;
+    const base = toSlug(name) || "org";
+    // Try a best-effort unique slug, then create inside a transaction. If two
+    // requests race to the same slug, the DB unique constraint catches it
+    // (P2002) and we retry with a random suffix — no lost-update window.
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const slug =
+            attempt === 0
+                ? await uniqueSlug(base)
+                : `${base}-${crypto.randomBytes(3).toString("hex")}`;
+        try {
+            return await prisma.$transaction(async (tx) => {
+                const org = await tx.organization.create({ data: { name, slug } });
+                await tx.orgMember.create({
+                    data: { orgId: org.id, userId: creatorUserId, role: "OWNER" },
+                });
+                return org;
+            });
+        } catch (err) {
+            if (
+                err instanceof Prisma.PrismaClientKnownRequestError &&
+                err.code === "P2002"
+            ) {
+                continue; // slug collided under race — retry with a new suffix
+            }
+            throw err;
+        }
+    }
+    throw Object.assign(new Error("Could not generate a unique org slug"), {
+        statusCode: 409,
     });
 }
 

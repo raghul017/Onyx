@@ -13,7 +13,9 @@ if (!_jwtSecret) {
 }
 const JWT_SECRET: string = _jwtSecret;
 
-const BCRYPT_SALT_ROUNDS = 8;
+// 12 rounds is the current sensible default: meaningfully harder to brute-force
+// than 8 while keeping signup/signin latency imperceptible on modern hardware.
+const BCRYPT_SALT_ROUNDS = 12;
 
 // ---------------------------------------------------------------------------
 // POST /api/auth/signup

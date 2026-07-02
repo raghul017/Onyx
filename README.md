@@ -229,6 +229,9 @@ Connect to `ws://<host>/ws` after authenticating. The server broadcasts attack-l
 
 For bugs, use the **Bug Report** issue template. For new ideas, use **Feature Request**.
 
+A running log of substantive changes and the near-term backlog lives in
+[AGENTS.md](AGENTS.md); detailed release notes are in [changelog.md](changelog.md).
+
 ---
 
 ## License
