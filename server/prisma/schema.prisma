@@ -111,6 +111,7 @@ model TestRun {
   totalEndpoints  Int       @default(0)
   totalAttacks    Int       @default(0)
   completedAttacks Int      @default(0)
+  enqueuedAt      DateTime? // set once ALL attack jobs are enqueued; guards premature completion
   errorMessage    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

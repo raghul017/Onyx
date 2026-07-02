@@ -41,14 +41,12 @@ export async function enqueueAttackJobs(
             attackType: p.attackType,
         },
         opts: {
-            // Group jobs by testRunId so we can track progress
+            // Stable, unique job id so re-enqueues are idempotent per (run, endpoint, payload).
             jobId: `${testRunId}:${endpointId}:${index}`,
-            // Rate limit: max 10 jobs per second per test run
-            group: {
-                id: testRunId,
-                maxSize: 10,
-                duration: 1000,
-            },
+            // NOTE: pacing is handled solely by the worker (concurrency + limiter).
+            // The previous per-run `group` throttle was a second, redundant rate
+            // limit that made firing bursty ("10 then a gap"). Removed for a
+            // smooth continuous stream.
         },
     }));
 

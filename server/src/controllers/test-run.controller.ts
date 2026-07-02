@@ -342,46 +342,87 @@ async function processTestRunAsync(
             );
         }
 
-        for (let i = 0; i < cappedEndpoints.length; i++) {
-            const endpoint = cappedEndpoints[i]!;
-            const savedEndpoint = cappedSavedEndpoints[i]!;
-
-            console.log(
-                `[Pipeline] Generating payloads for ${endpoint.method} ${endpoint.path}...`,
-            );
-
-            const payloads = await generatePayloadsForEndpoint(endpoint);
-
-            const jobCount = await enqueueAttackJobs(payloads, {
-                testRunId,
-                endpointId: savedEndpoint.id,
-                method: endpoint.method,
-                path: endpoint.path,
-                baseUrl,
-            });
-
-            totalJobs += jobCount;
-        }
-
-        // --- Phase 3: Update status to ATTACKING ---
+        // Flip to ATTACKING immediately so the worker starts firing the first
+        // endpoint's jobs while later endpoints are still generating. This
+        // removes the long "dead start" where nothing happened until every
+        // Gemini call had returned.
         await prisma.testRun.update({
             where: { id: testRunId },
-            data: {
-                status: "ATTACKING",
-                totalAttacks: totalJobs,
-            },
+            data: { status: "ATTACKING" },
         });
-
-        const attackingMsg: WsServerMessage = {
+        wsManager.broadcast(testRunId, {
             type: "TEST_RUN_STATUS",
             data: {
                 testRunId,
                 status: "ATTACKING",
                 completedAttacks: 0,
-                totalAttacks: totalJobs,
+                totalAttacks: 0,
             },
-        };
-        wsManager.broadcast(testRunId, attackingMsg);
+        });
+
+        // Generate payloads for all endpoints CONCURRENTLY. Each endpoint is an
+        // independent Gemini call (with a static fallback), so there's no reason
+        // to serialize them. As each one resolves, its jobs are enqueued right
+        // away and totalAttacks grows — the worker picks them up continuously.
+        const results = await Promise.all(
+            cappedEndpoints.map(async (endpoint, i) => {
+                const savedEndpoint = cappedSavedEndpoints[i]!;
+                const payloads = await generatePayloadsForEndpoint(endpoint);
+                const jobCount = await enqueueAttackJobs(payloads, {
+                    testRunId,
+                    endpointId: savedEndpoint.id,
+                    method: endpoint.method,
+                    path: endpoint.path,
+                    baseUrl,
+                });
+                // Keep the running total in sync as this endpoint's jobs land,
+                // so the progress denominator updates live in the dashboard.
+                const updated = await prisma.testRun.update({
+                    where: { id: testRunId },
+                    data: { totalAttacks: { increment: jobCount } },
+                });
+                wsManager.broadcast(testRunId, {
+                    type: "TEST_RUN_STATUS",
+                    data: {
+                        testRunId,
+                        status: "ATTACKING",
+                        completedAttacks: updated.completedAttacks,
+                        totalAttacks: updated.totalAttacks,
+                    },
+                });
+                return jobCount;
+            }),
+        );
+
+        totalJobs = results.reduce((a, n) => a + n, 0);
+
+        // Mark enqueuing complete. The worker won't finalize a run as COMPLETED
+        // until this is set, so early-finishing endpoints can't prematurely
+        // complete the run while other endpoints are still being enqueued.
+        const finalRun = await prisma.testRun.update({
+            where: { id: testRunId },
+            data: { enqueuedAt: new Date() },
+        });
+
+        // If every job already finished before enqueuing wrapped up (tiny runs),
+        // finalize here so the run doesn't hang in ATTACKING.
+        if (totalJobs > 0 && finalRun.completedAttacks >= totalJobs) {
+            const { count } = await prisma.testRun.updateMany({
+                where: { id: testRunId, status: { not: "COMPLETED" } },
+                data: { status: "COMPLETED", completedAt: new Date() },
+            });
+            if (count > 0) {
+                wsManager.broadcast(testRunId, {
+                    type: "TEST_RUN_STATUS",
+                    data: {
+                        testRunId,
+                        status: "COMPLETED",
+                        completedAttacks: finalRun.completedAttacks,
+                        totalAttacks: totalJobs,
+                    },
+                });
+            }
+        }
 
         console.log(
             `[Pipeline] ${totalJobs} attack jobs enqueued for ${testRunId.slice(0, 8)}...`,

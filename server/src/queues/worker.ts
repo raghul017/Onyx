@@ -34,10 +34,16 @@ export function startOnyxWorker(): Worker {
         },
         {
             connection: redisConnectionOptions,
-            concurrency: 5, // Process up to 5 attacks concurrently
+            // Higher concurrency = a steady in-flight pipeline. With ~12 requests
+            // always in flight and each finishing in ~100-400ms, jobs stream
+            // out continuously instead of firing in bursts of 10 with gaps.
+            concurrency: 12,
+            // A smooth ceiling (not a bursty batch cap). 30/sec spread across a
+            // 100ms window means at most ~3 dispatched per tick — enough to
+            // protect the target without the visible "10 then pause" stutter.
             limiter: {
-                max: 10,
-                duration: 1000, // Max 10 jobs per second
+                max: 3,
+                duration: 100, // ~30 jobs/sec, evenly paced
             },
         },
     );
@@ -136,8 +142,12 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         };
         wsManager.broadcast(testRunId, wsMsg);
 
-        // Check completion
-        if (testRun.completedAttacks >= testRun.totalAttacks) {
+        // Check completion — only once ALL jobs are enqueued (enqueuedAt set),
+        // so an early-finishing job can't complete a run mid-enqueue.
+        if (
+            testRun.enqueuedAt !== null &&
+            testRun.completedAttacks >= testRun.totalAttacks
+        ) {
             await prisma.testRun.updateMany({
                 where: { id: testRunId, status: { not: "COMPLETED" } },
                 data: { status: "COMPLETED", completedAt: new Date() },
@@ -228,8 +238,12 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     };
     wsManager.broadcast(testRunId, statusMessage);
 
-    // Check if all attacks are complete (atomic: only update if not already COMPLETED)
-    if (testRun.completedAttacks >= testRun.totalAttacks) {
+    // Check if all attacks are complete (atomic: only update if not already
+    // COMPLETED, and only once ALL jobs are enqueued so we don't finalize early).
+    if (
+        testRun.enqueuedAt !== null &&
+        testRun.completedAttacks >= testRun.totalAttacks
+    ) {
         // Use updateMany with a status filter to prevent double-completion race
         const { count } = await prisma.testRun.updateMany({
             where: {
