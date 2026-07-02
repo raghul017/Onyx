@@ -49,6 +49,17 @@
 
 ## Done
 
+### 2026-07-02 — Billing page brand redesign
+
+Rebuilt [Billing.tsx](client/src/pages/Billing.tsx) to the app design language
+(was pure `bg-black` + generic cyan). Now: off-black `#080808` surface, teal
+`#73bfc4` accent, shadow-as-border cards, Satoshi/JetBrains-Mono type, framer-
+motion staggered card enter, `GoBackButton`, a current-plan strip, `tabular-nums`
+prices, and `active:scale-[0.96]` CTAs. Replaced the jarring native
+`alert()`/`confirm()` popups with an inline notice banner and an in-page
+"Are you sure? / Yes, cancel / Keep it" confirmation. Previewed headless in FREE
+and PRO states (`.screenshots/billing-{free,pro}.png`); typecheck clean.
+
 ### 2026-07-02 — Docs, butter-smooth attack stream, remaining audit fixes
 
 - **Docs:** added this work-log (`AGENTS.md`), a security-hardening section in
@@ -144,8 +155,8 @@ Ordered by priority. Move to **Done** as shipped.
 - [x] ~~Zod validation on billing/org bodies + `name` length cap.~~ (done 2026-07-02)
 
 ### Product / UI
-- [ ] Remaining page redesigns to the brand bar: **Billing**, **Settings**,
-      **InviteAccept** (Dashboard / History / Report already done).
+- [ ] Remaining page redesigns to the brand bar: **Settings**, **InviteAccept**
+      (Dashboard / History / Report / Billing already done).
 - [x] ~~Dashboard attack stream butter-smooth (per-row enter, smooth progress,
       count-up KPIs).~~ (done 2026-07-02 — `useCountUp`, `onyx-progress-fill`,
       `onyx-row-flash`)
