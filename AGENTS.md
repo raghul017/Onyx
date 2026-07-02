@@ -210,6 +210,14 @@ Ordered by priority. Move to **Done** as shipped.
 - [x] ~~Zod validation on billing/org bodies + `name` length cap.~~ (done 2026-07-02)
 
 ### Product / UI
+- [ ] **NEXT SESSION — "Onyx Instrument" dashboard redesign.** Approved & paused.
+      Full spec in [PLAN-dashboard-instrument.md](PLAN-dashboard-instrument.md).
+      Direction: mission-control instrument, off-black `#0B0B0C`, mono-as-voice,
+      ONE amber accent `#FF810A` (rationed), severity on data only, the live
+      streaming feed as the hero (flash-on-insert rows, LIVE pulse, sparkline,
+      count-up tiles). Kills the teal/cyan "noob cyber" cliché the user rejected.
+      Build BOTH idle (armed ghost) + live states. Deep research done — do NOT
+      re-research; read the PLAN and build.
 - [ ] Remaining page redesigns to the brand bar: **Settings**, **InviteAccept**
       (Dashboard / History / Report / Billing already done).
 - [x] ~~Dashboard attack stream butter-smooth (per-row enter, smooth progress,
