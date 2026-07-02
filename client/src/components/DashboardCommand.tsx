@@ -9,28 +9,25 @@
 // client-side using the same CVSS-deduction formula as the report.
 // =============================================================================
 
-import { lazy, Suspense, useMemo, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
     Area,
     AreaChart,
     ResponsiveContainer,
 } from "recharts";
+// Phosphor line icons (matches the landing page's icon family). Muted, thin.
 import {
     Crosshair,
-    Radio,
-    Terminal,
-    Play,
-    Square,
+    Broadcast,
     ShieldCheck,
     Target,
-} from "lucide-react";
+    ArrowRight,
+} from "@phosphor-icons/react";
+// Launch-form icons re-exported to the parent stay on lucide (its button context).
+import { Play, Square, Terminal } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
 import { useCountUp } from "@/hooks/useCountUp";
-
-// The WebGL gradient is heavy; load it lazily and mount it ONLY on the idle
-// screen so it never competes with the live attack stream for frames.
-const ShaderBackground = lazy(() => import("@/components/ShaderBackground"));
 
 const TEAL = "#73bfc4";
 const RED = "#ef4444";
@@ -158,74 +155,7 @@ const DashboardCommand = ({
     const hasRun = status !== "idle" || logs.length > 0 || totalPayloads > 0;
 
     if (!hasRun) {
-        return (
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key="idle"
-                    initial={reduce ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={reduce ? undefined : { opacity: 0, scale: 0.99 }}
-                    transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
-                    className="relative flex-1 flex flex-col items-center justify-center text-center min-h-[560px] overflow-hidden rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)]"
-                >
-                    {/* Live WebGL gradient — the real hero, not a blurred blob. Masked
-                        at the edges so it reads as ambient light, not a photo. */}
-                    <div className="absolute inset-0 z-0 opacity-70">
-                        <Suspense fallback={<div className="absolute inset-0 bg-[#0B0C0D]" />}>
-                            <ShaderBackground />
-                        </Suspense>
-                    </div>
-                    {/* Scrims: darken center-out so text stays legible over the gradient */}
-                    <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,rgba(11,12,13,0.55)_0%,rgba(11,12,13,0.85)_60%,#0B0C0D_100%)]" />
-                    <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-[#0B0C0D] via-transparent to-[#0B0C0D]/60" />
-
-                    <div className="relative z-10 flex flex-col items-center gap-7 max-w-lg px-6">
-                        {/* Standby chip — states the mode plainly */}
-                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] font-['JetBrains_Mono'] uppercase tracking-[0.2em] text-[#73bfc4] bg-[#73bfc4]/[0.08] shadow-[inset_0_0_0_1px_rgba(115,191,196,0.25)]">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="absolute inline-flex h-full w-full rounded-full bg-[#73bfc4] opacity-60 motion-safe:animate-ping" />
-                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#73bfc4]" />
-                            </span>
-                            Standing by
-                        </span>
-
-                        {/* Headline — one accent word, Satoshi, tight */}
-                        <div className="space-y-3">
-                            <h2
-                                className="text-[32px] sm:text-[40px] leading-[1.05] tracking-tight text-balance text-white"
-                                style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
-                            >
-                                Your command center is{" "}
-                                <span className="c5-text-gradient">armed.</span>
-                            </h2>
-                            <p className="text-[14.5px] leading-relaxed text-neutral-300/90 max-w-md mx-auto">
-                                Drop in an OpenAPI or Swagger spec and hit execute. The live
-                                security score, severity breakdown, and attack stream light up
-                                here the moment the first payload fires.
-                            </p>
-                        </div>
-
-                        {/* What lights up — quiet capability chips */}
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                            {[
-                                { icon: ShieldCheck, t: "Live CVSS score" },
-                                { icon: Crosshair, t: "Severity breakdown" },
-                                { icon: Radio, t: "Streaming results" },
-                                { icon: Target, t: "Top endpoints" },
-                            ].map(({ icon: Ic, t }) => (
-                                <span
-                                    key={t}
-                                    className="inline-flex items-center gap-1.5 text-[12px] text-neutral-200 rounded-full px-3 py-1.5 bg-white/[0.04] backdrop-blur-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-                                >
-                                    <Ic size={12} className="text-[#73bfc4]" />
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                </motion.div>
-            </AnimatePresence>
-        );
+        return <IdleCommandCenter reduce={reduce} />;
     }
 
     // =======================================================================
@@ -263,7 +193,7 @@ const DashboardCommand = ({
                     { icon: Target, l: "Payloads Blocked", node: (
                         <span className="tabular-nums" style={{ color: blockedCount > 0 ? AMBER : "#71717a" }}>{blockedCU}</span>
                     ) },
-                    { icon: Radio, l: "Info / Passed", node: (
+                    { icon: Broadcast, l: "Info / Passed", node: (
                         <span className="tabular-nums text-neutral-500">{infoCU}</span>
                     ) },
                 ].map((c, i) => {
@@ -372,7 +302,7 @@ const DashboardCommand = ({
                 {/* slim right rail: latency spark + top vulnerable endpoints */}
                 <div className="border-t lg:border-t-0 lg:border-l border-white/[0.06] flex flex-col max-h-[560px]">
                     <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                        <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]"><Radio size={11} /> Latency</span>
+                        <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]"><Broadcast size={11} /> Latency</span>
                         <div className="mt-1 h-9 -mx-1">
                             {latencySeries.length > 1 ? (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -412,3 +342,127 @@ const DashboardCommand = ({
 export default DashboardCommand;
 // Re-exported icons so the parent launch form can reuse them if needed.
 export { Play, Square, Terminal };
+
+// ===========================================================================
+// IdleCommandCenter — "Ghost Command Center" empty state.
+//
+// Design language (grounded in how premium dev-tools do empty states — Linear,
+// Vercel Geist, Sentry): near-black canvas, 1px hairline borders (white @ ~8%),
+// depth from surface tint not shadow, 6-8px radii, ONE rationed accent (brand
+// teal, desaturated, on the primary button + live dot only), NO gradient text,
+// NO glow blobs. The real dashboard is rendered as a dimmed, non-interactive
+// skeleton so the user sees exactly what will appear, with a single left-biased
+// "Launch scan" card floating over it.
+// ===========================================================================
+
+const GHOST_TILES = [
+    { label: "Targets", icon: Target },
+    { label: "Critical", icon: ShieldCheck },
+    { label: "High", icon: Crosshair },
+    { label: "Findings", icon: Broadcast },
+];
+
+const GHOST_COLS = ["Severity", "Endpoint", "Status", "Latency"];
+
+function IdleCommandCenter({ reduce }: { reduce: boolean | null }) {
+    return (
+        <motion.div
+            key="idle"
+            initial={reduce ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
+            className="relative overflow-hidden rounded-lg bg-[#0A0A0A] shadow-[0_0_0_1px_rgba(255,255,255,0.06)] min-h-[560px]"
+        >
+            {/* ---- Ghost skeleton of the real dashboard (dimmed, inert) ---- */}
+            <div
+                aria-hidden="true"
+                className="pointer-events-none select-none opacity-[0.32]"
+            >
+                {/* Zero-value metric tiles */}
+                <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06] border-b border-white/[0.06]">
+                    {GHOST_TILES.map(({ label, icon: Ic }) => (
+                        <div key={label} className="px-5 py-4">
+                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                                <Ic size={12} weight="regular" /> {label}
+                            </span>
+                            <div className="mt-2 font-['JetBrains_Mono'] text-2xl leading-none text-neutral-700 tabular-nums">
+                                0
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Findings table: real column headers + skeleton rows */}
+                <div className="grid grid-cols-[90px_1fr_70px_72px] gap-4 px-5 py-2.5 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[9.5px] text-neutral-600 uppercase tracking-[0.15em]">
+                    {GHOST_COLS.map((c) => (
+                        <span key={c}>{c}</span>
+                    ))}
+                </div>
+                {Array.from({ length: 7 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="grid grid-cols-[90px_1fr_70px_72px] gap-4 items-center px-5 py-[11px] border-b border-white/[0.03]"
+                    >
+                        <span className="h-3 w-14 rounded-sm bg-white/[0.05]" />
+                        <span className="h-3 rounded-sm bg-white/[0.05]" style={{ width: `${58 - i * 5}%` }} />
+                        <span className="h-3 w-8 rounded-sm bg-white/[0.05]" />
+                        <span className="h-3 w-10 rounded-sm bg-white/[0.04]" />
+                    </div>
+                ))}
+            </div>
+
+            {/* Fade the ghost out toward the bottom so the skeleton reads as
+                "preview", not real content. */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+
+            {/* ---- Launch card: left-biased, single focused action ---- */}
+            <div className="absolute inset-0 flex items-center px-6 sm:px-10">
+                <div className="w-full max-w-[420px] rounded-lg bg-[#141516] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.7)]">
+                    {/* Muted line icon in a quiet container */}
+                    <span className="inline-grid place-items-center h-11 w-11 rounded-md bg-white/[0.04] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]">
+                        <Crosshair size={22} weight="regular" className="text-neutral-400" />
+                    </span>
+
+                    <h2 className="mt-5 text-[22px] leading-tight tracking-[-0.02em] text-neutral-100 font-semibold">
+                        No active scans
+                    </h2>
+                    <p className="mt-2 text-[13.5px] leading-relaxed text-neutral-400 max-w-[42ch]">
+                        Point Onyx at an OpenAPI or Swagger spec and launch a run. Live
+                        findings, severity, and per-endpoint results populate this console
+                        as each payload fires.
+                    </p>
+
+                    {/* One primary action. Scrolls focus to the launch input above. */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const el = document.querySelector<HTMLInputElement>('input[type="url"]');
+                            el?.focus();
+                            el?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+                        }}
+                        className="group mt-6 inline-flex items-center gap-2 rounded-md bg-[#5fb3b8] px-4 h-10 text-[13px] font-semibold text-[#06181a] hover:bg-[#6cc0c5] transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5fb3b8]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#141516]"
+                    >
+                        Launch a scan
+                        <ArrowRight
+                            size={15}
+                            weight="bold"
+                            className="transition-transform duration-200 group-hover:translate-x-0.5"
+                        />
+                    </button>
+
+                    {/* Quiet capability line — no chips, just muted supporting copy */}
+                    <div className="mt-6 flex items-center gap-3 text-[11px] text-neutral-600 font-['JetBrains_Mono'] whitespace-nowrap">
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-[#5fb3b8]" />
+                            CVSS
+                        </span>
+                        <span className="text-neutral-700">/</span>
+                        <span>Severity</span>
+                        <span className="text-neutral-700">/</span>
+                        <span>Live stream</span>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+}

@@ -49,6 +49,27 @@
 
 ## Done
 
+### 2026-07-02 — Dashboard idle state v2: "Ghost Command Center" (killed the AI-tell gradient)
+
+The gradient-hero idle state (below) still read as AI-generated. Ran deep research
+on how premium dev tools (Linear, Vercel Geist, Sentry) design empty dashboards;
+the teal+orange gradient + gradient text was the #1 tell. Rebuilt the idle state
+as a "Ghost Command Center" ([DashboardCommand.tsx](client/src/components/DashboardCommand.tsx),
+`IdleCommandCenter`):
+- Near-black `#0A0A0A`, 1px hairline borders (white @ ~6-8%), depth from surface
+  tint not shadow, 6-8px radii. NO gradient, NO glow, NO gradient text.
+- A dimmed, inert **skeleton of the real dashboard** (0-value metric tiles +
+  findings table with real column headers + fading skeleton rows) so the user
+  sees what will appear, with ONE left-biased "No active scans → Launch a scan"
+  card over it.
+- ONE rationed accent: a slightly deepened/desaturated teal (`#5fb3b8`) on the
+  primary button + live dot only — keeps brand continuity without the AI look.
+- Icons switched to **Phosphor** line icons (matches the landing family), muted
+  gray. The launch-form Play/Square/Terminal re-exports stay on lucide.
+Previewed headless; typecheck + build clean.
+Design note: the earlier WebGL ShaderBackground is no longer used on the
+dashboard (still used by SignIn). Accent decision: keep teal, drop the gradient.
+
 ### 2026-07-02 — Dashboard idle state: gradient hero + smooth idle→active transition
 
 The idle "command center" read flat (small icon + text + faint blob). Rebuilt in
