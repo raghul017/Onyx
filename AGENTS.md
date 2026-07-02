@@ -49,6 +49,21 @@
 
 ## Done
 
+### 2026-07-02 — Dashboard idle state: gradient hero + smooth idle→active transition
+
+The idle "command center" read flat (small icon + text + faint blob). Rebuilt in
+[DashboardCommand.tsx](client/src/components/DashboardCommand.tsx):
+- Real WebGL gradient hero (`ShaderBackground`, the same one on SignIn) mounted
+  ONLY on the idle panel and lazy-loaded, so it never competes with the live
+  stream for frames. Radial + vertical scrims keep text WCAG-legible over it.
+- Stronger type: larger Satoshi headline, a "Standing by" chip with a pulsing
+  live dot, tightened copy, cleaner capability chips.
+- framer-motion crossfade: idle fades in, and the active stream fades/slides in
+  when the run starts (state-transition feedback) — so hitting Execute reads as a
+  smooth move into the live view. All gated behind `prefers-reduced-motion`.
+Previewed headless with software WebGL (`.screenshots/dashboard-idle-new.png`);
+typecheck + build clean.
+
 ### 2026-07-02 — Billing page brand redesign
 
 Rebuilt [Billing.tsx](client/src/pages/Billing.tsx) to the app design language
