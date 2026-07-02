@@ -177,7 +177,7 @@ const DashboardCommand = ({
             initial={reduce ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.2, 0, 0, 1] }}
-            className="flex flex-col rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] overflow-hidden"
+            className="flex flex-col flex-1 overflow-hidden"
         >
             {/* ---- KPI strip: flat cells divided by hairlines ---- */}
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06]">
@@ -371,12 +371,12 @@ function IdleCommandCenter({ reduce }: { reduce: boolean | null }) {
             initial={reduce ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
-            className="relative overflow-hidden rounded-lg bg-[#0A0A0A] shadow-[0_0_0_1px_rgba(255,255,255,0.06)] min-h-[560px]"
+            className="relative overflow-hidden"
         >
             {/* ---- Ghost skeleton of the real dashboard (dimmed, inert) ---- */}
             <div
                 aria-hidden="true"
-                className="pointer-events-none select-none opacity-[0.32]"
+                className="pointer-events-none select-none opacity-[0.32] h-full"
             >
                 {/* Zero-value metric tiles */}
                 <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06] border-b border-white/[0.06]">
@@ -392,32 +392,59 @@ function IdleCommandCenter({ reduce }: { reduce: boolean | null }) {
                     ))}
                 </div>
 
-                {/* Findings table: real column headers + skeleton rows */}
-                <div className="grid grid-cols-[90px_1fr_70px_72px] gap-4 px-5 py-2.5 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[9.5px] text-neutral-600 uppercase tracking-[0.15em]">
-                    {GHOST_COLS.map((c) => (
-                        <span key={c}>{c}</span>
-                    ))}
-                </div>
-                {Array.from({ length: 7 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="grid grid-cols-[90px_1fr_70px_72px] gap-4 items-center px-5 py-[11px] border-b border-white/[0.03]"
-                    >
-                        <span className="h-3 w-14 rounded-sm bg-white/[0.05]" />
-                        <span className="h-3 rounded-sm bg-white/[0.05]" style={{ width: `${58 - i * 5}%` }} />
-                        <span className="h-3 w-8 rounded-sm bg-white/[0.05]" />
-                        <span className="h-3 w-10 rounded-sm bg-white/[0.04]" />
+                {/* Two-column body mirroring the live layout: findings table + rail */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px]">
+                    {/* Findings table: real column headers + skeleton rows */}
+                    <div className="lg:border-r border-white/[0.06]">
+                        <div className="grid grid-cols-[90px_1fr_70px_72px] gap-4 px-5 py-2.5 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[9.5px] text-neutral-600 uppercase tracking-[0.15em]">
+                            {GHOST_COLS.map((c) => (
+                                <span key={c}>{c}</span>
+                            ))}
+                        </div>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="grid grid-cols-[90px_1fr_70px_72px] gap-4 items-center px-5 py-[11px] border-b border-white/[0.03]"
+                            >
+                                <span className="h-3 w-14 rounded-sm bg-white/[0.05]" />
+                                <span className="h-3 rounded-sm bg-white/[0.05]" style={{ width: `${62 - i * 5}%` }} />
+                                <span className="h-3 w-8 rounded-sm bg-white/[0.05]" />
+                                <span className="h-3 w-10 rounded-sm bg-white/[0.04]" />
+                            </div>
+                        ))}
                     </div>
-                ))}
+                    {/* Right rail: latency + top endpoints (headers + skeleton) */}
+                    <div className="hidden lg:block">
+                        <div className="px-4 py-2.5 border-b border-white/[0.06]">
+                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                                <Broadcast size={11} /> Latency
+                            </span>
+                            <div className="mt-2 h-9 rounded bg-white/[0.03]" />
+                        </div>
+                        <div className="px-4 py-2.5 border-b border-white/[0.06]">
+                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                                <Target size={11} /> Top Vulnerable
+                            </span>
+                        </div>
+                        <div className="p-2 space-y-1.5">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="rounded bg-white/[0.02] px-2.5 py-2.5">
+                                    <span className="block h-3 rounded-sm bg-white/[0.05]" style={{ width: `${70 - i * 8}%` }} />
+                                    <span className="mt-1.5 block h-2 w-12 rounded-sm bg-white/[0.03]" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Fade the ghost out toward the bottom so the skeleton reads as
                 "preview", not real content. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0C0D0E] to-transparent" />
 
             {/* ---- Launch card: left-biased, single focused action ---- */}
-            <div className="absolute inset-0 flex items-center px-6 sm:px-10">
-                <div className="w-full max-w-[420px] rounded-lg bg-[#141516] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.7)]">
+            <div className="absolute inset-0 flex items-center justify-center lg:justify-start px-6 sm:px-10 lg:pl-16">
+                <div className="w-full max-w-[400px] rounded-lg bg-[#141516] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.7)]">
                     {/* Muted line icon in a quiet container */}
                     <span className="inline-grid place-items-center h-11 w-11 rounded-md bg-white/[0.04] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]">
                         <Crosshair size={22} weight="regular" className="text-neutral-400" />

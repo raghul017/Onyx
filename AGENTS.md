@@ -49,6 +49,25 @@
 
 ## Done
 
+### 2026-07-02 — Dashboard whole-page recompose (fix "two floating boxes" feel)
+
+The v2 empty state fixed the panel but the *page composition* still read amateur:
+two separate rounded cards floating on a void, a `>_ NEW ATTACK RUN` terminal
+eyebrow, a fully-rounded pill URL input, an always-visible red Stop button, a
+page-level gradient wash, and `rounded-2xl` everywhere. Rebuilt
+[Dashboard.tsx](client/src/pages/Dashboard.tsx) + the idle/active bodies as ONE
+continuous console surface:
+- Page background `#0A0A0A`; removed the page-level `c5-animated-gradient` blob.
+- A real page title ("Command center" + one-line sub) instead of the mono eyebrow.
+- One bordered `#0C0D0E` surface (radius 10px) containing a **toolbar row**
+  (terminal-glyph URL input at 8px radius + a single teal "Launch scan" button)
+  divided by a hairline from the **body**. Stop button only renders while a run
+  is active (an idle destructive button is noise).
+- Idle ghost skeleton now mirrors the true two-column live layout (findings table
+  + Latency/Top-Vulnerable rail) so the preview looks complete, with the launch
+  card centered over it. Active state fills the same surface (dropped its own
+  outer card chrome). Console is content-height, not a stretched empty box.
+
 ### 2026-07-02 — Dashboard idle state v2: "Ghost Command Center" (killed the AI-tell gradient)
 
 The gradient-hero idle state (below) still read as AI-generated. Ran deep research
