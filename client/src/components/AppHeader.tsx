@@ -88,6 +88,20 @@ const AppHeader = ({ user }: AppHeaderProps) => {
                         <CreditCard size={14} />
                         Billing
                     </button>
+                    {user && (
+                        <button
+                            onClick={() => navigate("/profile")}
+                            aria-label="Profile"
+                            title={user.email}
+                            className={`flex items-center justify-center w-8 h-8 bg-black text-white text-[12px] font-medium transition-shadow focus-visible:outline-none ${
+                                pathname === "/profile"
+                                    ? "ring-2 ring-[#3b82f6] ring-offset-2 ring-offset-[#fafafa]"
+                                    : ""
+                            }`}
+                        >
+                            {user.email.charAt(0).toUpperCase()}
+                        </button>
+                    )}
                 </div>
             </div>
         </header>

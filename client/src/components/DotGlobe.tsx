@@ -77,12 +77,39 @@ const DotGlobe = ({ pills }: { pills: GlobePill[] }) => {
         });
         const dotGeo = new THREE.BufferGeometry();
         dotGeo.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
+
+        // Circular sprite texture so each point renders as a ROUND dot (GL points
+        // are square by default). A radial gradient gives a soft, anti-aliased edge.
+        const makeDotTexture = () => {
+            const s = 64;
+            const cv = document.createElement("canvas");
+            cv.width = cv.height = s;
+            const ctx = cv.getContext("2d");
+            if (ctx) {
+                const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+                g.addColorStop(0, "rgba(255,255,255,1)");
+                g.addColorStop(0.7, "rgba(255,255,255,1)");
+                g.addColorStop(1, "rgba(255,255,255,0)");
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(s / 2, s / 2, s / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            const tex = new THREE.CanvasTexture(cv);
+            tex.needsUpdate = true;
+            return tex;
+        };
+        const dotTexture = makeDotTexture();
+
         const dotMat = new THREE.PointsMaterial({
             color: 0x8b95a5,
-            size: 0.05,
+            size: 0.055,
+            map: dotTexture,
+            alphaMap: dotTexture,
             sizeAttenuation: true,
             transparent: true,
             opacity: 0.9,
+            depthWrite: false,
         });
         const dots = new THREE.Points(dotGeo, dotMat);
 
@@ -181,6 +208,7 @@ const DotGlobe = ({ pills }: { pills: GlobePill[] }) => {
             ro.disconnect();
             dotGeo.dispose();
             dotMat.dispose();
+            dotTexture.dispose();
             fill.geometry.dispose();
             (fill.material as THREE.Material).dispose();
             renderer.dispose();

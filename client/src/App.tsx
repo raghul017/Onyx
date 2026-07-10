@@ -22,6 +22,7 @@ const SignUp = lazy(() => import("./pages/SignUp"));
 const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -68,6 +69,7 @@ const App = () => {
                                 <Route path="/billing" element={<Billing />} />
                                 <Route path="/report/:id" element={<Report />} />
                                 <Route path="/settings" element={<Settings />} />
+                                <Route path="/profile" element={<Profile />} />
                             </Route>
 
                             {/* Invite accept — public but handles auth redirect internally */}
