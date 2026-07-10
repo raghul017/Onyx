@@ -1,28 +1,35 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeOff, Check, ArrowRight } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { api, startOAuth } from "../services/api";
 import { useServerStatus } from "../store/useServerStatus";
 import ColdStartBanner from "../components/ColdStartBanner";
-import ShaderBackground from "../components/ShaderBackground";
 import { GoogleIcon, GithubIcon } from "../components/BrandIcons";
 
-// ---------------------------------------------------------------------------
-// Animation variants
-// ---------------------------------------------------------------------------
+const ShaderHeroBG = lazy(() => import("../components/ShaderHeroBG"));
+
+const OnyxMark = ({ size = 24 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" fill="black" />
+        <path d="M7 7H11V11H7V7Z" fill="white" />
+        <path d="M13 13H17V17H13V13Z" fill="white" />
+        <path d="M7 13H11V17H7V13Z" fill="white" />
+    </svg>
+);
+
 const heroContainer = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.15, delayChildren: 0.2 },
+        transition: { staggerChildren: 0.12, delayChildren: 0.15 },
     },
 };
 
 const heroChild = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.2, 0, 0, 1] } },
 };
 
 const SignUp = () => {
@@ -65,9 +72,7 @@ const SignUp = () => {
             if (err.response?.data?.error) {
                 setError(err.response.data.error);
             } else if (!err.response) {
-                setError(
-                    "Server is starting up. Please wait a moment and try again.",
-                );
+                setError("Server is starting up. Please wait a moment and try again.");
             } else {
                 setError("Failed to create account. Please try again.");
             }
@@ -77,55 +82,48 @@ const SignUp = () => {
     };
 
     return (
-        <main className="flex min-h-screen w-full bg-[#080808] text-white antialiased selection:bg-cyan-400 selection:text-black p-2 lg:h-screen lg:overflow-hidden lg:p-4">
-            {/* Cold-start banner */}
+        <main className="onyx-mono flex min-h-screen w-full overflow-x-clip">
             <div className="fixed top-0 left-0 right-0 z-50">
                 <ColdStartBanner />
             </div>
 
-            {/* ============================================================ */}
-            {/* Left Column — Hero & Animated Gradient                        */}
-            {/* ============================================================ */}
-            <div className="hidden lg:flex w-[52%] relative flex-col items-center justify-end pb-32 px-12 rounded-3xl overflow-hidden shadow-2xl h-full">
-                {/* Animated shader gradient background */}
-                <div className="absolute inset-0">
-                    <ShaderBackground />
-                </div>
-                {/* Subtle scrim so hero text stays legible */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40 pointer-events-none" />
+            {/* ---- Left panel: live mesh gradient + steps (desktop only) ---- */}
+            <div className="hidden lg:flex w-[46%] relative flex-col justify-end p-14 border-r border-[#e6e6e6] overflow-hidden">
+                <div className="mono-hero-fallback absolute inset-0" aria-hidden="true" />
+                <Suspense fallback={null}>
+                    <ShaderHeroBG />
+                </Suspense>
+                <div className="mono-hero-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
+                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#fafafa] via-[#fafafa]/40 to-transparent pointer-events-none" aria-hidden="true" />
 
-                {/* Hero content over the gradient */}
                 <motion.div
                     variants={heroContainer}
                     initial="hidden"
                     animate="visible"
-                    className="z-10 w-full max-w-xs space-y-8"
+                    className="relative z-10 w-full max-w-sm"
                 >
-                    {/* Brand / Logo — matches the navbar wordmark */}
-                    <motion.div variants={heroChild}>
-                        <span className="font-['Inter'] text-white text-[24px] tracking-tight">
-                            Onyx
-                        </span>
+                    <motion.div variants={heroChild} className="flex items-center gap-2 mb-10">
+                        <OnyxMark />
+                        <span className="font-semibold text-xl tracking-tight">Onyx</span>
                     </motion.div>
 
-                    {/* Heading block */}
-                    <motion.div variants={heroChild} className="space-y-3">
-                        <h1
-                            className="text-4xl tracking-tight text-balance"
-                            style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
-                        >
-                            Break your API.
-                            <br />
-                            Before they do.
-                        </h1>
-                        <p className="text-white/70 text-sm leading-relaxed">
-                            Get up and running in 3 quick steps to start
-                            stress-testing your APIs.
-                        </p>
-                    </motion.div>
+                    <motion.h1
+                        variants={heroChild}
+                        className="text-[40px] leading-[1.05] font-normal tracking-tight mb-4 text-balance"
+                    >
+                        Break your API.
+                        <br />
+                        Before they do.
+                    </motion.h1>
+                    <motion.p
+                        variants={heroChild}
+                        className="text-[#000]/70 text-[15px] leading-7 mb-8 max-w-xs"
+                    >
+                        Get up and running in three quick steps to start stress-testing
+                        your APIs.
+                    </motion.p>
 
-                    {/* Steps */}
-                    <motion.div variants={heroChild} className="space-y-3">
+                    <motion.div variants={heroChild} className="space-y-2">
                         <StepItem number={1} text="Create your account" active />
                         <StepItem number={2} text="Verify your domain" />
                         <StepItem number={3} text="Launch your first scan" />
@@ -133,37 +131,35 @@ const SignUp = () => {
                 </motion.div>
             </div>
 
-            {/* ============================================================ */}
-            {/* Right Column — Sign Up Form                                    */}
-            {/* ============================================================ */}
-            <div className="flex-1 flex flex-col items-center justify-center py-12 lg:py-6 px-4 sm:px-12 lg:px-16 xl:px-24 overflow-y-auto lg:overflow-hidden">
+            {/* ---- Right panel: form ---- */}
+            <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12 bg-[#fafafa]">
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="w-full max-w-xl space-y-8 lg:space-y-6 sm:space-y-10"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.2, 0, 0, 1] }}
+                    className="w-full max-w-md space-y-8"
                 >
-                    {/* Header */}
-                    <div className="space-y-2">
-                        <h2
-                            className="text-white text-3xl tracking-tight text-balance"
-                            style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 500 }}
-                        >
+                    <div className="flex items-center gap-2 lg:hidden">
+                        <OnyxMark />
+                        <span className="font-semibold text-xl tracking-tight">Onyx</span>
+                    </div>
+
+                    <div>
+                        <h2 className="text-[32px] leading-tight font-normal tracking-tight">
                             Create your account
                         </h2>
-                        <p className="text-white/55 text-sm">
+                        <p className="text-[#666] text-[15px] mt-2">
                             Start finding vulnerabilities before attackers do.
                         </p>
                     </div>
 
                     {error && (
-                        <div className="font-mono text-red-400 text-sm bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                        <div className="font-mono text-[13px] text-[#dc2626] bg-[#fef2f2] border border-[#fca5a5] p-3">
                             {error}
                         </div>
                     )}
 
-                    {/* Social buttons */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3">
                         <SocialButton
                             icon={<GoogleIcon size={18} />}
                             label="Google"
@@ -176,16 +172,14 @@ const SignUp = () => {
                         />
                     </div>
 
-                    {/* Divider */}
                     <div className="relative flex items-center">
-                        <div className="flex-1 border-t border-white/10" />
-                        <span className="bg-[#080808] px-4 text-xs font-medium text-white/45 uppercase tracking-widest">
+                        <div className="flex-1 border-t border-[#e6e6e6]" />
+                        <span className="px-4 font-mono text-[11px] font-medium text-[#999] uppercase tracking-widest">
                             Or
                         </span>
-                        <div className="flex-1 border-t border-white/10" />
+                        <div className="flex-1 border-t border-[#e6e6e6]" />
                     </div>
 
-                    {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div className="grid grid-cols-2 gap-4">
                             <InputGroup
@@ -211,18 +205,15 @@ const SignUp = () => {
                                 type="email"
                                 value={email}
                                 onChange={setEmail}
-                                onBlur={() =>
-                                    setTouched((t) => ({ ...t, email: true }))
-                                }
+                                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                             />
                             {emailError && (
-                                <p className="text-red-400 text-xs">{emailError}</p>
+                                <p className="text-[#dc2626] text-xs">{emailError}</p>
                             )}
                         </div>
 
-                        {/* Password with eye toggle */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-white">
+                            <label className="font-mono text-[12px] uppercase tracking-wide text-[#666]">
                                 Password
                             </label>
                             <div className="relative">
@@ -231,43 +222,29 @@ const SignUp = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     onBlur={() =>
-                                        setTouched((t) => ({
-                                            ...t,
-                                            password: true,
-                                        }))
+                                        setTouched((t) => ({ ...t, password: true }))
                                     }
                                     placeholder="••••••••"
-                                    className="w-full bg-[#0E0F10] rounded-xl h-11 px-4 pr-12 text-white placeholder:text-white/25 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] focus:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.5)] outline-none transition-shadow"
+                                    className="w-full bg-white border border-[#e6e6e6] h-11 px-4 pr-12 text-black font-mono text-[14px] placeholder:text-[#999] outline-none focus:border-black transition-colors"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword((s) => !s)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
-                                    aria-label={
-                                        showPassword
-                                            ? "Hide password"
-                                            : "Show password"
-                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] hover:text-black transition-colors"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
-                                    {showPassword ? (
-                                        <EyeOff size={18} />
-                                    ) : (
-                                        <Eye size={18} />
-                                    )}
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
                             {passwordError ? (
-                                <p className="text-red-400 text-xs">
-                                    {passwordError}
-                                </p>
+                                <p className="text-[#dc2626] text-xs">{passwordError}</p>
                             ) : (
-                                <p className="text-white/30 text-xs">
-                                    Requires at least 8 symbols.
+                                <p className="text-[#999] text-xs">
+                                    Requires at least 8 characters.
                                 </p>
                             )}
                         </div>
 
-                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={
@@ -278,22 +255,22 @@ const SignUp = () => {
                                 !!emailError ||
                                 !!passwordError
                             }
-                            className="w-full h-14 bg-white text-black font-semibold rounded-xl hover:bg-neutral-100 active:scale-[0.98] mt-4 transition-[background-color,transform] duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] focus-visible:ring-[#73bfc4]"
+                            className="mono-btn w-full justify-center !py-3.5 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {!serverReady
                                 ? "Waiting for server..."
                                 : loading
-                                  ? "Creating Account..."
+                                  ? "Creating account..."
                                   : "Create Account"}
+                            {serverReady && !loading && <ArrowRight size={14} />}
                         </button>
                     </form>
 
-                    {/* Footer link */}
-                    <p className="text-center text-sm text-white/55">
+                    <p className="text-center text-sm text-[#666]">
                         Already have an account?{" "}
                         <Link
                             to="/signin"
-                            className="text-white font-medium hover:underline"
+                            className="text-black font-medium underline underline-offset-2 hover:text-[#3b82f6] transition-colors"
                         >
                             Log in
                         </Link>
@@ -307,7 +284,7 @@ const SignUp = () => {
 export default SignUp;
 
 // ---------------------------------------------------------------------------
-// Reusable Components
+// Reusable components (light-mono)
 // ---------------------------------------------------------------------------
 
 function StepItem({
@@ -321,20 +298,20 @@ function StepItem({
 }) {
     return (
         <div
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors ${
+            className={`flex items-center gap-3 border px-4 py-3 transition-colors ${
                 active
-                    ? "bg-white text-black"
-                    : "bg-white/[0.06] backdrop-blur-sm text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                    ? "border-black bg-white"
+                    : "border-[#e6e6e6] bg-white/60 backdrop-blur-sm"
             }`}
         >
-            <div
-                className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold shrink-0 ${
-                    active ? "bg-[#0B0C0D] text-[#73bfc4]" : "bg-white/10 text-white/45"
+            <span
+                className={`flex items-center justify-center w-6 h-6 font-mono text-[11px] font-semibold shrink-0 ${
+                    active ? "bg-[#3b82f6] text-white" : "border border-[#ccc] text-[#999]"
                 }`}
             >
                 {active ? <Check size={13} /> : number}
-            </div>
-            <span className="text-sm font-medium">{text}</span>
+            </span>
+            <span className="text-[14px] font-medium text-black">{text}</span>
         </div>
     );
 }
@@ -352,7 +329,7 @@ function SocialButton({
         <button
             type="button"
             onClick={onClick}
-            className="flex items-center justify-center gap-2.5 h-11 bg-[#0B0C0D] rounded-xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.4)] active:scale-[0.98] transition-[box-shadow,transform] duration-200 text-sm font-medium text-white/90 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
+            className="flex items-center justify-center gap-2.5 h-11 bg-white border border-[#e6e6e6] hover:border-black active:scale-[0.98] transition-[border-color,transform] duration-150 text-sm font-medium text-black cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]/50"
         >
             {icon}
             {label}
@@ -377,14 +354,16 @@ function InputGroup({
 }) {
     return (
         <div className="space-y-2">
-            <label className="text-sm font-medium text-white">{label}</label>
+            <label className="font-mono text-[12px] uppercase tracking-wide text-[#666]">
+                {label}
+            </label>
             <input
                 type={type}
                 placeholder={placeholder}
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 onBlur={onBlur}
-                className="w-full bg-[#0E0F10] rounded-xl h-11 px-4 text-white placeholder:text-white/25 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] focus:shadow-[inset_0_0_0_1px_rgba(115,191,196,0.5)] outline-none transition-shadow"
+                className="w-full bg-white border border-[#e6e6e6] h-11 px-4 text-black font-mono text-[14px] placeholder:text-[#999] outline-none focus:border-black transition-colors"
             />
         </div>
     );

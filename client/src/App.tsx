@@ -29,10 +29,10 @@ const queryClient = new QueryClient();
 
 // Minimal loading fallback that matches the app's dark theme
 const PageLoader = () => (
-    <div className="h-screen w-screen bg-black flex items-center justify-center">
+    <div className="h-screen w-screen bg-[#fafafa] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-            <div className="w-6 h-6 border-2 border-neutral-800 border-t-cyan-500 rounded-full animate-spin" />
-            <span className="text-neutral-600 text-xs font-['JetBrains_Mono'] tracking-wider uppercase">
+            <div className="w-6 h-6 border-2 border-[#e6e6e6] border-t-[#3b82f6] rounded-full animate-spin" />
+            <span className="text-[#666] text-xs font-['JetBrains_Mono'] tracking-wider uppercase">
                 Loading
             </span>
         </div>

@@ -1,12 +1,49 @@
 // =============================================================================
-// FaqCta — Animated gradient CTA + FAQ accordion (dark theme, Onyx content)
+// FaqCta — composio's big-stat split + FAQ accordion + black CTA banner.
+// Light-mono theme, Onyx content.
 // =============================================================================
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { Minus, Plus, ArrowRight } from "lucide-react";
+import {
+    AnimatePresence,
+    motion,
+    useInView,
+    useMotionValue,
+    animate,
+} from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import RollButton from "./RollButton";
+
+// Count-up stat — mirrors composio's number-flow on "50,000+".
+const CountUp = ({ to }: { to: number }) => {
+    const ref = useRef<HTMLSpanElement>(null);
+    const inView = useInView(ref, { once: true, margin: "-80px" });
+    const mv = useMotionValue(0);
+    const [display, setDisplay] = useState("0");
+
+    useEffect(() => {
+        const unsub = mv.on("change", (v) =>
+            setDisplay(Math.round(v).toLocaleString()),
+        );
+        return unsub;
+    }, [mv]);
+
+    useEffect(() => {
+        if (inView) {
+            const controls = animate(mv, to, {
+                duration: 1.4,
+                ease: [0.2, 0, 0, 1],
+            });
+            return controls.stop;
+        }
+    }, [inView, mv, to]);
+
+    return (
+        <span ref={ref} className="tabular-nums">
+            {display}
+        </span>
+    );
+};
 
 const faqs = [
     {
@@ -39,74 +76,68 @@ const FaqCta = () => {
         setActiveIndex((prev) => (prev === i ? null : i));
 
     return (
-        <section className="w-full py-16 sm:py-20 lg:py-24 px-5 sm:px-8 lg:px-12">
-            <div className="max-w-[1280px] w-full mx-auto">
-                <div className="grid grid-cols-[1.6fr_1fr] gap-[30px] items-stretch max-[900px]:grid-cols-1 max-[900px]:gap-[60px]">
-                    {/* ----------------------------------------------------- */}
-                    {/* Left — Animated gradient CTA                          */}
-                    {/* ----------------------------------------------------- */}
-                    <div
-                        className="c5-animated-gradient rounded-[24px] py-16 sm:py-20 px-8 sm:px-10 text-white flex flex-col justify-center items-center text-center"
-                        style={{ boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)" }}
-                    >
-                        <h2
-                            className="font-normal mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]"
-                            style={{
-                                fontFamily: '"Satoshi Variable", sans-serif',
-                                fontSize: "clamp(2rem, 4.5vw, 3.25rem)",
-                                lineHeight: 1.1,
-                                letterSpacing: "-0.03em",
-                            }}
-                        >
-                            Break Your API.
-                            <br />
-                            Before They Do.
+        <>
+            {/* Big-stat split (composio "50,000+") */}
+            <section className="border-b border-[#e6e6e6] flex flex-col md:flex-row">
+                <div className="p-12 lg:p-24 md:w-1/2 border-b md:border-b-0 md:border-r border-[#e6e6e6] flex flex-col justify-center">
+                    <div className="mono-eyebrow mb-4">
+                        <span className="sq" /> BUILT-IN GUARDRAILS
+                    </div>
+                    <h2 className="text-[44px] mb-6 leading-tight text-balance max-w-md">
+                        Aggressive on targets. Safe by design.
+                    </h2>
+                    <p className="text-[#666] max-w-md leading-relaxed text-pretty">
+                        Domain-ownership verification, SSRF protection, per-plan rate
+                        limiting and a hard job timeout mean Onyx only ever hits the API
+                        you actually own.
+                    </p>
+                </div>
+                <div className="p-12 lg:p-24 md:w-1/2 flex flex-col justify-center bg-white/60">
+                    <div className="font-mono text-[12px] uppercase tracking-wider text-[#999] mb-4">
+                        Attack vectors per run
+                    </div>
+                    <div className="text-[80px] leading-none mb-6 tabular-nums">
+                        <CountUp to={400} />
+                        <span className="text-[#ccc]">+</span>
+                    </div>
+                    <p className="text-[#666] text-[15px]">
+                        Schema-aware payloads across 8 OWASP categories.
+                    </p>
+                </div>
+            </section>
+
+            {/* FAQ accordion */}
+            <section className="border-b border-[#e6e6e6] p-12 lg:p-24">
+                <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-[0.9fr_1.4fr] gap-10">
+                    <div>
+                        <div className="mono-eyebrow mb-4">
+                            <span className="sq" /> FAQ
+                        </div>
+                        <h2 className="text-[44px] leading-tight text-balance">
+                            Questions, answered
                         </h2>
-                        <p className="text-[15px] sm:text-base leading-[1.6] mb-7 sm:mb-8 font-normal text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] max-w-sm">
-                            Find vulnerabilities before attackers exploit them.
-                        </p>
-                        <RollButton
-                            label="Start free scan"
-                            onClick={() => navigate("/signup")}
-                            variant="white"
-                        />
                     </div>
 
-                    {/* ----------------------------------------------------- */}
-                    {/* Right — FAQ accordion (dark)                          */}
-                    {/* ----------------------------------------------------- */}
-                    <div className="flex flex-col justify-center gap-3">
+                    <div className="flex flex-col border-t border-[#e6e6e6]">
                         {faqs.map((item, i) => {
                             const active = activeIndex === i;
                             const panelId = `faq-panel-${i}`;
                             const buttonId = `faq-button-${i}`;
                             return (
-                                <div
-                                    key={i}
-                                    className={`bg-[#0A0A0A] border rounded-[10px] transition-colors duration-200 ${
-                                        active
-                                            ? "border-[#2A2A2A]"
-                                            : "border-[#1A1A1A] hover:border-[#2A2A2A]"
-                                    }`}
-                                    style={{
-                                        boxShadow: active
-                                            ? "0 4px 12px rgba(0,0,0,0.3)"
-                                            : "0 2px 8px rgba(0,0,0,0.2)",
-                                    }}
-                                >
+                                <div key={i} className="border-b border-[#e6e6e6]">
                                     <button
                                         id={buttonId}
                                         onClick={() => toggle(i)}
                                         aria-expanded={active}
                                         aria-controls={panelId}
-                                        className="w-full flex justify-between items-center text-left font-medium text-[15px] leading-snug text-white gap-4 py-[18px] px-5 cursor-pointer rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
+                                        className="w-full flex justify-between items-center text-left text-[15px] gap-4 py-5 cursor-pointer hover:opacity-70 transition-opacity"
                                     >
                                         <span>{item.q}</span>
-                                        <ChevronDown
-                                            size={20}
-                                            className={`text-neutral-400 shrink-0 transition-transform duration-300 ${active ? "rotate-180" : ""}`}
-                                            aria-hidden="true"
-                                        />
+                                        {active ? (
+                                            <Minus size={18} className="shrink-0 text-[#3b82f6]" />
+                                        ) : (
+                                            <Plus size={18} className="shrink-0 text-[#666]" />
+                                        )}
                                     </button>
                                     <AnimatePresence initial={false}>
                                         {active && (
@@ -120,7 +151,7 @@ const FaqCta = () => {
                                                 transition={{ duration: 0.25, ease: "easeInOut" }}
                                                 className="overflow-hidden"
                                             >
-                                                <div className="px-5 pb-[18px] text-[14px] text-[#A1A1AA] leading-[1.65]">
+                                                <div className="pb-5 text-[13.5px] text-[#666] leading-relaxed max-w-xl text-pretty">
                                                     {item.a}
                                                 </div>
                                             </motion.div>
@@ -131,8 +162,46 @@ const FaqCta = () => {
                         })}
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
+
+            {/* Black CTA banner (composio footer-action) */}
+            <section className="bg-black text-white p-12 lg:p-24 border-b border-black">
+                <motion.div
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-80px" }}
+                    transition={{ duration: 0.6, ease: [0.2, 0, 0, 1] }}
+                    className="max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8"
+                >
+                    <h2 className="text-[44px] text-center md:text-left leading-[1.05] text-balance">
+                        Your API has flaws.
+                        <br />
+                        Find them first.
+                    </h2>
+                    <div className="flex flex-wrap gap-4 justify-center">
+                        <a
+                            href="https://github.com/raghul017/Onyx"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="border border-[#333] text-white px-6 py-3 font-mono uppercase text-[13px] tracking-wide hover:bg-[#111] transition-colors flex items-center gap-2"
+                        >
+                            View on GitHub
+                        </a>
+                        <button
+                            onClick={() => navigate("/signup")}
+                            className="group bg-white text-black px-6 py-3 font-mono uppercase text-[13px] tracking-wide font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 active:scale-[0.96]"
+                            style={{ transitionProperty: "background-color, transform" }}
+                        >
+                            Start free scan
+                            <ArrowRight
+                                size={14}
+                                className="transition-transform duration-300 group-hover:translate-x-0.5"
+                            />
+                        </button>
+                    </div>
+                </motion.div>
+            </section>
+        </>
     );
 };
 

@@ -1,185 +1,63 @@
 // =============================================================================
-// Docs — Full product documentation (dark, interactive, landing-matched)
-// Content sourced from WORKFLOW.md / README.md. Built to feel like part of the
-// landing page: c5 gradient glow, framer-motion reveals, interactive accordion,
-// File/DNS tabs, copy-to-clipboard code, animated scroll-spy TOC.
+// Docs — Onyx product documentation, rebuilt as a real docs experience:
+// a grouped, searchable left sidebar, a readable content column, and a sticky
+// "On this page" tracker on the right. Light-mono system (matches the landing):
+// #fafafa surface, hairline borders, sharp corners, Geist headings, JetBrains
+// Mono for code/labels, single blue accent. Content sourced from README/WORKFLOW.
 // =============================================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
-    ShieldCheck,
-    Cpu,
-    Activity,
-    FileText,
-    Boxes,
-    Gauge,
-    Lock,
-    Terminal,
+    ArrowRight,
     Check,
     Copy,
     ChevronDown,
     FolderOpen,
     Globe,
-    Rocket,
-    Radio,
-    Network,
-    BookOpen,
+    Search,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// Section registry — drives the sidebar TOC and scroll-spy
+// Navigation — grouped for the sidebar; flattened for scroll-spy
 // ---------------------------------------------------------------------------
-const SECTIONS = [
-    { id: "overview", label: "Overview" },
-    { id: "quick-start", label: "Quick Start" },
-    { id: "what-to-paste", label: "What You Can Paste" },
-    { id: "verification", label: "Domain Verification" },
-    { id: "attack-flow", label: "The Attack Flow" },
-    { id: "attack-types", label: "Attack Types" },
-    { id: "live-results", label: "Live Results" },
-    { id: "scoring", label: "CVSS Severity Scoring" },
-    { id: "security", label: "Security & Resilience" },
-    { id: "architecture", label: "Architecture" },
-    { id: "plans", label: "Plans & Quotas" },
-    { id: "faq", label: "FAQ" },
-    { id: "glossary", label: "Glossary" },
+const NAV_GROUPS = [
+    {
+        group: "Getting started",
+        items: [
+            { id: "overview", label: "Overview" },
+            { id: "quick-start", label: "Quick start" },
+            { id: "what-to-paste", label: "What you can paste" },
+        ],
+    },
+    {
+        group: "Core concepts",
+        items: [
+            { id: "verification", label: "Domain verification" },
+            { id: "attack-flow", label: "The attack flow" },
+            { id: "attack-types", label: "Attack types" },
+            { id: "live-results", label: "Live results" },
+            { id: "scoring", label: "Severity scoring" },
+        ],
+    },
+    {
+        group: "Reference",
+        items: [
+            { id: "security", label: "Security & resilience" },
+            { id: "architecture", label: "Architecture" },
+            { id: "plans", label: "Plans & quotas" },
+            { id: "faq", label: "FAQ" },
+            { id: "glossary", label: "Glossary" },
+        ],
+    },
 ] as const;
 
-// Shared scroll-reveal variants (mirrors the landing-page sections)
-const reveal = {
-    hidden: { opacity: 0, y: 24 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
-};
-const revealStagger = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.08 } },
-};
+const SECTIONS = NAV_GROUPS.flatMap((g) => g.items);
 
 // ---------------------------------------------------------------------------
-// Small presentational helpers
-// ---------------------------------------------------------------------------
-const Eyebrow = ({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) => (
-    <div className="flex items-center gap-2.5 mb-4">
-        <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#22d3ee]/10 border border-[#22d3ee]/25">
-            <Icon size={15} className="text-[#22d3ee]" />
-        </span>
-        <span className="font-['JetBrains_Mono'] text-[12px] tracking-widest uppercase text-white/55">
-            {children}
-        </span>
-    </div>
-);
-
-const H2 = ({ children }: { children: React.ReactNode }) => (
-    <h2
-        className="text-white mb-4"
-        style={{
-            fontFamily: '"Satoshi Variable", sans-serif',
-            fontWeight: 400,
-            fontSize: "clamp(1.625rem, 3vw, 2.25rem)",
-            lineHeight: 1.15,
-            letterSpacing: "-0.03em",
-        }}
-    >
-        {children}
-    </h2>
-);
-
-const H3 = ({ children }: { children: React.ReactNode }) => (
-    <h3 className="text-white text-[17px] sm:text-[18px] font-medium tracking-tight mt-8 mb-3">
-        {children}
-    </h3>
-);
-
-const P = ({ children }: { children: React.ReactNode }) => (
-    <p className="font-['Inter'] text-[15px] sm:text-[16px] leading-[1.7] text-[#B4B4B4] max-w-[68ch] mb-4">
-        {children}
-    </p>
-);
-
-const Code = ({ children }: { children: React.ReactNode }) => (
-    <code className="font-['JetBrains_Mono'] text-[13px] text-[#22d3ee] bg-[#0E0E0E] border border-[#1A1A1A] rounded px-1.5 py-0.5">
-        {children}
-    </code>
-);
-
-// Copy-to-clipboard code block with success feedback (skill: success feedback + checkmark)
-const CodeBlock = ({ code }: { code: string }) => {
-    const [copied, setCopied] = useState(false);
-    const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(code);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1800);
-        } catch {
-            /* clipboard unavailable — no-op */
-        }
-    };
-    return (
-        <div className="relative group my-5 max-w-[68ch]">
-            <pre className="font-['JetBrains_Mono'] text-[13px] leading-[1.7] text-[#C9C9C9] bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl p-4 sm:p-5 pr-12 overflow-x-auto group-hover:border-[#2A2A2A] transition-colors">
-                <code>{code}</code>
-            </pre>
-            <button
-                onClick={copy}
-                aria-label={copied ? "Copied" : "Copy to clipboard"}
-                className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg bg-[#141414] border border-[#222] text-white/50 hover:text-white hover:border-[#333] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
-            >
-                {copied ? (
-                    <Check size={14} className="text-[#22d3ee]" />
-                ) : (
-                    <Copy size={14} />
-                )}
-            </button>
-        </div>
-    );
-};
-
-const Callout = ({
-    tone = "info",
-    title,
-    children,
-}: {
-    tone?: "info" | "warn";
-    title: string;
-    children: React.ReactNode;
-}) => {
-    const tones = {
-        info: "border-[#22d3ee]/25 bg-[#22d3ee]/[0.04]",
-        warn: "border-[#F26522]/30 bg-[#F26522]/[0.05]",
-    };
-    const dot = { info: "bg-[#22d3ee]", warn: "bg-[#F26522]" };
-    return (
-        <div className={`rounded-xl border ${tones[tone]} p-4 sm:p-5 my-5 max-w-[68ch]`}>
-            <div className="flex items-center gap-2 mb-1.5">
-                <span className={`w-2 h-2 rounded-full ${dot[tone]}`} aria-hidden="true" />
-                <span className="font-medium text-white text-[14px]">{title}</span>
-            </div>
-            <p className="font-['Inter'] text-[14px] leading-[1.65] text-[#A1A1AA]">
-                {children}
-            </p>
-        </div>
-    );
-};
-
-// Scroll-revealed section wrapper
-const Section = ({ id, children }: { id: string; children: React.ReactNode }) => (
-    <motion.section
-        id={id}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={reveal}
-        className="scroll-mt-28 pb-16 sm:pb-20 border-b border-[#141414] mb-16 sm:mb-20 last:border-0"
-    >
-        {children}
-    </motion.section>
-);
-
-// ---------------------------------------------------------------------------
-// Data
+// Content data
 // ---------------------------------------------------------------------------
 const ATTACK_TYPES = [
     { type: "SQL_INJECTION", desc: "Classic, blind, UNION, time-based, stacked, auth bypass" },
@@ -193,10 +71,10 @@ const ATTACK_TYPES = [
 ];
 
 const SEVERITY = [
-    { label: "CRITICAL", color: "#ef4444", rule: "5xx on an injection/auth attack, or secrets/DB errors leaked in the response", deduct: "−25" },
-    { label: "HIGH", color: "#f97316", rule: "Any other 5xx, or a 401/403 on an auth-bypass attempt", deduct: "−15" },
-    { label: "MEDIUM", color: "#eab308", rule: "4xx where the response leaks an error, stack, or trace", deduct: "−8" },
-    { label: "LOW", color: "#22d3ee", rule: "Any other 4xx response", deduct: "−3" },
+    { label: "CRITICAL", color: "#dc2626", rule: "5xx on an injection/auth attack, or secrets/DB errors leaked in the response", deduct: "-25" },
+    { label: "HIGH", color: "#ea580c", rule: "Any other 5xx, or a 401/403 on an auth-bypass attempt", deduct: "-15" },
+    { label: "MEDIUM", color: "#ca8a04", rule: "4xx where the response leaks an error, stack, or trace", deduct: "-8" },
+    { label: "LOW", color: "#3b82f6", rule: "Any other 4xx response", deduct: "-3" },
     { label: "INFO", color: "#71717a", rule: "2xx / 3xx / no response, no deduction", deduct: "0" },
 ];
 
@@ -232,12 +110,7 @@ const QUICK_START = [
     ["Review & export", "Triage findings by CVSS severity, drill into any endpoint, and export a PDF report on Pro and Team."],
 ];
 
-const RUN_PHASES = [
-    ["PARSING", "Fetching the spec and extracting every endpoint, parameter, and request body."],
-    ["GENERATING", "Asking Gemini for schema-aware payloads, up to 20 per endpoint."],
-    ["ATTACKING", "Workers fire payloads from the queue and log each response."],
-    ["COMPLETED", "All jobs done. The overall score and severity breakdown are computed."],
-];
+const RUN_PHASES = ["PARSING", "GENERATING", "ATTACKING", "COMPLETED"];
 
 const ARCH_STAGES = [
     ["Client", "React + Vite on Vercel. Submits the spec URL and subscribes to the run over a WebSocket."],
@@ -277,6 +150,105 @@ const DOC_FAQ = [
 ];
 
 // ---------------------------------------------------------------------------
+// Prose components (light-mono, sharp, no shadows)
+// ---------------------------------------------------------------------------
+const OnyxMark = ({ size = 22 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" fill="black" />
+        <path d="M7 7H11V11H7V7Z" fill="white" />
+        <path d="M13 13H17V17H13V13Z" fill="white" />
+        <path d="M7 13H11V17H7V13Z" fill="white" />
+    </svg>
+);
+
+const H2 = ({ children }: { children: React.ReactNode }) => (
+    <h2 className="text-[30px] leading-tight font-normal tracking-tight text-black mb-4">
+        {children}
+    </h2>
+);
+
+const H3 = ({ children }: { children: React.ReactNode }) => (
+    <h3 className="text-[18px] font-medium tracking-tight text-black mt-10 mb-3">
+        {children}
+    </h3>
+);
+
+const P = ({ children }: { children: React.ReactNode }) => (
+    <p className="text-[15px] leading-[1.75] text-[#444] max-w-[72ch] mb-4">{children}</p>
+);
+
+const Code = ({ children }: { children: React.ReactNode }) => (
+    <code className="font-mono text-[13px] text-[#3b82f6] bg-white border border-[#e6e6e6] px-1.5 py-0.5">
+        {children}
+    </code>
+);
+
+const CodeBlock = ({ code }: { code: string }) => {
+    const [copied, setCopied] = useState(false);
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(code);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        } catch {
+            /* clipboard unavailable */
+        }
+    };
+    return (
+        <div className="relative group my-5 max-w-[72ch]">
+            <pre className="font-mono text-[13px] leading-[1.7] text-[#334155] bg-white border border-[#e6e6e6] p-4 pr-12 overflow-x-auto">
+                <code>{code}</code>
+            </pre>
+            <button
+                onClick={copy}
+                aria-label={copied ? "Copied" : "Copy to clipboard"}
+                className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 bg-white border border-[#e6e6e6] text-[#999] hover:text-black hover:border-black transition-colors cursor-pointer"
+            >
+                {copied ? <Check size={14} className="text-[#16a34a]" /> : <Copy size={14} />}
+            </button>
+        </div>
+    );
+};
+
+const Callout = ({
+    tone = "info",
+    title,
+    children,
+}: {
+    tone?: "info" | "warn";
+    title: string;
+    children: React.ReactNode;
+}) => {
+    const styles = {
+        info: { border: "border-l-[#3b82f6]", bg: "bg-[#f0f6ff]", dot: "bg-[#3b82f6]" },
+        warn: { border: "border-l-[#ea580c]", bg: "bg-[#fff7ed]", dot: "bg-[#ea580c]" },
+    }[tone];
+    return (
+        <div
+            className={`border border-[#e6e6e6] border-l-2 ${styles.border} ${styles.bg} p-4 my-5 max-w-[72ch]`}
+        >
+            <div className="flex items-center gap-2 mb-1.5">
+                <span className={`w-2 h-2 ${styles.dot}`} aria-hidden="true" />
+                <span className="font-medium text-black text-[14px]">{title}</span>
+            </div>
+            <p className="text-[14px] leading-[1.65] text-[#555]">{children}</p>
+        </div>
+    );
+};
+
+const Card = ({ children }: { children: React.ReactNode }) => (
+    <div className="border border-[#e6e6e6] bg-white p-4 hover:border-black transition-colors">
+        {children}
+    </div>
+);
+
+const Section = ({ id, children }: { id: string; children: React.ReactNode }) => (
+    <section id={id} className="scroll-mt-24 pb-14 mb-14 border-b border-[#e6e6e6] last:border-0 last:mb-0">
+        {children}
+    </section>
+);
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 const Docs = () => {
@@ -284,10 +256,7 @@ const Docs = () => {
     const [activeId, setActiveId] = useState<string>(SECTIONS[0].id);
     const [verifyTab, setVerifyTab] = useState<"file" | "dns">("file");
     const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-    // Top reading-progress bar
-    const { scrollYProgress } = useScroll();
-    const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
+    const [query, setQuery] = useState("");
 
     // Scroll-spy — highlight the section currently in view
     useEffect(() => {
@@ -298,7 +267,7 @@ const Docs = () => {
                     .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
                 if (visible[0]) setActiveId(visible[0].target.id);
             },
-            { rootMargin: "-96px 0px -65% 0px", threshold: 0 },
+            { rootMargin: "-88px 0px -70% 0px", threshold: 0 },
         );
         SECTIONS.forEach((s) => {
             const el = document.getElementById(s.id);
@@ -311,212 +280,198 @@ const Docs = () => {
         document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
+    // Filter the sidebar nav by the search query
+    const filteredGroups = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return NAV_GROUPS;
+        return NAV_GROUPS.map((g) => ({
+            ...g,
+            items: g.items.filter((i) => i.label.toLowerCase().includes(q)),
+        })).filter((g) => g.items.length > 0);
+    }, [query]);
+
     return (
-        <div className="relative min-h-screen bg-black text-white font-['Inter'] selection:bg-cyan-400 selection:text-black overflow-x-hidden">
-            {/* Reading progress bar */}
-            <motion.div
-                style={{ scaleX: progress }}
-                className="fixed top-0 left-0 right-0 h-[2px] origin-left z-50 c5-animated-gradient"
-            />
-
-            {/* Hero glow — same c5 gradient treatment as the landing page */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] c5-animated-gradient opacity-[0.13] blur-3xl" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-gradient-to-b from-transparent to-black" />
-
-            {/* Top bar — sticky, frosted glass (matches the landing navbar on scroll) */}
-            <header className="sticky top-0 z-30 w-full border-b border-white/10 bg-black/70 backdrop-blur-xl">
-                <div className="max-w-[1240px] mx-auto px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
+        <div className="onyx-mono min-h-screen overflow-x-clip">
+            {/* Top bar */}
+            <header className="sticky top-0 z-40 w-full border-b border-[#e6e6e6] bg-[#fafafa]/90 backdrop-blur-md">
+                <div className="max-w-[1400px] mx-auto px-5 sm:px-8 h-14 flex items-center justify-between">
                     <button
                         onClick={() => navigate("/")}
-                        className="group flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 rounded-md px-1"
+                        className="flex items-center gap-2 shrink-0"
+                        aria-label="Onyx home"
                     >
-                        <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
-                        <span className="text-[14px]">Back to home</span>
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <span className="font-['Inter'] text-white text-[20px] tracking-tight">Onyx</span>
-                        <span className="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#22d3ee] border border-[#22d3ee]/30 rounded px-1.5 py-0.5">
+                        <OnyxMark />
+                        <span className="font-semibold text-xl tracking-tight">Onyx</span>
+                        <span className="border border-[#93c5fd] text-[#3b82f6] font-mono text-[10px] leading-none uppercase px-1.5 py-0.5 ml-1">
                             Docs
                         </span>
+                    </button>
+                    <div className="flex items-center gap-6 text-sm uppercase font-mono">
+                        <button
+                            onClick={() => navigate("/")}
+                            className="group hidden sm:flex items-center gap-1.5 text-[#666] hover:text-black transition-colors"
+                        >
+                            <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5" />
+                            Home
+                        </button>
+                        <a
+                            href="https://github.com/raghul017/Onyx"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hidden sm:inline text-[#666] hover:text-black transition-colors"
+                        >
+                            GitHub
+                        </a>
+                        <Link to="/signup" className="mono-btn py-2 px-4 text-[12px]">
+                            Start free scan
+                        </Link>
                     </div>
                 </div>
             </header>
 
-            <div className="relative z-10 max-w-[1240px] mx-auto px-5 sm:px-8 lg:px-12 flex gap-12">
-                {/* ----------------------------------------------------------- */}
-                {/* Sticky sidebar TOC (desktop) — animated active indicator   */}
-                {/* ----------------------------------------------------------- */}
-                <aside className="hidden lg:block w-56 shrink-0">
-                    <nav className="sticky top-24 py-12" aria-label="Documentation sections">
-                        <p className="font-['JetBrains_Mono'] text-[11px] uppercase tracking-widest text-white/40 mb-4 px-3">
-                            On this page
-                        </p>
-                        <ul className="space-y-0.5">
-                            {SECTIONS.map((s) => {
-                                const active = activeId === s.id;
-                                return (
-                                    <li key={s.id} className="relative">
-                                        {active && (
-                                            <motion.span
-                                                layoutId="toc-active"
-                                                className="absolute inset-0 rounded-md bg-white/[0.06] border-l-2 border-[#22d3ee]"
-                                                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                                            />
-                                        )}
-                                        <button
-                                            onClick={() => scrollTo(s.id)}
-                                            aria-current={active ? "true" : undefined}
-                                            className={`relative w-full text-left text-[13.5px] rounded-md px-3 py-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 ${
-                                                active ? "text-white pl-[10px]" : "text-white/55 hover:text-white/90"
-                                            }`}
-                                        >
-                                            {s.label}
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </nav>
+            <div className="max-w-[1400px] mx-auto flex">
+                {/* -------------------------------------------------------- */}
+                {/* Left sidebar — grouped, searchable nav                    */}
+                {/* -------------------------------------------------------- */}
+                <aside className="hidden lg:block w-64 shrink-0 border-r border-[#e6e6e6]">
+                    <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto py-8 px-6">
+                        {/* Search */}
+                        <div className="relative mb-6">
+                            <Search
+                                size={15}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999]"
+                            />
+                            <input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search docs"
+                                className="w-full bg-white border border-[#e6e6e6] h-9 pl-9 pr-3 text-[13px] font-mono text-black placeholder:text-[#999] outline-none focus:border-black transition-colors"
+                            />
+                        </div>
+
+                        <nav aria-label="Documentation" className="space-y-6">
+                            {filteredGroups.map((g) => (
+                                <div key={g.group}>
+                                    <p className="font-mono text-[11px] uppercase tracking-widest text-[#999] mb-2.5">
+                                        {g.group}
+                                    </p>
+                                    <ul className="space-y-0.5">
+                                        {g.items.map((s) => {
+                                            const active = activeId === s.id;
+                                            return (
+                                                <li key={s.id}>
+                                                    <button
+                                                        onClick={() => scrollTo(s.id)}
+                                                        aria-current={active ? "true" : undefined}
+                                                        className={`w-full text-left text-[13.5px] px-3 py-1.5 border-l-2 transition-colors ${
+                                                            active
+                                                                ? "border-[#3b82f6] text-black font-medium bg-white"
+                                                                : "border-transparent text-[#666] hover:text-black hover:bg-white"
+                                                        }`}
+                                                    >
+                                                        {s.label}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ))}
+                            {filteredGroups.length === 0 && (
+                                <p className="text-[13px] text-[#999]">No matches.</p>
+                            )}
+                        </nav>
+                    </div>
                 </aside>
 
-                {/* ----------------------------------------------------------- */}
-                {/* Main content                                               */}
-                {/* ----------------------------------------------------------- */}
-                <main className="flex-1 min-w-0 py-12 sm:py-16">
-                    {/* Page title */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.55, ease: "easeOut" }}
-                        className="mb-14 sm:mb-20"
-                    >
-                        {/* Live status dot — matches the landing hero eyebrow */}
-                        <div className="flex items-center gap-2.5 mb-5">
-                            <span className="relative flex h-2 w-2" aria-hidden="true">
-                                <span className="absolute inline-flex h-full w-full rounded-full bg-[#22d3ee] opacity-75 motion-safe:animate-ping" />
-                                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22d3ee]" />
-                            </span>
-                            <p className="font-['JetBrains_Mono'] text-[12px] tracking-widest uppercase text-[#22d3ee]">
-                                Documentation
-                            </p>
+                {/* -------------------------------------------------------- */}
+                {/* Main content                                             */}
+                {/* -------------------------------------------------------- */}
+                <main className="flex-1 min-w-0 px-6 sm:px-10 lg:px-14 py-12 lg:py-16">
+                    {/* Page header */}
+                    <div className="mb-14 pb-12 border-b border-[#e6e6e6]">
+                        <div className="mono-eyebrow mb-4">
+                            <span className="sq" /> DOCUMENTATION
                         </div>
-                        <h1
-                            className="text-white"
-                            style={{
-                                fontFamily: '"Satoshi Variable", sans-serif',
-                                fontWeight: 400,
-                                fontSize: "clamp(2.25rem, 5vw, 3.5rem)",
-                                lineHeight: 1.08,
-                                letterSpacing: "-0.03em",
-                            }}
-                        >
-                            How Onyx works,
-                            <br />
-                            end to end.
+                        <h1 className="text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] font-normal tracking-tight text-balance">
+                            How Onyx works, end to end.
                         </h1>
-                        <p className="font-['Inter'] text-[16px] sm:text-[18px] leading-[1.7] text-[#B4B4B4] mt-6 max-w-[60ch]">
-                            Everything from the moment you paste a spec URL to the
-                            final severity-scored result streaming to your
-                            dashboard. The full pipeline, the safeguards, and the
-                            answers to the questions people ask most.
+                        <p className="text-[17px] leading-7 text-[#555] mt-5 max-w-[64ch]">
+                            Everything from the moment you paste a spec URL to the final
+                            severity-scored result streaming to your dashboard. The full
+                            pipeline, the safeguards, and the answers to the questions
+                            people ask most.
                         </p>
-
-                        {/* Quick-jump chips */}
                         <div className="flex flex-wrap gap-2 mt-8">
                             {SECTIONS.slice(0, 5).map((s) => (
                                 <button
                                     key={s.id}
                                     onClick={() => scrollTo(s.id)}
-                                    className="text-[12.5px] text-white/70 border border-[#1F1F1F] hover:border-[#333] hover:text-white rounded-full px-3.5 py-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
+                                    className="font-mono text-[12px] uppercase tracking-wide text-[#666] border border-[#e6e6e6] hover:border-black hover:text-black px-3 py-1.5 transition-colors"
                                 >
                                     {s.label}
                                 </button>
                             ))}
                         </div>
-                    </motion.div>
+                    </div>
 
                     {/* ---- Overview ---- */}
                     <Section id="overview">
-                        <Eyebrow icon={Cpu}>Overview</Eyebrow>
                         <H2>What is Onyx?</H2>
                         <P>
-                            Onyx is an AI-native API penetration-testing platform.
-                            You provide a link to any API's documentation, an
-                            OpenAPI / Swagger specification, and it autonomously
-                            verifies ownership, parses every endpoint, generates
-                            schema-aware attack payloads with Google Gemini 2.5
-                            Flash, fires them through a rate-limited distributed
-                            queue, and streams severity-scored results back live.
+                            Onyx is an AI-native API penetration-testing platform. You
+                            provide a link to any API's documentation, an OpenAPI /
+                            Swagger specification, and it autonomously verifies
+                            ownership, parses every endpoint, generates schema-aware
+                            attack payloads with Google Gemini 2.5 Flash, fires them
+                            through a rate-limited distributed queue, and streams
+                            severity-scored results back live.
                         </P>
                         <P>
                             Unlike a generic fuzzer, Onyx reads your actual schema:
-                            request bodies, path parameters, query strings, and
-                            asks an LLM to reason about what would break each
-                            specific endpoint. The result is context-sensitive
-                            coverage across the OWASP Top 10 without writing a
-                            single test case by hand.
+                            request bodies, path parameters, query strings, and asks an
+                            LLM to reason about what would break each specific endpoint.
+                            The result is context-sensitive coverage across the OWASP Top
+                            10 without writing a single test case by hand.
                         </P>
-
-                        {/* At-a-glance interactive stat tiles */}
-                        <motion.div
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-[68ch]"
-                        >
+                        <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-l border-[#e6e6e6] mt-8 max-w-[72ch]">
                             {[
                                 ["8", "Attack categories"],
-                                ["≤ 400", "Payloads / run"],
+                                ["400+", "Payloads / run"],
                                 ["5", "Concurrent workers"],
                                 ["0-100", "Security score"],
                             ].map(([v, l]) => (
-                                <motion.div
-                                    key={l}
-                                    variants={reveal}
-                                    className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 hover:border-[#2A2A2A] transition-colors"
-                                >
-                                    <div className="font-['Satoshi_Variable',sans-serif] text-[24px] text-white leading-none mb-1.5">
-                                        {v}
-                                    </div>
-                                    <div className="text-[12px] text-white/50">{l}</div>
-                                </motion.div>
+                                <div key={l} className="border-r border-b border-[#e6e6e6] p-4">
+                                    <div className="text-[24px] leading-none mb-1.5 tabular-nums">{v}</div>
+                                    <div className="text-[12px] text-[#666]">{l}</div>
+                                </div>
                             ))}
-                        </motion.div>
+                        </div>
                     </Section>
 
                     {/* ---- Quick start ---- */}
                     <Section id="quick-start">
-                        <Eyebrow icon={Rocket}>Get going</Eyebrow>
                         <H2>Quick start</H2>
                         <P>
-                            Five steps take you from sign-up to a live, scored
-                            attack run. Each one is covered in more depth further
-                            down this page.
+                            Five steps take you from sign-up to a live, scored attack
+                            run. Each one is covered in more depth further down.
                         </P>
-                        <motion.div
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="space-y-3 my-6 max-w-[68ch]"
-                        >
+                        <div className="border-t border-l border-[#e6e6e6] my-6 max-w-[72ch]">
                             {QUICK_START.map(([title, body], i) => (
-                                <motion.div
+                                <div
                                     key={title}
-                                    variants={reveal}
-                                    className="group flex gap-4 rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 hover:border-[#2A2A2A] transition-colors"
+                                    className="flex gap-4 border-r border-b border-[#e6e6e6] p-4 bg-white"
                                 >
-                                    <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#22d3ee]/10 border border-[#22d3ee]/25 font-['JetBrains_Mono'] text-[13px] text-[#22d3ee]">
+                                    <span className="shrink-0 flex items-center justify-center w-8 h-8 bg-[#3b82f6] text-white font-mono text-[13px]">
                                         {i + 1}
                                     </span>
                                     <div>
-                                        <p className="text-[15px] font-medium text-white mb-0.5">{title}</p>
-                                        <p className="text-[13.5px] leading-[1.6] text-[#A1A1AA]">{body}</p>
+                                        <p className="text-[15px] font-medium text-black mb-0.5">{title}</p>
+                                        <p className="text-[13.5px] leading-[1.6] text-[#666]">{body}</p>
                                     </div>
-                                </motion.div>
+                                </div>
                             ))}
-                        </motion.div>
+                        </div>
                         <Callout tone="info" title="No setup, no agents">
                             Onyx runs entirely from the spec URL. There's nothing to
                             install on your servers and no SDK to wire in. If your API
@@ -526,36 +481,36 @@ const Docs = () => {
 
                     {/* ---- What to paste ---- */}
                     <Section id="what-to-paste">
-                        <Eyebrow icon={FileText}>Input</Eyebrow>
                         <H2>What you can paste</H2>
                         <P>
-                            Every modern API ships a machine-readable spec
-                            describing its endpoints, parameters, and response
-                            formats, written in OpenAPI (formerly Swagger). Most
-                            APIs expose it at a path like{" "}
-                            <Code>/openapi.json</Code>, <Code>/swagger.json</Code>,
+                            Every modern API ships a machine-readable spec describing its
+                            endpoints, parameters, and response formats, written in
+                            OpenAPI (formerly Swagger). Most APIs expose it at a path
+                            like <Code>/openapi.json</Code>, <Code>/swagger.json</Code>,
                             or <Code>/v2/api-docs</Code>.
                         </P>
-
-                        <div className="grid sm:grid-cols-2 gap-4 my-6 max-w-[68ch]">
-                            <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 hover:border-[#22d3ee]/30 transition-colors">
-                                <p className="text-[13px] font-medium text-[#22d3ee] mb-3">Valid targets</p>
-                                <ul className="space-y-2 font-['JetBrains_Mono'] text-[12.5px] text-[#A1A1AA] leading-relaxed">
+                        <div className="grid sm:grid-cols-2 gap-4 my-6 max-w-[72ch]">
+                            <Card>
+                                <p className="text-[13px] font-medium text-[#16a34a] mb-3 font-mono uppercase tracking-wide">
+                                    Valid targets
+                                </p>
+                                <ul className="space-y-2 font-mono text-[12.5px] text-[#555] leading-relaxed">
                                     <li>petstore.swagger.io/v2/swagger.json</li>
                                     <li>api.example.com/openapi.json</li>
                                     <li>httpbin.org/spec.json</li>
                                 </ul>
-                            </div>
-                            <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 hover:border-[#F26522]/30 transition-colors">
-                                <p className="text-[13px] font-medium text-[#F26522] mb-3">Blocked</p>
-                                <ul className="space-y-2 font-['JetBrains_Mono'] text-[12.5px] text-[#A1A1AA] leading-relaxed">
+                            </Card>
+                            <Card>
+                                <p className="text-[13px] font-medium text-[#ea580c] mb-3 font-mono uppercase tracking-wide">
+                                    Blocked
+                                </p>
+                                <ul className="space-y-2 font-mono text-[12.5px] text-[#555] leading-relaxed">
                                     <li>google.com (HTML, not a spec)</li>
                                     <li>192.168.1.5/api (private IP, SSRF)</li>
                                     <li>any domain you don't own</li>
                                 </ul>
-                            </div>
+                            </Card>
                         </div>
-
                         <Callout tone="warn" title="SSRF protection is strictly enforced">
                             Onyx performs DNS resolution on every URL. Any hostname
                             resolving to <Code>127.x</Code>, <Code>10.x</Code>,{" "}
@@ -563,7 +518,6 @@ const Docs = () => {
                             <Code>169.254.x</Code>, <Code>.local</Code>, or{" "}
                             <Code>.internal</Code> is instantly blocked.
                         </Callout>
-
                         <H3>Can't find your spec URL?</H3>
                         <P>
                             If your team uses Swagger UI, the spec is the JSON the UI
@@ -574,19 +528,16 @@ const Docs = () => {
                         <CodeBlock code={`/openapi.json\n/swagger.json\n/v2/api-docs\n/v3/api-docs\n/swagger/v1/swagger.json`} />
                     </Section>
 
-                    {/* ---- Verification (interactive File/DNS tabs) ---- */}
+                    {/* ---- Verification ---- */}
                     <Section id="verification">
-                        <Eyebrow icon={ShieldCheck}>Trust gate</Eyebrow>
                         <H2>Domain ownership verification</H2>
                         <P>
-                            Before Onyx fires a single payload, you must prove you
-                            own the target domain. Without it, anyone could point
-                            Onyx at someone else's API. Verification closes that
-                            liability and is required once per domain, per account.
+                            Before Onyx fires a single payload, you must prove you own
+                            the target domain. Without it, anyone could point Onyx at
+                            someone else's API. Verification closes that liability and is
+                            required once per domain, per account.
                         </P>
-
-                        {/* Tab switcher */}
-                        <div className="inline-flex items-center gap-1 p-1 rounded-full border border-[#1A1A1A] bg-[#0A0A0A] my-5">
+                        <div className="inline-flex items-center border border-[#e6e6e6] bg-white my-5">
                             {([
                                 ["file", "File probe", FolderOpen],
                                 ["dns", "DNS record", Globe],
@@ -596,32 +547,26 @@ const Docs = () => {
                                     <button
                                         key={key}
                                         onClick={() => setVerifyTab(key)}
-                                        className={`relative flex items-center gap-2 text-[13px] rounded-full px-4 py-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60 ${
-                                            active ? "text-black" : "text-white/60 hover:text-white"
+                                        className={`flex items-center gap-2 text-[13px] px-4 py-2 transition-colors ${
+                                            active
+                                                ? "bg-black text-white"
+                                                : "text-[#666] hover:text-black"
                                         }`}
                                     >
-                                        {active && (
-                                            <motion.span
-                                                layoutId="verify-tab"
-                                                className="absolute inset-0 rounded-full bg-white"
-                                                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                                            />
-                                        )}
-                                        <Icon size={14} className="relative z-10" />
-                                        <span className="relative z-10">{label}</span>
+                                        <Icon size={14} />
+                                        {label}
                                     </button>
                                 );
                             })}
                         </div>
-
                         <AnimatePresence mode="wait">
                             {verifyTab === "file" ? (
                                 <motion.div
                                     key="file"
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2 }}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
                                 >
                                     <P>
                                         Host a file containing only your verification
@@ -633,133 +578,107 @@ const Docs = () => {
                             ) : (
                                 <motion.div
                                     key="dns"
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2 }}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
                                 >
                                     <P>
-                                        No file hosting? Add a TXT record to your
-                                        domain's DNS instead:
+                                        No file hosting? Add a TXT record to your domain's
+                                        DNS instead:
                                     </P>
                                     <CodeBlock code={`Type:   TXT\nName:   _onyx-verify.your-domain.com\nValue:  onyx-verify-a3f9c2b1...`} />
                                 </motion.div>
                             )}
                         </AnimatePresence>
-
                         <Callout tone="info" title="Verification is permanent">
-                            Once verified, a domain stays verified for your account.
-                            you can delete the file or DNS record afterward. DNS can
-                            take a few minutes to propagate; if a check fails right
-                            after saving the record, wait and retry.
+                            Once verified, a domain stays verified for your account. You
+                            can delete the file or DNS record afterward. DNS can take a
+                            few minutes to propagate; if a check fails right after saving
+                            the record, wait and retry.
                         </Callout>
-
                         <H3>What actually happens</H3>
                         <P>
-                            Onyx extracts the hostname from your URL, generates a
-                            unique <Code>onyx-verify-&lt;token&gt;</Code>, and stores
-                            it against your account. When you click{" "}
-                            <Code>Check Verification</Code>, it probes the file over
-                            HTTPS first (retrying over HTTP if the connection fails),
-                            then falls back to a DNS TXT lookup. Whichever it finds
-                            first wins, and the run button unlocks.
+                            Onyx extracts the hostname from your URL, generates a unique{" "}
+                            <Code>onyx-verify-&lt;token&gt;</Code>, and stores it against
+                            your account. When you click <Code>Check Verification</Code>,
+                            it probes the file over HTTPS first (retrying over HTTP if the
+                            connection fails), then falls back to a DNS TXT lookup.
+                            Whichever it finds first wins, and the run button unlocks.
                         </P>
                         <P>
                             Until a domain is verified, every attempt to scan it is
                             rejected before a single request leaves the server:
                         </P>
-                        <CodeBlock code={`POST /api/test-runs  →  403 Forbidden\n\n{\n  "error": "DOMAIN_NOT_VERIFIED",\n  "domain": "target-api.com",\n  "message": "You must verify ownership of\n              \\"target-api.com\\" before scanning it."\n}`} />
+                        <CodeBlock code={`POST /api/test-runs  ->  403 Forbidden\n\n{\n  "error": "DOMAIN_NOT_VERIFIED",\n  "domain": "target-api.com",\n  "message": "You must verify ownership of\n              \\"target-api.com\\" before scanning it."\n}`} />
                     </Section>
 
-                    {/* ---- Attack flow (interactive numbered timeline) ---- */}
+                    {/* ---- Attack flow ---- */}
                     <Section id="attack-flow">
-                        <Eyebrow icon={Activity}>Lifecycle</Eyebrow>
                         <H2>The attack flow</H2>
                         <P>
                             End to end, from clicking <Code>Execute Run</Code> to
                             receiving live results:
                         </P>
-                        <motion.ol
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="relative my-6 max-w-[68ch] pl-8"
-                        >
-                            {/* connecting line */}
-                            <span className="absolute left-[14px] top-2 bottom-2 w-px bg-gradient-to-b from-[#22d3ee]/40 via-[#1A1A1A] to-transparent" aria-hidden="true" />
+                        <ol className="relative my-6 max-w-[72ch] pl-8">
+                            <span className="absolute left-[13px] top-2 bottom-2 w-px bg-[#e6e6e6]" aria-hidden="true" />
                             {FLOW.map(([title, body], i) => (
-                                <motion.li key={title} variants={reveal} className="relative pb-6 last:pb-0 group">
-                                    <span className="absolute -left-8 top-0 flex items-center justify-center w-7 h-7 rounded-full bg-[#0A0A0A] border border-[#22d3ee]/30 font-['JetBrains_Mono'] text-[11px] text-[#22d3ee] group-hover:border-[#22d3ee]/70 transition-colors">
+                                <li key={title} className="relative pb-6 last:pb-0">
+                                    <span className="absolute -left-8 top-0 flex items-center justify-center w-7 h-7 bg-white border border-[#e6e6e6] font-mono text-[11px] text-[#3b82f6]">
                                         {String(i + 1).padStart(2, "0")}
                                     </span>
-                                    <p className="text-[15px] leading-[1.6] text-[#B4B4B4]">
-                                        <span className="text-white font-medium">{title}.</span> {body}
+                                    <p className="text-[15px] leading-[1.6] text-[#444]">
+                                        <span className="text-black font-medium">{title}.</span> {body}
                                     </p>
-                                </motion.li>
+                                </li>
                             ))}
-                        </motion.ol>
-
+                        </ol>
                         <H3>Run status phases</H3>
                         <P>
-                            As a run progresses, its status moves through four phases
-                            , and the dashboard reflects each one live:
+                            As a run progresses, its status moves through four phases, and
+                            the dashboard reflects each one live:
                         </P>
-                        <div className="flex flex-wrap items-center gap-2 my-5 max-w-[68ch]">
-                            {RUN_PHASES.map(([phase, desc], i) => (
+                        <div className="flex flex-wrap items-center gap-2 my-5 max-w-[72ch]">
+                            {RUN_PHASES.map((phase, i) => (
                                 <div key={phase} className="flex items-center gap-2">
-                                    <span
-                                        title={desc}
-                                        className="font-['JetBrains_Mono'] text-[11px] tracking-wider uppercase text-[#22d3ee] bg-[#22d3ee]/10 border border-[#22d3ee]/25 rounded-md px-2.5 py-1 cursor-default"
-                                    >
+                                    <span className="font-mono text-[11px] tracking-wider uppercase text-[#3b82f6] border border-[#93c5fd] px-2.5 py-1">
                                         {phase}
                                     </span>
                                     {i < RUN_PHASES.length - 1 && (
-                                        <span className="text-white/25 text-[12px]" aria-hidden="true">→</span>
+                                        <ArrowRight size={13} className="text-[#ccc]" aria-hidden="true" />
                                     )}
                                 </div>
                             ))}
                         </div>
                     </Section>
 
-                    {/* ---- Attack types (interactive cards) ---- */}
+                    {/* ---- Attack types ---- */}
                     <Section id="attack-types">
-                        <Eyebrow icon={Boxes}>Coverage</Eyebrow>
                         <H2>Attack types generated</H2>
                         <P>
                             Gemini produces strictly-typed JSON payloads across eight
                             categories, each tuned to the endpoint under test:
                         </P>
-                        <motion.div
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="grid sm:grid-cols-2 gap-3 my-6 max-w-[68ch]"
-                        >
+                        <div className="grid sm:grid-cols-2 border-t border-l border-[#e6e6e6] my-6 max-w-[72ch]">
                             {ATTACK_TYPES.map((a) => (
-                                <motion.div
+                                <div
                                     key={a.type}
-                                    variants={reveal}
-                                    className="group rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 hover:border-[#22d3ee]/40 hover:bg-[#0C0C0C] transition-colors"
+                                    className="border-r border-b border-[#e6e6e6] p-4 bg-white hover:bg-[#f6f9ff] transition-colors"
                                 >
-                                    <p className="font-['JetBrains_Mono'] text-[12.5px] text-[#22d3ee] mb-1.5">
-                                        {a.type}
-                                    </p>
-                                    <p className="text-[13.5px] text-[#A1A1AA] leading-relaxed">{a.desc}</p>
-                                </motion.div>
+                                    <p className="font-mono text-[12.5px] text-[#3b82f6] mb-1.5">{a.type}</p>
+                                    <p className="text-[13.5px] text-[#666] leading-relaxed">{a.desc}</p>
+                                </div>
                             ))}
-                        </motion.div>
+                        </div>
                     </Section>
 
                     {/* ---- Live results ---- */}
                     <Section id="live-results">
-                        <Eyebrow icon={Radio}>Real-time</Eyebrow>
                         <H2>Live results</H2>
                         <P>
                             HTTP polling is too slow for watching attacks land. Onyx
-                            opens an authenticated WebSocket and streams every result
-                            the instant a worker records it, and the dashboard's metrics,
+                            opens an authenticated WebSocket and streams every result the
+                            instant a worker records it, and the dashboard's metrics,
                             charts, and endpoint rows update without a refresh.
                         </P>
                         <P>
@@ -768,130 +687,121 @@ const Docs = () => {
                             <Code>ATTACK_RESULT</Code> frame looks like this:
                         </P>
                         <CodeBlock code={`{\n  "type": "ATTACK_RESULT",\n  "data": {\n    "method": "POST",\n    "endpoint": "/users/login",\n    "statusCode": 500,\n    "latency": 412,\n    "attackType": "SQL_INJECTION",\n    "severity": "CRITICAL"\n  }\n}`} />
-                        <div className="grid sm:grid-cols-3 gap-3 mt-6 max-w-[68ch]">
+                        <div className="grid sm:grid-cols-3 gap-3 mt-6 max-w-[72ch]">
                             {[
                                 ["Per-run isolation", "Each run has its own subscriber set, so you only ever receive your own results."],
                                 ["Heartbeat", "Ping/pong every 30s drops dead connections so the stream stays clean."],
                                 ["Ownership-checked", "The server verifies you own a run in the database before allowing a subscription."],
                             ].map(([t, d]) => (
-                                <div key={t} className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 hover:border-[#2A2A2A] transition-colors">
-                                    <p className="text-[14px] font-medium text-white mb-1">{t}</p>
-                                    <p className="text-[12.5px] leading-[1.55] text-[#A1A1AA]">{d}</p>
-                                </div>
+                                <Card key={t}>
+                                    <p className="text-[14px] font-medium text-black mb-1">{t}</p>
+                                    <p className="text-[12.5px] leading-[1.55] text-[#666]">{d}</p>
+                                </Card>
                             ))}
                         </div>
                     </Section>
 
                     {/* ---- Scoring ---- */}
                     <Section id="scoring">
-                        <Eyebrow icon={Gauge}>Results</Eyebrow>
                         <H2>CVSS severity scoring</H2>
                         <P>
                             Each result is classified by status code and response
                             content. The overall score starts at 100 and deducts per
                             finding, giving you a single 0-100 number to track.
                         </P>
-                        <div className="space-y-2 my-6 max-w-[68ch]">
-                            {SEVERITY.map((s) => (
+                        <div className="border border-[#e6e6e6] my-6 max-w-[72ch]">
+                            {SEVERITY.map((s, i) => (
                                 <div
                                     key={s.label}
-                                    className="flex items-start gap-3 rounded-lg border border-[#1A1A1A] bg-[#0A0A0A] p-3.5 hover:border-[#2A2A2A] transition-colors"
+                                    className={`flex items-start gap-3 p-3.5 bg-white ${
+                                        i < SEVERITY.length - 1 ? "border-b border-[#e6e6e6]" : ""
+                                    }`}
                                 >
                                     <span
-                                        className="shrink-0 mt-0.5 inline-flex items-center justify-center min-w-[68px] text-[10px] font-bold font-['JetBrains_Mono'] tracking-wider uppercase rounded px-2 py-1"
-                                        style={{ color: s.color, backgroundColor: `${s.color}1A`, border: `1px solid ${s.color}40` }}
+                                        className="shrink-0 mt-0.5 inline-flex items-center justify-center min-w-[68px] text-[10px] font-bold font-mono tracking-wider uppercase px-2 py-1"
+                                        style={{
+                                            color: s.color,
+                                            border: `1px solid ${s.color}55`,
+                                        }}
                                     >
                                         {s.label}
                                     </span>
-                                    <span className="flex-1 text-[14px] leading-[1.55] text-[#A1A1AA]">{s.rule}</span>
-                                    <span className="shrink-0 font-['JetBrains_Mono'] text-[13px] text-white/40">{s.deduct}</span>
+                                    <span className="flex-1 text-[14px] leading-[1.55] text-[#555]">{s.rule}</span>
+                                    <span className="shrink-0 font-mono text-[13px] text-[#999] tabular-nums">{s.deduct}</span>
                                 </div>
                             ))}
                         </div>
                         <P>
-                            The final number maps to a label: <Code>CLEAN</Code>{" "}
-                            (100), <Code>LOW</Code> (76-99), <Code>MEDIUM</Code>{" "}
-                            (51-75), <Code>HIGH</Code> (26-50), and{" "}
-                            <Code>CRITICAL</Code> (0-25).
+                            The final number maps to a label: <Code>CLEAN</Code> (100),{" "}
+                            <Code>LOW</Code> (76-99), <Code>MEDIUM</Code> (51-75),{" "}
+                            <Code>HIGH</Code> (26-50), and <Code>CRITICAL</Code> (0-25).
                         </P>
                     </Section>
 
                     {/* ---- Security ---- */}
                     <Section id="security">
-                        <Eyebrow icon={Lock}>Safeguards</Eyebrow>
                         <H2>Security &amp; resilience</H2>
-                        <motion.div
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="grid sm:grid-cols-2 gap-4 my-6 max-w-[68ch]"
-                        >
+                        <P>
+                            Every run is fenced by layered guards, checked before and
+                            during the attack, so Onyx only ever hits the API you own.
+                        </P>
+                        <div className="grid sm:grid-cols-2 border-t border-l border-[#e6e6e6] my-6 max-w-[72ch]">
                             {SECURITY_LAYERS.map(([title, body]) => (
-                                <motion.div
-                                    key={title}
-                                    variants={reveal}
-                                    className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-5 hover:border-[#333] transition-colors duration-300"
-                                >
-                                    <p className="text-[15px] font-medium text-white mb-1.5">{title}</p>
-                                    <p className="text-[13.5px] leading-[1.6] text-[#A1A1AA]">{body}</p>
-                                </motion.div>
+                                <div key={title} className="border-r border-b border-[#e6e6e6] p-5 bg-white">
+                                    <p className="text-[15px] font-medium text-black mb-1.5">{title}</p>
+                                    <p className="text-[13.5px] leading-[1.6] text-[#666]">{body}</p>
+                                </div>
                             ))}
-                        </motion.div>
+                        </div>
                     </Section>
 
                     {/* ---- Architecture ---- */}
                     <Section id="architecture">
-                        <Eyebrow icon={Network}>Under the hood</Eyebrow>
                         <H2>Architecture</H2>
                         <P>
                             Onyx is a decoupled pipeline: a React client, a guarded
-                            Express API, an AI payload stage, a Redis-backed queue,
-                            and a worker pool, with Postgres for persistence and
-                            WebSockets for telemetry. Each stage hands off to the
-                            next, so a slow target never blocks the UI.
+                            Express API, an AI payload stage, a Redis-backed queue, and a
+                            worker pool, with Postgres for persistence and WebSockets for
+                            telemetry. Each stage hands off to the next, so a slow target
+                            never blocks the UI.
                         </P>
-                        <motion.div
-                            variants={revealStagger}
-                            initial="hidden"
-                            whileInView="visible"
-                            viewport={{ once: true, margin: "-60px" }}
-                            className="relative my-6 max-w-[68ch] pl-8"
-                        >
-                            <span className="absolute left-[14px] top-2 bottom-2 w-px bg-gradient-to-b from-[#22d3ee]/40 via-[#1A1A1A] to-transparent" aria-hidden="true" />
+                        <ol className="relative my-6 max-w-[72ch] pl-8">
+                            <span className="absolute left-[13px] top-2 bottom-2 w-px bg-[#e6e6e6]" aria-hidden="true" />
                             {ARCH_STAGES.map(([title, body], i) => (
-                                <motion.div key={title} variants={reveal} className="relative pb-6 last:pb-0 group">
-                                    <span className="absolute -left-8 top-0 flex items-center justify-center w-7 h-7 rounded-full bg-[#0A0A0A] border border-[#22d3ee]/30 font-['JetBrains_Mono'] text-[11px] text-[#22d3ee] group-hover:border-[#22d3ee]/70 transition-colors">
+                                <li key={title} className="relative pb-6 last:pb-0">
+                                    <span className="absolute -left-8 top-0 flex items-center justify-center w-7 h-7 bg-white border border-[#e6e6e6] font-mono text-[11px] text-[#3b82f6]">
                                         {String(i + 1).padStart(2, "0")}
                                     </span>
-                                    <p className="text-[15px] leading-[1.6] text-[#B4B4B4]">
-                                        <span className="text-white font-medium">{title}.</span> {body}
+                                    <p className="text-[15px] leading-[1.6] text-[#444]">
+                                        <span className="text-black font-medium">{title}.</span> {body}
                                     </p>
-                                </motion.div>
+                                </li>
                             ))}
-                        </motion.div>
+                        </ol>
                         <P>
                             Built on React 18, Express 4, Prisma 7 + Neon Postgres,
-                            BullMQ 5 + Redis, Google Gemini 2.5 Flash, and Razorpay
-                            for billing.
+                            BullMQ 5 + Redis, Google Gemini 2.5 Flash, and Razorpay for
+                            billing.
                         </P>
                     </Section>
 
                     {/* ---- Plans ---- */}
                     <Section id="plans">
-                        <Eyebrow icon={Boxes}>Pricing</Eyebrow>
                         <H2>Plans &amp; quotas</H2>
                         <P>
-                            Quotas are checked per calendar month before a run is
-                            created. Exceeding a limit returns a{" "}
-                            <Code>429 QUOTA_EXCEEDED</Code> with an upgrade link.
+                            Quotas are checked per calendar month before a run is created.
+                            Exceeding a limit returns a <Code>429 QUOTA_EXCEEDED</Code>{" "}
+                            with an upgrade link.
                         </P>
-                        <div className="overflow-x-auto rounded-xl border border-[#1A1A1A] my-6 max-w-[68ch]">
+                        <div className="overflow-x-auto border border-[#e6e6e6] my-6 max-w-[72ch]">
                             <table className="w-full text-left border-collapse min-w-[440px]">
                                 <thead>
-                                    <tr className="bg-[#0D0D0D]">
+                                    <tr className="bg-white">
                                         {["Plan", "Price", "Runs", "Endpoints", "PDF"].map((h) => (
-                                            <th key={h} className="py-3 px-4 text-[12px] font-['JetBrains_Mono'] uppercase tracking-wider text-white/50 border-b border-[#1A1A1A]">
+                                            <th
+                                                key={h}
+                                                className="py-3 px-4 text-[11px] font-mono uppercase tracking-wider text-[#999] border-b border-[#e6e6e6]"
+                                            >
                                                 {h}
                                             </th>
                                         ))}
@@ -899,13 +809,13 @@ const Docs = () => {
                                 </thead>
                                 <tbody>
                                     {PLANS.map((p) => (
-                                        <tr key={p.name} className="bg-[#0A0A0A] hover:bg-[#0D0D0D] transition-colors">
-                                            <td className="py-3 px-4 text-[14px] text-white font-medium border-b border-[#141414]">{p.name}</td>
-                                            <td className="py-3 px-4 text-[14px] text-[#A1A1AA] border-b border-[#141414]">{p.price}</td>
-                                            <td className="py-3 px-4 text-[14px] text-[#A1A1AA] border-b border-[#141414]">{p.runs}</td>
-                                            <td className="py-3 px-4 text-[14px] text-[#A1A1AA] border-b border-[#141414]">{p.endpoints}</td>
-                                            <td className="py-3 px-4 border-b border-[#141414]">
-                                                {p.pdf ? <Check size={15} className="text-[#22d3ee]" /> : <span className="text-white/30">-</span>}
+                                        <tr key={p.name} className="bg-white">
+                                            <td className="py-3 px-4 text-[14px] text-black font-medium border-b border-[#e6e6e6]">{p.name}</td>
+                                            <td className="py-3 px-4 text-[14px] text-[#666] border-b border-[#e6e6e6]">{p.price}</td>
+                                            <td className="py-3 px-4 text-[14px] text-[#666] border-b border-[#e6e6e6]">{p.runs}</td>
+                                            <td className="py-3 px-4 text-[14px] text-[#666] border-b border-[#e6e6e6]">{p.endpoints}</td>
+                                            <td className="py-3 px-4 border-b border-[#e6e6e6]">
+                                                {p.pdf ? <Check size={15} className="text-[#3b82f6]" /> : <span className="text-[#ccc]">-</span>}
                                             </td>
                                         </tr>
                                     ))}
@@ -919,33 +829,27 @@ const Docs = () => {
                         </P>
                     </Section>
 
-                    {/* ---- FAQ (interactive accordion, mirrors FaqCta) ---- */}
+                    {/* ---- FAQ ---- */}
                     <Section id="faq">
-                        <Eyebrow icon={Terminal}>Questions</Eyebrow>
                         <H2>Frequently asked</H2>
-                        <div className="space-y-3 mt-6 max-w-[68ch]">
+                        <div className="border-t border-[#e6e6e6] mt-6 max-w-[72ch]">
                             {DOC_FAQ.map((f, i) => {
                                 const active = openFaq === i;
                                 const panelId = `doc-faq-panel-${i}`;
                                 const btnId = `doc-faq-btn-${i}`;
                                 return (
-                                    <div
-                                        key={f.q}
-                                        className={`bg-[#0A0A0A] border rounded-xl transition-colors duration-200 ${
-                                            active ? "border-[#2A2A2A]" : "border-[#1A1A1A] hover:border-[#2A2A2A]"
-                                        }`}
-                                    >
+                                    <div key={f.q} className="border-b border-[#e6e6e6]">
                                         <button
                                             id={btnId}
                                             onClick={() => setOpenFaq(active ? null : i)}
                                             aria-expanded={active}
                                             aria-controls={panelId}
-                                            className="w-full flex justify-between items-center text-left font-medium text-[15px] leading-snug text-white gap-4 py-4 px-5 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/60"
+                                            className="w-full flex justify-between items-center text-left text-[15px] text-black gap-4 py-4 cursor-pointer hover:opacity-70 transition-opacity"
                                         >
                                             <span>{f.q}</span>
                                             <ChevronDown
-                                                size={19}
-                                                className={`text-neutral-400 shrink-0 transition-transform duration-300 ${active ? "rotate-180" : ""}`}
+                                                size={18}
+                                                className={`text-[#666] shrink-0 transition-transform duration-300 ${active ? "rotate-180" : ""}`}
                                                 aria-hidden="true"
                                             />
                                         </button>
@@ -961,7 +865,7 @@ const Docs = () => {
                                                     transition={{ duration: 0.25, ease: "easeInOut" }}
                                                     className="overflow-hidden"
                                                 >
-                                                    <p className="px-5 pb-4 text-[14px] leading-[1.65] text-[#A1A1AA]">{f.a}</p>
+                                                    <p className="pb-4 text-[14px] leading-[1.65] text-[#555] max-w-[64ch]">{f.a}</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -971,52 +875,66 @@ const Docs = () => {
                         </div>
 
                         {/* Closing CTA */}
-                        <div className="mt-12 rounded-2xl c5-animated-gradient p-[1.5px] max-w-[68ch]">
-                            <div className="rounded-2xl bg-black/50 backdrop-blur-[2px] px-6 py-8 sm:px-8 sm:py-10 text-center">
-                                <h3
-                                    className="text-white mb-2"
-                                    style={{
-                                        fontFamily: '"Satoshi Variable", sans-serif',
-                                        fontSize: "clamp(1.5rem, 3vw, 2rem)",
-                                        letterSpacing: "-0.02em",
-                                    }}
-                                >
+                        <div className="mt-12 border border-[#e6e6e6] bg-white p-8 sm:p-10 max-w-[72ch] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                            <div>
+                                <h3 className="text-[24px] leading-tight font-normal tracking-tight mb-1">
                                     Ready to break your API?
                                 </h3>
-                                <p className="text-[14px] text-white/70 mb-6">
+                                <p className="text-[14px] text-[#666]">
                                     Start free. No credit card required.
                                 </p>
-                                <Link
-                                    to="/signup"
-                                    className="inline-flex items-center justify-center bg-white text-black rounded-full px-6 py-2.5 text-[14px] font-semibold hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:ring-[#22d3ee] cursor-pointer"
-                                >
-                                    Start free scan
-                                </Link>
                             </div>
+                            <Link to="/signup" className="mono-btn shrink-0">
+                                Start free scan
+                                <ArrowRight size={14} />
+                            </Link>
                         </div>
                     </Section>
 
                     {/* ---- Glossary ---- */}
                     <Section id="glossary">
-                        <Eyebrow icon={BookOpen}>Reference</Eyebrow>
                         <H2>Glossary</H2>
-                        <P>
-                            Plain-English definitions for the terms used throughout
-                            these docs.
-                        </P>
-                        <dl className="space-y-3 my-6 max-w-[68ch]">
+                        <P>Plain-English definitions for the terms used throughout these docs.</P>
+                        <dl className="border-t border-l border-[#e6e6e6] grid sm:grid-cols-2 my-6 max-w-[72ch]">
                             {GLOSSARY.map(([term, def]) => (
-                                <div
-                                    key={term}
-                                    className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 hover:border-[#2A2A2A] transition-colors"
-                                >
-                                    <dt className="text-[14px] font-medium text-white mb-1">{term}</dt>
-                                    <dd className="text-[13.5px] leading-[1.6] text-[#A1A1AA]">{def}</dd>
+                                <div key={term} className="border-r border-b border-[#e6e6e6] p-4 bg-white">
+                                    <dt className="text-[14px] font-medium text-black mb-1">{term}</dt>
+                                    <dd className="text-[13.5px] leading-[1.6] text-[#666]">{def}</dd>
                                 </div>
                             ))}
                         </dl>
                     </Section>
                 </main>
+
+                {/* -------------------------------------------------------- */}
+                {/* Right — "On this page" tracker                            */}
+                {/* -------------------------------------------------------- */}
+                <aside className="hidden xl:block w-56 shrink-0 border-l border-[#e6e6e6]">
+                    <div className="sticky top-14 py-12 px-6">
+                        <p className="font-mono text-[11px] uppercase tracking-widest text-[#999] mb-3">
+                            On this page
+                        </p>
+                        <ul className="space-y-1.5">
+                            {SECTIONS.map((s) => {
+                                const active = activeId === s.id;
+                                return (
+                                    <li key={s.id}>
+                                        <button
+                                            onClick={() => scrollTo(s.id)}
+                                            className={`text-left text-[12.5px] leading-snug transition-colors ${
+                                                active
+                                                    ? "text-[#3b82f6] font-medium"
+                                                    : "text-[#999] hover:text-black"
+                                            }`}
+                                        >
+                                            {s.label}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                </aside>
             </div>
         </div>
     );

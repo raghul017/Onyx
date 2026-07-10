@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composio - Make your agents do more</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #FAFAFA;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --border-color: #E6E6E6;
+            --border-radius: 0px;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .btn-primary {
+            background-color: #000000;
+            color: #FFFFFF;
+            border-radius: var(--border-radius);
+            text-transform: uppercase;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.875rem;
+            border: 1px solid #000000;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #1A1A1A;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #000000;
+            border-radius: var(--border-radius);
+            text-transform: uppercase;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary:hover {
+            background-color: #F0F0F0;
+        }
+
+        .hero-section {
+            background-image: url('https://composio.dev/images/shader-fallback.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .card {
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            padding: 0.125rem 0.375rem;
+            border-radius: var(--border-radius);
+        }
+
+        .badge-blue {
+            border: 1px solid #93C5FD;
+            color: #3B82F6;
+        }
+
+        .section-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #000000;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-header i {
+            color: #3B82F6;
+        }
+
+        /* Connecting lines for diagrams */
+        .node-line {
+            position: absolute;
+            background-color: var(--border-color);
+            z-index: 0;
+        }
+
+        /* Hide scrollbar for horiz scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .app-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E6E6E6] px-6 py-4 flex items-center justify-between">
+        <a href="#" class="flex items-center gap-2" rel="nofollow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" fill="black"/>
+                <path d="M7 7H11V11H7V7Z" fill="white"/>
+                <path d="M13 13H17V17H13V13Z" fill="white"/>
+                <path d="M7 13H11V17H7V13Z" fill="white"/>
+            </svg>
+            <span class="font-bold text-xl tracking-tight">Composio</span>
+            <span class="badge badge-blue ml-1">FOR YOU</span>
+        </a>
+
+        <div class="hidden md:flex items-center gap-8 text-sm uppercase">
+            <a href="#" class="hover:opacity-60 flex items-center gap-1" rel="nofollow">Products <i class="ph ph-caret-down"></i></a>
+            <a href="#" class="hover:opacity-60 flex items-center gap-1" rel="nofollow">Solutions <i class="ph ph-caret-down"></i></a>
+            <a href="#" class="hover:opacity-60" rel="nofollow">Toolkits</a>
+            <a href="#" class="hover:opacity-60" rel="nofollow">Blog</a>
+            <a href="#" class="hover:opacity-60" rel="nofollow">Docs</a>
+            <button class="btn-primary py-2 px-4 shadow-[2px_2px_0px_#000]">GET STARTED</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-section border-b border-[#E6E6E6] relative pt-32 pb-40 px-6 text-center flex flex-col items-center justify-center">
+        <h1 class="text-[64px] leading-tight font-medium mb-6 flex flex-wrap items-center justify-center gap-4 max-w-5xl">
+            <span>Make your</span>
+            <span class="inline-flex items-center gap-3 bg-white px-4 py-2 border border-[#E6E6E6] shadow-sm">
+                <img src="https://composio.dev/_next/image?url=%2Fimages%2Fclients%2Fclaude.svg&w=3840&q=75" alt="claude logo" class="h-10 w-10 object-contain">
+                <span>CLAUDE</span>
+            </span>
+            <span>do more</span>
+        </h1>
+        <p class="text-base text-gray-600 max-w-xl text-center mb-10 leading-relaxed">
+            Skip the heavy lifting by connecting your agent to 1,000+ apps. <br> Stop chatting and start acting.
+        </p>
+        <button class="btn-primary shadow-[2px_2px_0px_#000]">GET STARTED FOR FREE</button>
+    </header>
+
+    <!-- Feature 1: Never leave the chat -->
+    <section class="border-b border-[#E6E6E6] grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#E6E6E6]">
+        <div class="p-16 lg:p-24 flex flex-col justify-center">
+            <div class="section-header">
+                <i class="ph-fill ph-square"></i> STOP TALKING. START ACTING.
+            </div>
+            <h2 class="text-4xl mb-6">Never leave the chat</h2>
+            <p class="text-gray-600 mb-8 max-w-md leading-relaxed">
+                Composio plugs your AI into Linear, Slack, Gmail, Figma and the other tools you use every day.
+            </p>
+
+            <div class="flex items-center gap-2 mb-10 text-sm">
+                All
+                <span class="inline-flex items-center gap-1 border border-[#E6E6E6] bg-white px-2 py-1 text-xs uppercase">
+                    <img src="https://composio.dev/images/clients/chatgpt.png" alt="ChatGPT Icon" class="w-[14px] h-[14px]"> CODEX
+                </span>
+                needed was
+                <span class="inline-flex items-center gap-1 border border-[#E6E6E6] bg-white px-2 py-1 text-xs uppercase">
+                    <img src="https://logos.composio.dev/api/composio" alt="Composio Icon" class="w-[14px] h-[14px]"> COMPOSIO
+                </span>
+            </div>
+
+            <div>
+                <button class="btn-secondary">Get started for free <i class="ph ph-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <div class="p-16 lg:p-24 bg-white/50 flex items-center justify-center">
+            <div class="card w-full max-w-lg shadow-sm">
+                <div class="border-b border-[#E6E6E6] px-4 py-3 flex justify-between items-center text-xs text-gray-500 uppercase tracking-wide">
+                    <div class="flex items-center gap-2"><i class="ph ph-funnel"></i> AGENT WORKING</div>
+                    <div>02 / 06</div>
+                </div>
+                <div class="p-2 space-y-1 text-sm text-gray-600 font-mono">
+
+                    <div class="flex items-center gap-3 p-2 opacity-50 line-through">
+                        <div class="w-4 h-4 rounded-full bg-green-500 text-white flex items-center justify-center text-[10px]"><i class="ph ph-check"></i></div>
+                        <div class="flex -space-x-1">
+                            <img src="https://logos.composio.dev/api/linear" alt="Linear" class="w-[18px] h-[18px] rounded-full border border-white">
+                            <img src="https://logos.composio.dev/api/slack" alt="Slack" class="w-[18px] h-[18px] rounded-full border border-white">
+                        </div>
+                        <span class="truncate">Draft my weekly update from Linear issues and Slack threads</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-2 opacity-50 line-through">
+                        <div class="w-4 h-4 rounded-full bg-green-500 text-white flex items-center justify-center text-[10px]"><i class="ph ph-check"></i></div>
+                        <div class="flex -space-x-1">
+                            <img src="https://logos.composio.dev/api/github" alt="Github" class="w-[18px] h-[18px] rounded-full border border-white">
+                            <img src="https://logos.composio.dev/api/slack" alt="Slack" class="w-[18px] h-[18px] rounded-full border border-white">
+                        </div>
+                        <span class="truncate">Summarize the blocked PRs and ping reviewers in #eng</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-2 text-black bg-gray-50/80">
+                        <div class="w-4 h-4 border border-gray-300 rounded-full flex items-center justify-center">
+                            <div class="w-2 h-2 bg-black rounded-full"></div>
+                        </div>
+                        <div class="flex -space-x-1">
+                            <img src="https://logos.composio.dev/api/figma" alt="Figma" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                            <img src="https://logos.composio.dev/api/notion" alt="Notion" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                        </div>
+                        <span class="truncate">Pull Figma review comments into the design doc in Notion</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-2">
+                        <div class="w-4 h-4 border border-gray-300 rounded-full"></div>
+                        <div class="flex -space-x-1">
+                            <img src="https://logos.composio.dev/api/gmail" alt="Gmail" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                            <img src="https://logos.composio.dev/api/hubspot" alt="Hubspot" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                        </div>
+                        <span class="truncate">Draft follow-ups for yesterday's demos and log notes in HubSpot</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-2">
+                        <div class="w-4 h-4 border border-gray-300 rounded-full"></div>
+                        <div class="flex -space-x-1">
+                            <img src="https://logos.composio.dev/api/googlecalendar" alt="Calendar" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                            <img src="https://logos.composio.dev/api/slack" alt="Slack" class="w-[18px] h-[18px] rounded-full border border-white bg-white">
+                        </div>
+                        <span class="truncate">Schedule next week's 1:1s and send a heads-up on Slack</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature 2: One connection, every app -->
+    <section class="border-b border-[#E6E6E6] relative overflow-hidden">
+        <div class="p-16 lg:p-24 max-w-4xl">
+            <div class="section-header">
+                <i class="ph-fill ph-squares-four border border-blue-200"></i> 1,000+ APPS
+            </div>
+            <h2 class="text-4xl mb-6">One connection, every app</h2>
+            <p class="text-gray-600 mb-8 max-w-md leading-relaxed">
+                Perform complex workflows across every application you use. Slack, Linear, GitHub, Gmail, and 1,000+ more — all from the same chat.
+            </p>
+            <button class="btn-secondary">Get started for free <i class="ph ph-arrow-right"></i></button>
+        </div>
+
+        <!-- Floating Apps Diagram mapped to images #13 to #31 -->
+        <div class="absolute inset-y-0 right-0 w-1/2 hidden md:block">
+            <div class="relative w-full h-full">
+                <!-- A loose arrangement simulating the scatter -->
+                <div class="absolute top-10 left-10 app-pill"><img src="https://logos.composio.dev/api/googlesheets" alt="Google Sheets" class="w-4 h-4"> Google Sheets</div>
+                <div class="absolute top-24 left-32 app-pill"><img src="https://logos.composio.dev/api/supabase" alt="Supabase" class="w-4 h-4"> Supabase</div>
+                <div class="absolute top-16 right-20 app-pill"><img src="https://logos.composio.dev/api/outlook" alt="Outlook" class="w-4 h-4"> Outlook</div>
+                <div class="absolute top-32 right-40 app-pill"><img src="https://logos.composio.dev/api/perplexityai" alt="Perplexity AI" class="w-4 h-4"> Perplexity AI</div>
+                <div class="absolute top-48 left-16 app-pill"><img src="https://logos.composio.dev/api/twitter" alt="Twitter" class="w-4 h-4"> Twitter</div>
+                <div class="absolute top-56 left-48 app-pill"><img src="https://logos.composio.dev/api/googledrive" alt="Google Drive" class="w-4 h-4"> Google Drive</div>
+                <div class="absolute top-40 right-10 app-pill"><img src="https://logos.composio.dev/api/googledocs" alt="Google Docs" class="w-4 h-4"> Google Docs</div>
+                <div class="absolute bottom-32 left-10 app-pill"><img src="https://logos.composio.dev/api/airtable" alt="Airtable" class="w-4 h-4"> Airtable</div>
+                <div class="absolute bottom-24 left-40 app-pill"><img src="https://logos.composio.dev/api/codeinterpreter" alt="Code Interpreter" class="w-4 h-4"> Interpreter</div>
+                <div class="absolute bottom-40 right-32 app-pill"><img src="https://logos.composio.dev/api/serpapi" alt="SerpApi" class="w-4 h-4"> SerpApi</div>
+                <div class="absolute bottom-16 right-20 app-pill"><img src="https://logos.composio.dev/api/jira" alt="Jira" class="w-4 h-4"> Jira</div>
+                <div class="absolute top-1/2 left-1/3 app-pill"><img src="https://logos.composio.dev/api/composio_search" alt="Composio Search" class="w-4 h-4"> Composio</div>
+                <div class="absolute top-[45%] right-1/4 app-pill"><img src="https://logos.composio.dev/api/tavily" alt="Tavily" class="w-4 h-4"> Tavily</div>
+                <!-- ... additional pills omitted for space but structure matches ... -->
+                <div class="absolute bottom-10 left-1/2 app-pill"><img src="https://logos.composio.dev/api/youtube" alt="YouTube" class="w-4 h-4"> YouTube</div>
+                <div class="absolute top-[60%] right-[10%] app-pill"><img src="https://logos.composio.dev/api/slackbot" alt="Slackbot" class="w-4 h-4"> Slackbot</div>
+                <div class="absolute top-[30%] left-[60%] app-pill"><img src="https://logos.composio.dev/api/canvas" alt="Canvas" class="w-4 h-4"> Canvas</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases: Built for how you work -->
+    <section class="border-b border-[#E6E6E6] bg-[#FAFAFA] p-16 lg:p-24 overflow-hidden">
+        <div class="flex justify-between items-end mb-12">
+            <div>
+                <h2 class="text-4xl mb-4">Built for how you work</h2>
+                <p class="text-gray-600 max-w-xl">
+                    Composio works for every role — with the apps, prompts, and playbooks already tuned for how you work.
+                </p>
+            </div>
+            <div class="hidden md:flex items-center gap-2">
+                <button class="btn-secondary text-xs uppercase px-3 py-1">All use cases <i class="ph ph-arrow-up-right"></i></button>
+                <div class="flex gap-1">
+                    <button class="card p-2 text-gray-400 hover:text-black"><i class="ph ph-arrow-left"></i></button>
+                    <button class="card p-2 text-black"><i class="ph ph-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-6 overflow-x-auto no-scrollbar pb-8">
+
+            <!-- Card 1 -->
+            <div class="card p-6 min-w-[320px] flex flex-col justify-between hover:border-black transition-colors cursor-pointer bg-blue-50/30">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Everyday AI Users</h3>
+                    <p class="text-sm text-gray-600 mb-8 min-h-[60px]">Search inboxes, prep briefs, and turn unread mail into a clean to-do list.</p>
+                    <div class="flex gap-2">
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/gmail" alt="Gmail" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/slack" alt="Slack" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/notion" alt="Notion" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/googlecalendar" alt="Calendar" class="w-6 h-6">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-4 border-t border-blue-100 flex justify-between items-center text-xs uppercase font-medium text-blue-600">
+                    Explore <i class="ph ph-arrow-right"></i>
+                </div>
+            </div>
+
+            <!-- Card 2 (Sales) -->
+            <div class="card p-6 min-w-[320px] flex flex-col justify-between hover:border-black transition-colors cursor-pointer bg-indigo-50/30">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Sales & Revenue</h3>
+                    <p class="text-sm text-gray-600 mb-8 min-h-[60px]">Research prospects, draft outreach, book meetings — and log every touch to the CRM.</p>
+                    <div class="flex gap-2">
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/salesforce" alt="Salesforce" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/mailchimp" alt="Mailchimp" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/linkedin" alt="LinkedIn" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/googlesheets" alt="Sheets" class="w-6 h-6">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-4 border-t border-indigo-100 flex justify-between items-center text-xs uppercase font-medium text-indigo-600">
+                    Explore <i class="ph ph-arrow-right"></i>
+                </div>
+            </div>
+
+            <!-- Card 3 (Marketing) -->
+            <div class="card p-6 min-w-[320px] flex flex-col justify-between hover:border-black transition-colors cursor-pointer bg-orange-50/30">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Marketing & Growth</h3>
+                    <p class="text-sm text-gray-600 mb-8 min-h-[60px]">Ship campaigns, schedule social, and pull funnel numbers without the copy-paste.</p>
+                    <div class="flex gap-2">
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/klaviyo" alt="Klaviyo" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/google_analytics" alt="GA" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/posthog" alt="PostHog" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/twitter" alt="X" class="w-6 h-6">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-4 border-t border-orange-100 flex justify-between items-center text-xs uppercase font-medium text-orange-600">
+                    Explore <i class="ph ph-arrow-right"></i>
+                </div>
+            </div>
+
+            <!-- Card 4 (Product) -->
+            <div class="card p-6 min-w-[320px] flex flex-col justify-between hover:border-black transition-colors cursor-pointer bg-gray-50/30">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Product & Design</h3>
+                    <p class="text-sm text-gray-600 mb-8 min-h-[60px]">Synthesize research, spin up specs for sprints, and watch activation metrics.</p>
+                    <div class="flex gap-2">
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/figma" alt="Figma" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/github" alt="Github" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/jira" alt="Jira" class="w-6 h-6">
+                        </div>
+                        <div class="w-10 h-10 bg-white border border-[#E6E6E6] flex items-center justify-center shadow-sm">
+                            <img src="https://logos.composio.dev/api/notion" alt="Notion" class="w-6 h-6">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-4 border-t border-[#E6E6E6] flex justify-between items-center text-xs uppercase font-medium text-black">
+                    Explore <i class="ph ph-arrow-right"></i>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Stat/Productivity visualization -->
+    <section class="border-b border-[#E6E6E6] flex flex-col md:flex-row">
+        <div class="p-16 lg:p-24 md:w-1/2 border-b md:border-b-0 md:border-r border-[#E6E6E6]">
+            <div class="section-header">
+                <i class="ph-fill ph-lightning"></i> MAKE MORE DECISIONS
+            </div>
+            <h2 class="text-4xl mb-6">Accelerate your AI productivity</h2>
+            <button class="btn-secondary mb-12">Get started for free <i class="ph ph-arrow-right"></i></button>
+
+            <div class="relative h-64 mt-8 flex items-center justify-center">
+                <!-- Abstract nodes visualization base -->
+                <!-- Simple representation due to canvas/svg complexity in instructions limits -->
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+                     <span class="app-pill text-[10px]"><img src="https://logos.composio.dev/api/gmail" alt="G" class="w-3 h-3"> Draft follow-up emails</span>
+                     <span class="app-pill text-[10px] ml-8"><img src="https://logos.composio.dev/api/googlecalendar" alt="C" class="w-3 h-3"> Schedule 1:1s</span>
+                </div>
+
+                <div class="w-16 h-16 border rounded bg-white shadow flex items-center justify-center z-10 flex-col gap-1 relative border-[#E6E6E6]">
+                    <div class="w-6 h-6 flex items-center justify-center"><i class="ph-fill ph-sparkle text-orange-500"></i></div>
+                    <span class="text-[8px] uppercase tracking-wider text-gray-500">YOUR AI AGENT</span>
+                </div>
+
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-32 h-32 border border-[#E6E6E6] bg-blue-50/40 rounded flex items-center justify-center">
+                     <span class="app-pill text-[10px] bg-transparent shadow-none border-none opacity-50"><img src="https://logos.composio.dev/api/gmail" alt="G" class="w-3 h-3"> Archive promo emails</span>
+                </div>
+            </div>
+
+        </div>
+        <div class="p-16 lg:p-24 md:w-1/2 flex flex-col justify-center bg-[#FDFDFD]">
+            <div class="text-sm uppercase tracking-widest text-gray-500 mb-4">Users on Composio</div>
+            <div class="text-[80px] leading-none mb-6">50,000<span class="text-gray-300">+</span></div>
+            <p class="text-gray-600 text-lg">Shipping faster with Composio.</p>
+        </div>
+    </section>
+
+    <!-- Footer Action -->
+    <section class="bg-black text-white p-16 lg:p-24 border-b border-gray-800">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <h2 class="text-4xl text-center md:text-left">Your agents decide.<br>We make it happen.</h2>
+            <div class="flex gap-4">
+                <button class="btn-secondary text-white border-gray-700 hover:bg-gray-800 hover:text-white">Book a Demo</button>
+                <button class="bg-white text-black px-6 py-3 uppercase text-sm font-medium hover:bg-gray-200 transition-colors b-0">Try Composio Today</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Links -->
+    <footer class="bg-black text-white px-16 lg:px-24 py-16 text-sm">
+        <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-6 gap-8">
+            <div class="col-span-2">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" class="mb-4">
+                    <rect width="24" height="24" fill="white"/>
+                    <path d="M7 7H11V11H7V7Z" fill="black"/>
+                    <path d="M13 13H17V17H13V13Z" fill="black"/>
+                    <path d="M7 13H11V17H7V13Z" fill="black"/>
+                </svg>
+            </div>
+            <div>
+                <h4 class="text-gray-500 uppercase mb-4 tracking-wider text-xs">Products</h4>
+                <ul class="space-y-3">
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Composio <span class="badge badge-blue ml-1 bg-blue-900/30 border-blue-800">FOR YOU</span></a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Developer Platform</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Enterprise</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">MCP Gateway</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">CLI</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Pricing</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-gray-500 uppercase mb-4 tracking-wider text-xs">Solutions</h4>
+                <ul class="space-y-3">
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Office Work</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Sales</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Marketing</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Product & Design</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Customer Support</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Engineering</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">HR & Recruiting</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-gray-500 uppercase mb-4 tracking-wider text-xs">Resources</h4>
+                <ul class="space-y-3">
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Docs</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Blog</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Toolkits</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Articles</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Auth Guides</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-gray-500 uppercase mb-4 tracking-wider text-xs">Company</h4>
+                <ul class="space-y-3">
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Careers</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Trust</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Contact Us</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Support</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Terms</a></li>
+                    <li><a href="#" class="hover:text-gray-300" rel="nofollow">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="max-w-6xl mx-auto mt-16 pt-8 border-t border-gray-800 flex justify-between items-center text-gray-500 text-xs">
+            <div class="flex gap-4">
+                <a href="#" rel="nofollow"><i class="ph ph-x-logo text-lg hover:text-white"></i></a>
+                <a href="#" rel="nofollow"><i class="ph ph-linkedin-logo text-lg hover:text-white"></i></a>
+                <a href="#" rel="nofollow"><i class="ph ph-github-logo text-lg hover:text-white"></i></a>
+                <a href="#" rel="nofollow"><i class="ph ph-discord-logo text-lg hover:text-white"></i></a>
+                <a href="#" rel="nofollow"><i class="ph ph-youtube-logo text-lg hover:text-white"></i></a>
+            </div>
+            <div>© Composio 2024</div>
+        </div>
+    </footer>
+
+</body>
+</html>
