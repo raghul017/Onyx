@@ -1,8 +1,8 @@
 // =============================================================================
-// Billing — Subscription management & plan upgrade
-// Brand-aligned: off-black surface (#080808 / #0B0C0D), teal accent (#73bfc4),
-// shadow-as-border cards, Satoshi display + JetBrains Mono labels, framer-motion
-// staggered enter. Matches the Dashboard / History / Report design language.
+// Billing — subscription management & plan upgrade. Light-mono system:
+// #fafafa surface, #ffffff cards, hairline #e6e6e6 borders, sharp corners,
+// no shadows, Geist headings, JetBrains Mono labels, single blue (#3b82f6)
+// accent, semantic red (#dc2626) for cancel. Matches landing / Settings / Profile.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from "react";
@@ -20,10 +20,10 @@ import AppHeader from "@/components/AppHeader";
 import GoBackButton from "@/components/GoBackButton";
 
 // ---------------------------------------------------------------------------
-// Brand tokens
+// Brand token — single blue accent (Razorpay checkout theme)
 // ---------------------------------------------------------------------------
 
-const TEAL = "#73bfc4";
+const ACCENT = "#3b82f6";
 
 // ---------------------------------------------------------------------------
 // Plan definitions
@@ -178,7 +178,7 @@ const Billing = () => {
                 name: "Onyx",
                 description: `Upgrade to ${plan.name} Plan`,
                 theme: {
-                    color: TEAL,
+                    color: ACCENT,
                 },
                 prefill: {
                     email: user?.email || "",
@@ -263,10 +263,7 @@ const Billing = () => {
 
         if (isCurrentPlan) {
             return (
-                <div
-                    className="w-full text-center py-2.5 text-[12px] font-['JetBrains_Mono'] rounded-full"
-                    style={{ color: TEAL, boxShadow: `inset 0 0 0 1px ${TEAL}55` }}
-                >
+                <div className="w-full text-center py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#93c5fd] text-[#3b82f6]">
                     Current Plan
                 </div>
             );
@@ -274,7 +271,7 @@ const Billing = () => {
 
         if (plan.key === "FREE") {
             return (
-                <div className="w-full text-center py-2.5 text-[12px] font-['JetBrains_Mono'] text-neutral-600 rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]">
+                <div className="w-full text-center py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#e6e6e6] text-[#999]">
                     Downgrade via Cancel
                 </div>
             );
@@ -284,16 +281,16 @@ const Billing = () => {
             <button
                 onClick={() => handleUpgrade(plan)}
                 disabled={isLoading || !!subscribingTo}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-bold font-['Inter'] bg-white text-black rounded-full hover:bg-neutral-200 transition-[transform,background-color] duration-200 active:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="mono-btn w-full justify-center py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 {isLoading ? (
                     <>
-                        <Loader2 size={12} className="animate-spin" />
+                        <Loader2 size={13} className="animate-spin" />
                         Redirecting...
                     </>
                 ) : (
                     <>
-                        <CreditCard size={12} />
+                        <CreditCard size={13} />
                         Upgrade to {plan.name}
                     </>
                 )}
@@ -306,11 +303,7 @@ const Billing = () => {
     // -------------------------------------------------------------------------
 
     return (
-        <div className="relative min-h-screen bg-[#080808] text-white font-['Inter'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
-            {/* Subtle gradient accent — matches landing / dashboard / report */}
-            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
-            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-[#080808] to-[#080808]" />
-
+        <div className="onyx-mono relative min-h-screen overflow-x-clip">
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
 
@@ -319,19 +312,10 @@ const Billing = () => {
                         {/* Header row */}
                         <div className="flex items-start justify-between gap-4 mb-7">
                             <div>
-                                <h1
-                                    className="text-white text-balance"
-                                    style={{
-                                        fontFamily: '"Satoshi Variable", sans-serif',
-                                        fontWeight: 500,
-                                        fontSize: "clamp(1.75rem,4vw,2.5rem)",
-                                        lineHeight: 1.1,
-                                        letterSpacing: "-0.03em",
-                                    }}
-                                >
+                                <h1 className="text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-normal tracking-tight text-balance">
                                     Subscription
                                 </h1>
-                                <p className="text-white/50 text-sm mt-2">
+                                <p className="text-[#666] text-sm mt-2">
                                     Choose the plan that fits your security testing needs.
                                 </p>
                             </div>
@@ -339,25 +323,22 @@ const Billing = () => {
                         </div>
 
                         {/* Current-plan strip */}
-                        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-[#0B0C0D] px-4 py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.07)]">
-                            <span
-                                className="grid place-items-center h-8 w-8 rounded-lg"
-                                style={{ backgroundColor: `${TEAL}1A`, color: TEAL }}
-                            >
+                        <div className="mb-6 flex items-center gap-3 border border-[#e6e6e6] bg-white px-4 py-3">
+                            <span className="grid place-items-center h-8 w-8 bg-[#f0f6ff] text-[#3b82f6] shrink-0">
                                 <ShieldCheck size={16} />
                             </span>
                             <div className="min-w-0">
-                                <p className="text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em] text-neutral-500">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
                                     Current plan
                                 </p>
-                                <p className="text-sm font-medium tabular-nums">
+                                <p className="text-sm font-medium tabular-nums text-black">
                                     {loadingUser ? (
-                                        <span className="text-neutral-500">Loading…</span>
+                                        <span className="text-[#999]">Loading…</span>
                                     ) : (
                                         <>
                                             {PLANS.find((p) => p.key === effectivePlan)?.name ?? effectivePlan}
                                             {user?.email && (
-                                                <span className="text-white/40 font-normal"> · {user.email}</span>
+                                                <span className="text-[#999] font-normal"> · {user.email}</span>
                                             )}
                                         </>
                                     )}
@@ -373,10 +354,10 @@ const Billing = () => {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -6 }}
                                     transition={{ duration: 0.2 }}
-                                    className={`mb-6 flex items-start gap-2.5 rounded-xl px-4 py-3 text-[13px] ${
+                                    className={`mb-6 flex items-start gap-2.5 border px-4 py-3 text-[13px] ${
                                         notice.kind === "error"
-                                            ? "text-red-300 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.3)] bg-red-500/[0.06]"
-                                            : "text-[#73bfc4] shadow-[inset_0_0_0_1px_rgba(115,191,196,0.3)] bg-[#73bfc4]/[0.06]"
+                                            ? "text-[#dc2626] border-[#fca5a5] bg-[#fef2f2]"
+                                            : "text-[#16a34a] border-[#86efac] bg-[#f0fdf4]"
                                     }`}
                                 >
                                     {notice.kind === "error" ? (
@@ -393,73 +374,58 @@ const Billing = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                             {PLANS.map((plan, i) => {
                                 const isActive = effectivePlan === plan.key;
+                                const isHighlight = plan.highlight && !isActive;
                                 return (
                                     <motion.div
                                         key={plan.key}
                                         initial={{ opacity: 0, y: 12 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.35, delay: i * 0.06, ease: [0.2, 0, 0, 1] }}
-                                        className={`relative flex flex-col p-6 rounded-2xl ${
-                                            plan.highlight && !isActive
-                                                ? "c5-animated-gradient shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-                                                : "bg-[#0B0C0D]"
-                                        }`}
-                                        style={
+                                        className={`relative flex flex-col p-6 border ${
                                             isActive
-                                                ? { boxShadow: `0 0 0 1px ${TEAL}80, 0 0 34px ${TEAL}22`, backgroundColor: "#0B0C0D" }
-                                                : plan.highlight
-                                                ? undefined
-                                                : { boxShadow: "0 0 0 1px rgba(255,255,255,0.07)" }
-                                        }
+                                                ? "border-[#3b82f6] bg-white"
+                                                : isHighlight
+                                                ? "border-[#93c5fd] bg-[#f0f6ff]"
+                                                : "border-[#e6e6e6] bg-white"
+                                        }`}
                                     >
                                         {/* Popular / Active badge */}
-                                        {plan.highlight && !isActive && (
+                                        {isHighlight && (
                                             <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
-                                                <span className="bg-white text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5 rounded-b-md">
+                                                <span className="bg-black text-white text-[10px] font-bold font-mono tracking-widest uppercase px-3 py-0.5">
                                                     Most Popular
                                                 </span>
                                             </div>
                                         )}
                                         {isActive && (
                                             <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
-                                                <span
-                                                    className="text-black text-[10px] font-bold font-['JetBrains_Mono'] tracking-widest uppercase px-3 py-0.5 rounded-b-md"
-                                                    style={{ backgroundColor: TEAL }}
-                                                >
+                                                <span className="bg-[#3b82f6] text-white text-[10px] font-bold font-mono tracking-widest uppercase px-3 py-0.5">
                                                     Active
                                                 </span>
                                             </div>
                                         )}
 
-                                        {/* Inner panel keeps text legible over the animated gradient */}
-                                        <div
-                                            className={`flex flex-col flex-1 ${
-                                                plan.highlight && !isActive
-                                                    ? "bg-black/45 backdrop-blur-[2px] -m-6 p-6 rounded-2xl"
-                                                    : ""
-                                            }`}
-                                        >
+                                        <div className="flex flex-col flex-1">
                                             <div className="mb-4">
-                                                <p className="text-white/60 text-[11px] font-['JetBrains_Mono'] uppercase tracking-widest mb-2">
+                                                <p className="text-[#999] text-[11px] font-mono uppercase tracking-widest mb-2">
                                                     {plan.name}
                                                 </p>
                                                 <div className="flex items-baseline gap-1">
-                                                    <span className="text-3xl font-semibold tabular-nums">{plan.price}</span>
-                                                    <span className="text-white/50 text-sm">{plan.period}</span>
+                                                    <span className="text-3xl font-semibold tabular-nums text-black">{plan.price}</span>
+                                                    <span className="text-[#666] text-sm">{plan.period}</span>
                                                 </div>
                                                 {plan.inrNote && (
-                                                    <span className="text-xs text-white/40 mt-0.5 block">{plan.inrNote}</span>
+                                                    <span className="text-xs text-[#999] mt-0.5 block">{plan.inrNote}</span>
                                                 )}
-                                                <p className="text-[12px] text-white/45 mt-2">{plan.tagline}</p>
+                                                <p className="text-[12px] text-[#666] mt-2">{plan.tagline}</p>
                                             </div>
 
                                             <ul className="flex-1 space-y-2.5 mb-6">
                                                 {plan.features.map((f) => (
-                                                    <li key={f} className="flex items-start gap-2 text-[13px] text-white/80">
+                                                    <li key={f} className="flex items-start gap-2 text-[13px] text-[#333]">
                                                         <Check
                                                             size={13}
-                                                            className="shrink-0 mt-0.5"
-                                                            style={{ color: plan.highlight && !isActive ? "#ffffff" : TEAL }}
+                                                            className="shrink-0 mt-0.5 text-[#3b82f6]"
                                                         />
                                                         {f}
                                                     </li>
@@ -475,28 +441,29 @@ const Billing = () => {
 
                         {/* Cancel subscription */}
                         {isPaid && (
-                            <div className="mt-10 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+                            <div className="mt-10 pt-8 border-t border-[#e6e6e6]">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                     <div>
-                                        <p className="text-sm font-medium">Cancel subscription</p>
-                                        <p className="text-white/50 text-[12px] mt-0.5">
+                                        <p className="text-sm font-medium text-black">Cancel subscription</p>
+                                        <p className="text-[#666] text-[12px] mt-0.5">
                                             You'll be immediately downgraded to the Free plan.
                                         </p>
                                     </div>
                                     {!confirmingCancel ? (
                                         <button
                                             onClick={() => setConfirmingCancel(true)}
-                                            className="flex items-center gap-2 px-5 py-2.5 text-[12px] font-bold font-['Inter'] text-red-400 rounded-full shadow-[inset_0_0_0_1px_rgba(239,68,68,0.4)] hover:bg-red-500/10 transition-colors active:scale-[0.96] whitespace-nowrap"
+                                            className="mono-btn-ghost !text-[#dc2626] !border-[#fca5a5] hover:!bg-[#fef2f2] hover:!border-[#dc2626] whitespace-nowrap"
                                         >
                                             Cancel subscription
                                         </button>
                                     ) : (
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[12px] text-white/60 mr-1">Are you sure?</span>
+                                            <span className="text-[12px] text-[#666] mr-1">Are you sure?</span>
                                             <button
                                                 onClick={handleCancel}
                                                 disabled={cancelling}
-                                                className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-bold font-['Inter'] bg-red-600/90 text-white rounded-full hover:bg-red-500 transition-colors active:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                                className="inline-flex items-center gap-2 px-4 py-2.5 text-[12px] font-mono uppercase tracking-wide bg-[#dc2626] text-white hover:bg-[#b91c1c] transition-colors active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                                style={{ transitionProperty: "background-color, transform" }}
                                             >
                                                 {cancelling ? (
                                                     <>
@@ -510,7 +477,8 @@ const Billing = () => {
                                             <button
                                                 onClick={() => setConfirmingCancel(false)}
                                                 disabled={cancelling}
-                                                className="px-4 py-2.5 text-[12px] font-medium text-white/70 rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] hover:text-white transition-colors active:scale-[0.96] disabled:opacity-40"
+                                                className="px-4 py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#e6e6e6] text-[#666] hover:text-black hover:border-black transition-colors active:scale-[0.98] disabled:opacity-40"
+                                                style={{ transitionProperty: "color, border-color, transform" }}
                                             >
                                                 Keep it
                                             </button>
