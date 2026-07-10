@@ -139,45 +139,32 @@ export default function Settings() {
 
     if (loading) {
         return (
-            <div className="h-screen bg-black flex items-center justify-center">
-                <Loader2 className="text-neutral-600 animate-spin" size={20} />
+            <div className="onyx-mono h-screen flex items-center justify-center">
+                <Loader2 className="text-[#3b82f6] animate-spin" size={20} />
             </div>
         );
     }
 
     return (
-        <div className="relative min-h-screen bg-black text-white font-['Inter'] overflow-x-hidden">
-            {/* Subtle gradient accent — matches landing/dashboard */}
-            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
-            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-black to-black" />
-
+        <div className="onyx-mono relative min-h-screen overflow-x-clip">
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
 
-                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-10 sm:py-14">
                     <div className="max-w-3xl mx-auto">
                         {/* Page title */}
-                        <h1
-                            className="text-white mb-8"
-                            style={{
-                                fontFamily: '"Satoshi Variable", sans-serif',
-                                fontWeight: 400,
-                                fontSize: "clamp(1.75rem,4vw,2.5rem)",
-                                lineHeight: 1.1,
-                                letterSpacing: "-0.03em",
-                            }}
-                        >
+                        <h1 className="text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-normal tracking-tight mb-8">
                             Settings
                         </h1>
 
                 {/* No org — create one */}
                 {!activeOrg && (
-                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-6">
+                    <div className="border border-[#e6e6e6] bg-white p-6">
                         <div className="flex items-center gap-2 mb-4">
-                            <Building2 size={14} className="text-cyan-400" />
-                            <h2 className="text-sm font-semibold">Create an Organization</h2>
+                            <Building2 size={14} className="text-[#3b82f6]" />
+                            <h2 className="text-sm font-semibold">Create an organization</h2>
                         </div>
-                        <p className="text-neutral-500 text-[13px] mb-5">
+                        <p className="text-[#666] text-[13px] mb-5">
                             Organizations let you share test runs, invite team members, and manage a shared plan.
                         </p>
                         <form onSubmit={handleCreateOrg} className="flex gap-2">
@@ -186,33 +173,33 @@ export default function Settings() {
                                 value={orgName}
                                 onChange={(e) => setOrgName(e.target.value)}
                                 placeholder="Acme Corp"
-                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[13px] px-3 py-2 rounded-sm outline-none focus:border-neutral-600 transition-colors placeholder:text-neutral-700"
+                                className="flex-1 bg-white border border-[#e6e6e6] text-black font-mono text-[13px] px-3 py-2 outline-none focus:border-black transition-colors placeholder:text-[#999]"
                             />
                             <button
                                 type="submit"
                                 disabled={creating || !orgName.trim()}
-                                className="bg-white text-black text-[13px] font-bold px-4 py-2 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                className="mono-btn !py-2 disabled:opacity-40"
                             >
                                 {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                                 Create
                             </button>
                         </form>
-                        {createError && <p className="text-red-400 text-[12px] mt-2">{createError}</p>}
+                        {createError && <p className="text-[#dc2626] text-[12px] mt-2">{createError}</p>}
 
                         {/* Existing orgs they can switch to */}
                         {user && user.orgs.length > 0 && (
-                            <div className="mt-6 border-t border-[#1A1A1A] pt-5">
-                                <p className="text-neutral-500 text-[12px] mb-3 uppercase tracking-wider">Your organizations</p>
+                            <div className="mt-6 border-t border-[#e6e6e6] pt-5">
+                                <p className="text-[#999] text-[11px] mb-3 uppercase tracking-wider font-mono">Your organizations</p>
                                 <div className="space-y-2">
                                     {user.orgs.map((org) => (
                                         <button
                                             key={org.id}
                                             onClick={() => setActiveOrg(org)}
-                                            className="w-full flex items-center gap-3 px-3 py-2 bg-[#111] hover:bg-[#1A1A1A] rounded-sm text-left transition-colors"
+                                            className="w-full flex items-center gap-3 px-3 py-2 border border-[#e6e6e6] bg-white hover:border-black text-left transition-colors"
                                         >
-                                            <Building2 size={12} className="text-neutral-500" />
-                                            <span className="text-[13px] text-neutral-300 flex-1">{org.name}</span>
-                                            <span className="text-[10px] text-neutral-600 uppercase">{org.role}</span>
+                                            <Building2 size={12} className="text-[#999]" />
+                                            <span className="text-[13px] text-[#333] flex-1">{org.name}</span>
+                                            <span className="text-[10px] text-[#999] uppercase font-mono">{org.role}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -227,22 +214,22 @@ export default function Settings() {
                         {/* Org header */}
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
-                                <Building2 size={14} className="text-cyan-400" />
+                                <Building2 size={14} className="text-[#3b82f6]" />
                                 <h2 className="text-sm font-semibold">{activeOrg.name}</h2>
-                                <span className="text-[10px] text-neutral-600 font-['JetBrains_Mono'] border border-[#1A1A1A] px-1.5 py-0.5 rounded-sm">{activeOrg.plan}</span>
+                                <span className="text-[10px] text-[#666] font-mono border border-[#e6e6e6] px-1.5 py-0.5">{activeOrg.plan}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-neutral-500 font-['JetBrains_Mono']">
-                                Your role: <span className="text-cyan-400 font-bold">{myRole}</span>
+                            <div className="flex items-center gap-2 text-[11px] text-[#666] font-mono">
+                                Your role: <span className="text-[#3b82f6] font-bold">{myRole}</span>
                             </div>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex border-b border-[#1A1A1A] mb-6 text-[12px]">
+                        <div className="flex border-b border-[#e6e6e6] mb-6 text-[12px]">
                             {(["org", "members"] as Tab[]).map((t) => (
                                 <button
                                     key={t}
                                     onClick={() => setTab(t)}
-                                    className={`px-4 py-2 font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? "border-cyan-500 text-white" : "border-transparent text-neutral-500 hover:text-neutral-300"}`}
+                                    className={`px-4 py-2 font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? "border-[#3b82f6] text-black" : "border-transparent text-[#666] hover:text-black"}`}
                                 >
                                     {t === "org" ? "Organization" : "Members"}
                                 </button>
@@ -252,25 +239,25 @@ export default function Settings() {
                         {/* Tab: Organization */}
                         {tab === "org" && (
                             <div className="space-y-6">
-                                <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
-                                    <p className="text-[12px] text-neutral-500 mb-1 uppercase tracking-wider">Slug</p>
-                                    <p className="text-neutral-300 font-['JetBrains_Mono'] text-[13px]">{activeOrg.slug}</p>
+                                <div className="border border-[#e6e6e6] bg-white p-5">
+                                    <p className="text-[11px] text-[#999] mb-1 uppercase tracking-wider font-mono">Slug</p>
+                                    <p className="text-black font-mono text-[13px]">{activeOrg.slug}</p>
                                 </div>
 
                                 {/* Switch org */}
                                 {user && user.orgs.length > 1 && (
-                                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
-                                        <p className="text-[12px] text-neutral-500 mb-3 uppercase tracking-wider">Switch Organization</p>
+                                    <div className="border border-[#e6e6e6] bg-white p-5">
+                                        <p className="text-[11px] text-[#999] mb-3 uppercase tracking-wider font-mono">Switch organization</p>
                                         <div className="space-y-2">
                                             {user.orgs.filter(o => o.id !== activeOrg.id).map((org) => (
                                                 <button
                                                     key={org.id}
                                                     onClick={() => setActiveOrg(org)}
-                                                    className="w-full flex items-center gap-3 px-3 py-2 bg-[#111] hover:bg-[#1A1A1A] rounded-sm text-left transition-colors"
+                                                    className="w-full flex items-center gap-3 px-3 py-2 border border-[#e6e6e6] bg-white hover:border-black text-left transition-colors"
                                                 >
-                                                    <Building2 size={12} className="text-neutral-500" />
-                                                    <span className="text-[13px] text-neutral-300 flex-1">{org.name}</span>
-                                                    <span className="text-[10px] text-neutral-600 uppercase">{org.role}</span>
+                                                    <Building2 size={12} className="text-[#999]" />
+                                                    <span className="text-[13px] text-[#333] flex-1">{org.name}</span>
+                                                    <span className="text-[10px] text-[#999] uppercase font-mono">{org.role}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -278,13 +265,13 @@ export default function Settings() {
                                 )}
 
                                 {isOwner && (
-                                    <div className="border border-red-900/40 bg-red-950/10 rounded-sm p-5">
-                                        <p className="text-[12px] text-red-400 mb-3 font-semibold">Danger Zone</p>
+                                    <div className="border border-[#fca5a5] bg-[#fef2f2] p-5">
+                                        <p className="text-[12px] text-[#dc2626] mb-3 font-semibold">Danger zone</p>
                                         <button
                                             onClick={handleDeleteOrg}
-                                            className="flex items-center gap-2 text-[13px] text-red-400 hover:text-red-300 transition-colors"
+                                            className="flex items-center gap-2 text-[13px] text-[#dc2626] hover:text-[#b91c1c] transition-colors"
                                         >
-                                            <Trash2 size={13} /> Delete Organization
+                                            <Trash2 size={13} /> Delete organization
                                         </button>
                                     </div>
                                 )}
@@ -295,33 +282,33 @@ export default function Settings() {
                         {tab === "members" && (
                             <div className="space-y-6">
                                 {/* Members table */}
-                                <div className="border border-[#1A1A1A] rounded-sm overflow-hidden">
-                                    <div className="grid grid-cols-[1fr_100px_80px] text-[11px] text-neutral-600 uppercase tracking-wider px-4 py-2 bg-[#0A0A0A] border-b border-[#1A1A1A]">
+                                <div className="border border-[#e6e6e6] overflow-hidden">
+                                    <div className="grid grid-cols-[1fr_100px_80px] text-[11px] text-[#999] uppercase tracking-wider px-4 py-2 bg-white border-b border-[#e6e6e6] font-mono">
                                         <span>Email</span><span>Role</span><span />
                                     </div>
                                     {members.map((m) => (
-                                        <div key={m.id} className="grid grid-cols-[1fr_100px_80px] items-center px-4 py-3 border-b border-neutral-900 last:border-0 hover:bg-[#111]/40">
-                                            <span className="text-[13px] text-neutral-300 truncate">{m.email}</span>
+                                        <div key={m.id} className="grid grid-cols-[1fr_100px_80px] items-center px-4 py-3 border-b border-[#e6e6e6] last:border-0 bg-white hover:bg-[#f9f9f9]">
+                                            <span className="text-[13px] text-[#333] truncate">{m.email}</span>
                                             <span>
                                                 {isOwner && m.userId !== user?.id ? (
                                                     <select
                                                         value={m.role}
                                                         onChange={(e) => handleRoleChange(m.userId, e.target.value as OrgRole)}
-                                                        className="bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[11px] px-1 py-0.5 rounded-sm outline-none"
+                                                        className="bg-white border border-[#e6e6e6] text-[#333] text-[11px] px-1 py-0.5 outline-none focus:border-black"
                                                     >
                                                         <option value="OWNER">OWNER</option>
                                                         <option value="ADMIN">ADMIN</option>
                                                         <option value="VIEWER">VIEWER</option>
                                                     </select>
                                                 ) : (
-                                                    <span className="text-[11px] text-neutral-500 uppercase">{m.role}</span>
+                                                    <span className="text-[11px] text-[#666] uppercase font-mono">{m.role}</span>
                                                 )}
                                             </span>
                                             <span className="flex justify-end">
                                                 {isOwner && m.userId !== user?.id && (
                                                     <button
                                                         onClick={() => handleRemoveMember(m.userId)}
-                                                        className="text-neutral-600 hover:text-red-400 transition-colors"
+                                                        className="text-[#999] hover:text-[#dc2626] transition-colors"
                                                     >
                                                         <Trash2 size={13} />
                                                     </button>
@@ -333,10 +320,10 @@ export default function Settings() {
 
                                 {/* Invite form */}
                                 {isAdmin && (
-                                    <div className="border border-[#1A1A1A] bg-[#0A0A0A] rounded-sm p-5">
+                                    <div className="border border-[#e6e6e6] bg-white p-5">
                                         <div className="flex items-center gap-2 mb-4">
-                                            <Users size={13} className="text-cyan-400" />
-                                            <h3 className="text-[13px] font-semibold">Invite Member</h3>
+                                            <Users size={13} className="text-[#3b82f6]" />
+                                            <h3 className="text-[13px] font-semibold">Invite member</h3>
                                         </div>
                                         <form onSubmit={handleInvite} className="flex gap-2 mb-3">
                                             <input
@@ -344,12 +331,12 @@ export default function Settings() {
                                                 value={inviteEmail}
                                                 onChange={(e) => setInviteEmail(e.target.value)}
                                                 placeholder="colleague@company.com"
-                                                className="flex-1 bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[12px] px-3 py-1.5 rounded-sm outline-none focus:border-neutral-600 placeholder:text-neutral-700"
+                                                className="flex-1 bg-white border border-[#e6e6e6] text-black font-mono text-[12px] px-3 py-1.5 outline-none focus:border-black placeholder:text-[#999]"
                                             />
                                             <select
                                                 value={inviteRole}
                                                 onChange={(e) => setInviteRole(e.target.value as OrgRole)}
-                                                className="bg-[#111] border border-[#1A1A1A] text-neutral-300 text-[12px] px-2 py-1.5 rounded-sm outline-none"
+                                                className="bg-white border border-[#e6e6e6] text-[#333] text-[12px] px-2 py-1.5 outline-none focus:border-black"
                                             >
                                                 <option value="VIEWER">VIEWER</option>
                                                 <option value="ADMIN">ADMIN</option>
@@ -357,20 +344,20 @@ export default function Settings() {
                                             <button
                                                 type="submit"
                                                 disabled={inviting || !inviteEmail.trim()}
-                                                className="bg-white text-black text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-40 flex items-center gap-1"
+                                                className="mono-btn !py-1.5 !px-3 !text-[12px] disabled:opacity-40"
                                             >
                                                 {inviting ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                                                 Invite
                                             </button>
                                         </form>
-                                        {inviteError && <p className="text-red-400 text-[12px] mb-3">{inviteError}</p>}
+                                        {inviteError && <p className="text-[#dc2626] text-[12px] mb-3">{inviteError}</p>}
 
                                         {/* Invite URL */}
                                         {inviteUrl && (
-                                            <div className="flex items-center gap-2 bg-[#111] border border-cyan-500/30 rounded-sm px-3 py-2">
-                                                <span className="flex-1 text-[11px] font-['JetBrains_Mono'] text-cyan-300 truncate">{inviteUrl}</span>
-                                                <button onClick={handleCopyInvite} className="text-neutral-500 hover:text-white transition-colors shrink-0">
-                                                    {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                                            <div className="flex items-center gap-2 bg-[#f0f6ff] border border-[#93c5fd] px-3 py-2">
+                                                <span className="flex-1 text-[11px] font-mono text-[#3b82f6] truncate">{inviteUrl}</span>
+                                                <button onClick={handleCopyInvite} className="text-[#666] hover:text-black transition-colors shrink-0">
+                                                    {copied ? <Check size={12} className="text-[#16a34a]" /> : <Copy size={12} />}
                                                 </button>
                                             </div>
                                         )}
@@ -378,13 +365,13 @@ export default function Settings() {
                                         {/* Pending invites */}
                                         {invites.filter(i => !i.acceptedAt).length > 0 && (
                                             <div className="mt-4">
-                                                <p className="text-[11px] text-neutral-600 uppercase tracking-wider mb-2">Pending Invites</p>
+                                                <p className="text-[11px] text-[#999] uppercase tracking-wider mb-2 font-mono">Pending invites</p>
                                                 <div className="space-y-1">
                                                     {invites.filter(i => !i.acceptedAt).map((inv) => (
-                                                        <div key={inv.id} className="flex items-center gap-2 px-3 py-2 bg-[#111] rounded-sm text-[12px]">
-                                                            <span className="flex-1 text-neutral-400 truncate">{inv.email}</span>
-                                                            <span className="text-neutral-600 text-[10px] uppercase">{inv.role}</span>
-                                                            <button onClick={() => handleRevokeInvite(inv.id)} className="text-neutral-600 hover:text-red-400 transition-colors">
+                                                        <div key={inv.id} className="flex items-center gap-2 px-3 py-2 border border-[#e6e6e6] bg-white text-[12px]">
+                                                            <span className="flex-1 text-[#666] truncate">{inv.email}</span>
+                                                            <span className="text-[#999] text-[10px] uppercase font-mono">{inv.role}</span>
+                                                            <button onClick={() => handleRevokeInvite(inv.id)} className="text-[#999] hover:text-[#dc2626] transition-colors">
                                                                 <Trash2 size={11} />
                                                             </button>
                                                         </div>

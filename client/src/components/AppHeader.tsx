@@ -1,5 +1,7 @@
 // =============================================================================
-// AppHeader — shared top nav for authed app pages (Dashboard, History, Billing)
+// AppHeader — shared top nav for authed app pages (Dashboard, History, Billing).
+// Light-mono system (matches the landing/docs): #fafafa, hairline borders,
+// sharp corners, Geist wordmark, JetBrains Mono nav, blue accent.
 // =============================================================================
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -12,34 +14,44 @@ interface AppHeaderProps {
     user: CurrentUser | null;
 }
 
+const OnyxMark = () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" fill="black" />
+        <path d="M7 7H11V11H7V7Z" fill="white" />
+        <path d="M13 13H17V17H13V13Z" fill="white" />
+        <path d="M7 13H11V17H7V13Z" fill="white" />
+    </svg>
+);
+
 const AppHeader = ({ user }: AppHeaderProps) => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
 
     const linkClass = (active: boolean) =>
-        active
-            ? "text-white text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded"
-            : "text-white/65 hover:text-white text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/50 rounded";
+        `text-[14px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]/40 ${
+            active
+                ? "text-black font-medium"
+                : "text-[#666] hover:text-black font-medium"
+        }`;
 
     return (
-        <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#080808]/80 backdrop-blur-xl">
-            <div className="w-full px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
+        <header className="onyx-mono sticky top-0 z-30 border-b border-[#e6e6e6] bg-[#fafafa]/85 backdrop-blur-md">
+            <div className="w-full px-5 sm:px-8 lg:px-12 h-14 flex items-center justify-between gap-4">
                 {/* Left — back + brand + nav */}
                 <div className="flex items-center gap-5 shrink-0">
                     <GoBackButton to="/" label="Home" size="sm" className="hidden sm:block" />
-                    <div
-                        className="flex items-center gap-2 cursor-pointer"
+                    <button
+                        className="flex items-center gap-2"
                         onClick={() => navigate("/")}
                     >
-                        <span className="font-['Inter'] font-normal text-white text-[24px] tracking-tight">
-                            Onyx
-                        </span>
+                        <OnyxMark />
+                        <span className="font-semibold text-xl tracking-tight">Onyx</span>
                         {user && user.plan !== "FREE" && (
-                            <span className="px-1.5 py-[1px] rounded bg-[#73bfc4]/10 border border-[#73bfc4]/30 text-[9px] font-bold font-['JetBrains_Mono'] tracking-wide text-[#73bfc4] translate-y-[2px]">
+                            <span className="border border-[#93c5fd] text-[#3b82f6] font-mono text-[10px] leading-none uppercase px-1.5 py-0.5 ml-1">
                                 {user.plan}
                             </span>
                         )}
-                    </div>
+                    </button>
                     <nav className="hidden md:flex items-center gap-6 ml-2">
                         <button
                             onClick={() => navigate("/dashboard")}
