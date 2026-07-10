@@ -29,10 +29,13 @@ import { Play, Square, Terminal } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
 import { useCountUp } from "@/hooks/useCountUp";
 
-const TEAL = "#73bfc4";
-const RED = "#ef4444";
-const AMBER = "#ff810a";
-const SLATE = "#8da0ce";
+// Light-mono palette — single blue accent + shared severity semantics.
+const ACCENT = "#3b82f6";
+const RED = "#dc2626";
+const AMBER = "#ea580c";
+const MED = "#ca8a04";
+const GREEN = "#16a34a";
+const SLATE = "#64748b";
 
 type ConnStatus = "connected" | "connecting" | "disconnected";
 type RunStatus = "idle" | "attacking" | "completed";
@@ -56,7 +59,7 @@ const fmtTime = (ts: number | string) => {
 };
 
 const methodColor = (m: string) =>
-    ({ GET: TEAL, POST: "#34d399", PUT: "#eab308", DELETE: RED, PATCH: "#a78bfa" } as Record<string, string>)[m] ?? "#a1a1aa";
+    ({ GET: ACCENT, POST: GREEN, PUT: MED, DELETE: RED, PATCH: "#7c3aed" } as Record<string, string>)[m] ?? "#666";
 
 const DashboardCommand = ({
     logs,
@@ -91,7 +94,7 @@ const DashboardCommand = ({
     const scoreLabel =
         score >= 90 ? "CLEAN" : score >= 70 ? "LOW" : score >= 50 ? "MEDIUM" : score >= 25 ? "HIGH" : "CRITICAL";
     const scoreColor =
-        score >= 90 ? TEAL : score >= 70 ? SLATE : score >= 50 ? AMBER : RED;
+        score >= 90 ? GREEN : score >= 70 ? ACCENT : score >= 50 ? AMBER : RED;
 
     // ---- Derived: severity donut data ----
     const sev = [
@@ -166,8 +169,8 @@ const DashboardCommand = ({
         { key: "all", label: "ALL", n: counts.all },
         { key: "critical", label: "CRITICAL", n: counts.critical, color: RED },
         { key: "high", label: "HIGH", n: counts.high, color: AMBER },
-        { key: "medium", label: "MEDIUM", n: counts.medium, color: "#d8b24a" },
-        { key: "low", label: "LOW", n: counts.low, color: TEAL },
+        { key: "medium", label: "MEDIUM", n: counts.medium, color: MED },
+        { key: "low", label: "LOW", n: counts.low, color: ACCENT },
         { key: "info", label: "INFO", n: counts.info, color: SLATE },
     ];
 
@@ -180,32 +183,32 @@ const DashboardCommand = ({
             className="flex flex-col flex-1 overflow-hidden"
         >
             {/* ---- KPI strip: flat cells divided by hairlines ---- */}
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06]">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#e6e6e6]">
                 {[
                     { icon: Crosshair, l: "Payloads Fired", node: (
-                        <span className="tabular-nums text-white">{completedCU}<span className="text-neutral-600 text-sm"> / {totalPayloads}</span></span>
+                        <span className="tabular-nums text-black">{completedCU}<span className="text-[#999] text-sm"> / {totalPayloads}</span></span>
                     ), active: totalPayloads > 0 },
                     { icon: ShieldCheck, l: "Critical Failures", node: (
-                        <span className="tabular-nums" style={{ color: criticalCount > 0 ? RED : "#71717a" }}>{criticalCU}
-                            {criticalCount > 0 && <span className="ml-2 text-[9px] tracking-wider text-red-500/80 uppercase align-middle motion-safe:animate-pulse">vuln detected</span>}
+                        <span className="tabular-nums" style={{ color: criticalCount > 0 ? RED : "#999" }}>{criticalCU}
+                            {criticalCount > 0 && <span className="ml-2 text-[9px] tracking-wider uppercase align-middle motion-safe:animate-pulse" style={{ color: RED }}>vuln detected</span>}
                         </span>
                     ) },
                     { icon: Target, l: "Payloads Blocked", node: (
-                        <span className="tabular-nums" style={{ color: blockedCount > 0 ? AMBER : "#71717a" }}>{blockedCU}</span>
+                        <span className="tabular-nums" style={{ color: blockedCount > 0 ? AMBER : "#999" }}>{blockedCU}</span>
                     ) },
                     { icon: Broadcast, l: "Info / Passed", node: (
-                        <span className="tabular-nums text-neutral-500">{infoCU}</span>
+                        <span className="tabular-nums" style={{ color: infoCount > 0 ? GREEN : "#999" }}>{infoCU}</span>
                     ) },
                 ].map((c, i) => {
                     const Ic = c.icon;
                     return (
                         <div key={i} className="relative px-4 sm:px-5 py-3.5">
-                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                            <span className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
                                 <Ic size={11} /> {c.l}
                             </span>
-                            <div className="mt-1.5 font-['JetBrains_Mono'] text-2xl leading-none">{c.node}</div>
+                            <div className="mt-1.5 font-mono text-2xl leading-none">{c.node}</div>
                             {c.active && i === 0 && (
-                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.05]"><div className="onyx-progress-fill h-full" style={{ width: progressPct + "%", backgroundColor: TEAL }} /></div>
+                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#e6e6e6]"><div className="onyx-progress-fill h-full" style={{ width: progressPct + "%", backgroundColor: ACCENT }} /></div>
                             )}
                         </div>
                     );
@@ -213,122 +216,122 @@ const DashboardCommand = ({
             </div>
 
             {/* ---- Score + severity band + latency (one compact row) ---- */}
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 sm:px-5 py-3 border-t border-white/[0.06] bg-[#080808]">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 sm:px-5 py-3 border-t border-[#e6e6e6] bg-[#fafafa]">
                 {/* score chip */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="font-['Geist'] text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-neutral-600 text-sm">/100</span></span>
-                    <span className="font-['JetBrains_Mono'] text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{ color: scoreColor, backgroundColor: scoreColor + "1A" }}>{scoreLabel} RISK</span>
+                    <span className="text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-[#999] text-sm">/100</span></span>
+                    <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 border" style={{ color: scoreColor, backgroundColor: scoreColor + "12", borderColor: scoreColor + "40" }}>{scoreLabel} RISK</span>
                 </div>
                 {/* severity bar + legend */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/[0.05]">
+                    <div className="flex h-2 w-full overflow-hidden bg-[#f0f0f0]">
                         {sevTotal === 0 ? <div className="h-full w-full" /> : sev.map((s) => s.value > 0 ? (
                             <div key={s.name} className="onyx-progress-fill h-full" style={{ width: (s.value / sevTotal) * 100 + "%", backgroundColor: s.color }} title={s.name + ": " + s.value} />
                         ) : null)}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1">
                         {sev.map((s) => (
-                            <span key={s.name} className="flex items-center gap-1.5 text-[10.5px] font-['JetBrains_Mono'] text-neutral-500">
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color, opacity: s.value ? 1 : 0.35 }} />
-                                <span className="tabular-nums text-neutral-400">{s.value}</span> {s.name.toLowerCase()}
+                            <span key={s.name} className="flex items-center gap-1.5 text-[10.5px] font-mono text-[#666]">
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color, opacity: s.value ? 1 : 0.3 }} />
+                                <span className="tabular-nums text-[#333]">{s.value}</span> {s.name.toLowerCase()}
                             </span>
                         ))}
                     </div>
                 </div>
                 {/* avg latency */}
                 <div className="shrink-0 text-right">
-                    <span className="font-['JetBrains_Mono'] text-[10px] uppercase tracking-wider text-neutral-600">avg</span>
-                    <span className="ml-1.5 font-['JetBrains_Mono'] text-sm tabular-nums text-neutral-300">{avgLatency}ms</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#999]">avg</span>
+                    <span className="ml-1.5 font-mono text-sm tabular-nums text-[#333]">{avgLatency}ms</span>
                 </div>
             </div>
 
             {/* ---- Filter tabs ---- */}
-            <div className="flex items-center gap-1 px-3 sm:px-4 py-2 border-t border-white/[0.06] overflow-x-auto">
-                <span className="text-[10px] font-['JetBrains_Mono'] uppercase tracking-wider text-neutral-600 mr-1 shrink-0">Filter:</span>
+            <div className="flex items-center gap-1 px-3 sm:px-4 py-2 border-t border-[#e6e6e6] overflow-x-auto">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#999] mr-1 shrink-0">Filter:</span>
                 {FILTERS.map((t) => {
                     const on = filter === t.key;
                     return (
                         <button key={t.key} onClick={() => setFilter(t.key)}
-                            className={"shrink-0 flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-['JetBrains_Mono'] tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#73bfc4]/60 " + (on ? "bg-white/[0.08] text-white" : "text-neutral-500 hover:text-neutral-300")}>
+                            className={"shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#3b82f6]/60 " + (on ? "bg-black text-white" : "text-[#666] hover:bg-[#f0f0f0]")}>
                             {t.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: t.color, opacity: t.n ? 1 : 0.35 }} />}
-                            {t.label} <span className="tabular-nums text-neutral-600">({t.n})</span>
+                            {t.label} <span className={"tabular-nums " + (on ? "text-white/60" : "text-[#999]")}>({t.n})</span>
                         </button>
                     );
                 })}
             </div>
 
             {/* ---- Main: full-bleed dense table + slim right rail ---- */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px] border-t border-white/[0.06]">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px] border-t border-[#e6e6e6]">
                 {/* table */}
-                <div className="min-w-0 flex flex-col max-h-[560px]">
+                <div className="min-w-0 flex flex-col max-h-[560px] bg-white">
                     {/* column header */}
-                    <div className="hidden md:grid grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 px-4 sm:px-5 py-2 bg-[#080808] border-b border-white/[0.06] font-['JetBrains_Mono'] text-[9.5px] text-neutral-600 uppercase tracking-[0.15em] sticky top-0">
+                    <div className="hidden md:grid grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 px-4 sm:px-5 py-2 bg-[#fafafa] border-b border-[#e6e6e6] font-mono text-[9.5px] text-[#999] uppercase tracking-[0.15em] sticky top-0 z-10">
                         <span>Time</span><span>Method</span><span>Endpoint</span><span>Severity</span><span>Status</span><span>Latency</span>
                     </div>
                     <div className="flex-1 overflow-y-auto">
-                        {error && <div className="mx-4 my-3 px-3 py-2 rounded-lg bg-red-500/5 text-red-400 text-[11px] font-['JetBrains_Mono'] shadow-[inset_0_0_0_1px_rgba(239,68,68,0.25)]">{error}</div>}
+                        {error && <div className="mx-4 my-3 px-3 py-2 border border-[#fca5a5] bg-[#fef2f2] text-[#dc2626] text-[11px] font-mono">{error}</div>}
                         {visibleLogs.length === 0 && !error && (
-                            <div className="flex flex-col items-center justify-center h-44 text-neutral-600 font-['JetBrains_Mono'] text-xs gap-3">
-                                <div className="w-7 h-7 rounded-full border border-[#73bfc4]/50 flex items-center justify-center"><div className="w-2 h-2 bg-[#73bfc4] rounded-full motion-safe:animate-pulse" /></div>
+                            <div className="flex flex-col items-center justify-center h-44 text-[#999] font-mono text-xs gap-3">
+                                <div className="w-7 h-7 rounded-full border border-[#93c5fd] flex items-center justify-center"><div className="w-2 h-2 bg-[#3b82f6] rounded-full motion-safe:animate-pulse" /></div>
                                 <span>{filter === "all" ? "Awaiting first result…" : "No " + filter + " findings"}</span>
                             </div>
                         )}
                         {visibleLogs.map((log, i) => {
                             const sv = sevOf(log.statusCode);
-                            const tint = sv === "critical" ? "bg-red-500/[0.05]" : sv === "high" ? "bg-[#ff810a]/[0.04]" : "";
-                            const chip = { critical: RED, high: AMBER, medium: "#d8b24a", low: TEAL, info: SLATE }[sv];
+                            const tint = sv === "critical" ? "bg-[#fef2f2]" : sv === "high" ? "bg-[#fff7ed]" : "";
+                            const chip = { critical: RED, high: AMBER, medium: MED, low: ACCENT, info: SLATE }[sv];
                             return (
-                                <div key={log.id} className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 items-center px-4 sm:px-5 py-1.5 font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors " + tint + (i === 0 ? " onyx-row-enter onyx-row-flash" : "")}>
-                                    <span className="text-neutral-600 text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
+                                <div key={log.id} className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 items-center px-4 sm:px-5 py-1.5 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors " + tint + (i === 0 ? " onyx-row-enter onyx-row-flash" : "")}>
+                                    <span className="text-[#999] text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
                                     <span className="font-semibold text-[11px]" style={{ color: methodColor(log.method) }}>{log.method}</span>
-                                    <span className={"truncate " + (sv === "critical" ? "text-white" : "text-neutral-300")}>{log.endpoint}</span>
-                                    <span><span className="text-[9px] font-bold tracking-wider rounded px-1.5 py-0.5" style={{ color: chip, backgroundColor: chip + "1A" }}>{sv.toUpperCase()}</span></span>
-                                    <span className="tabular-nums text-neutral-500 text-[11px]">{log.statusCode || "ERR"}</span>
-                                    <span className="tabular-nums text-neutral-600 text-[10px]">{log.latencyMs}ms</span>
+                                    <span className={"truncate " + (sv === "critical" ? "text-black" : "text-[#333]")}>{log.endpoint}</span>
+                                    <span><span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 border" style={{ color: chip, backgroundColor: chip + "12", borderColor: chip + "40" }}>{sv.toUpperCase()}</span></span>
+                                    <span className="tabular-nums text-[#666] text-[11px]">{log.statusCode || "ERR"}</span>
+                                    <span className="tabular-nums text-[#999] text-[10px]">{log.latencyMs}ms</span>
                                 </div>
                             );
                         })}
                     </div>
                     {/* footer */}
-                    <div className="shrink-0 h-8 bg-[#080808] border-t border-white/[0.06] flex items-center justify-between px-4 sm:px-5 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
+                    <div className="shrink-0 h-8 bg-[#fafafa] border-t border-[#e6e6e6] flex items-center justify-between px-4 sm:px-5 font-mono text-[10px] text-[#999]">
                         <span>{completed} / {totalPayloads || "—"} results
-                            {criticalCount > 0 && <span className="text-red-500/80 ml-2">● {criticalCount} critical</span>}
-                            {blockedCount > 0 && <span className="text-[#ff810a]/80 ml-2">● {blockedCount} blocked</span>}
+                            {criticalCount > 0 && <span className="ml-2" style={{ color: RED }}>● {criticalCount} critical</span>}
+                            {blockedCount > 0 && <span className="ml-2" style={{ color: AMBER }}>● {blockedCount} blocked</span>}
                         </span>
-                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: live ? TEAL : "#3f3f46" }} />{live ? "Live" : "Disconnected"}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: live ? GREEN : "#ccc" }} />{live ? "Live" : "Disconnected"}</span>
                     </div>
                 </div>
 
                 {/* slim right rail: latency spark + top vulnerable endpoints */}
-                <div className="border-t lg:border-t-0 lg:border-l border-white/[0.06] flex flex-col max-h-[560px]">
-                    <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                        <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]"><Broadcast size={11} /> Latency</span>
+                <div className="border-t lg:border-t-0 lg:border-l border-[#e6e6e6] flex flex-col max-h-[560px] bg-[#fafafa]">
+                    <div className="px-4 py-2.5 border-b border-[#e6e6e6]">
+                        <span className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]"><Broadcast size={11} /> Latency</span>
                         <div className="mt-1 h-9 -mx-1">
                             {latencySeries.length > 1 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={latencySeries} margin={{ top: 2, bottom: 0, left: 0, right: 0 }}>
-                                        <defs><linearGradient id="latGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TEAL} stopOpacity={0.35} /><stop offset="100%" stopColor={TEAL} stopOpacity={0} /></linearGradient></defs>
-                                        <Area type="monotone" dataKey="ms" stroke={TEAL} strokeWidth={1.5} fill="url(#latGrad)" isAnimationActive={false} dot={false} />
+                                        <defs><linearGradient id="latGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={ACCENT} stopOpacity={0.3} /><stop offset="100%" stopColor={ACCENT} stopOpacity={0} /></linearGradient></defs>
+                                        <Area type="monotone" dataKey="ms" stroke={ACCENT} strokeWidth={1.5} fill="url(#latGrad)" isAnimationActive={false} dot={false} />
                                     </AreaChart>
                                 </ResponsiveContainer>
-                            ) : <div className="h-full w-full rounded bg-white/[0.02]" />}
+                            ) : <div className="h-full w-full bg-[#f0f0f0]" />}
                         </div>
                     </div>
-                    <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                        <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]"><Target size={11} /> Top Vulnerable</span>
+                    <div className="px-4 py-2.5 border-b border-[#e6e6e6]">
+                        <span className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]"><Target size={11} /> Top Vulnerable</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                         {topVuln.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-32 text-neutral-700 text-[11px] gap-2"><ShieldCheck size={18} className="text-neutral-800" /><span>No failures yet</span></div>
+                            <div className="flex flex-col items-center justify-center h-32 text-[#999] text-[11px] gap-2"><ShieldCheck size={18} className="text-[#ccc]" /><span>No failures yet</span></div>
                         ) : topVuln.map((e) => {
                             const c = e.worst >= 500 ? RED : AMBER;
                             return (
-                                <div key={e.endpoint} className="rounded-lg bg-white/[0.02] px-2.5 py-2 hover:bg-white/[0.04] transition-colors">
+                                <div key={e.endpoint} className="bg-white border border-[#e6e6e6] px-2.5 py-2 hover:border-[#ccc] transition-colors">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="font-['JetBrains_Mono'] text-[11px] text-neutral-300 truncate">{e.endpoint}</span>
-                                        <span className="font-['JetBrains_Mono'] text-[8.5px] font-bold tracking-wider rounded px-1 py-0.5 shrink-0" style={{ color: c, backgroundColor: c + "1A" }}>{e.worst >= 500 ? "CRIT" : "WARN"}</span>
+                                        <span className="font-mono text-[11px] text-[#333] truncate">{e.endpoint}</span>
+                                        <span className="font-mono text-[8.5px] font-bold tracking-wider px-1 py-0.5 shrink-0 border" style={{ color: c, backgroundColor: c + "12", borderColor: c + "40" }}>{e.worst >= 500 ? "CRIT" : "WARN"}</span>
                                     </div>
-                                    <div className="mt-0.5 text-[9.5px] font-['JetBrains_Mono'] text-neutral-600 tabular-nums">{e.hits} {e.hits === 1 ? "hit" : "hits"} · worst {e.worst}</div>
+                                    <div className="mt-0.5 text-[9.5px] font-mono text-[#999] tabular-nums">{e.hits} {e.hits === 1 ? "hit" : "hits"} · worst {e.worst}</div>
                                 </div>
                             );
                         })}
@@ -344,151 +347,85 @@ export default DashboardCommand;
 export { Play, Square, Terminal };
 
 // ===========================================================================
-// IdleCommandCenter — "Ghost Command Center" empty state.
+// IdleCommandCenter — clean light-mono empty state.
 //
-// Design language (grounded in how premium dev-tools do empty states — Linear,
-// Vercel Geist, Sentry): near-black canvas, 1px hairline borders (white @ ~8%),
-// depth from surface tint not shadow, 6-8px radii, ONE rationed accent (brand
-// teal, desaturated, on the primary button + live dot only), NO gradient text,
-// NO glow blobs. The real dashboard is rendered as a dimmed, non-interactive
-// skeleton so the user sees exactly what will appear, with a single left-biased
-// "Launch scan" card floating over it.
+// Design language (how premium dev-tools — Linear, Vercel, Stripe — do empty
+// states): a calm, centered focal point on the white console surface, one
+// rationed blue accent, generous whitespace, and honest next-step guidance
+// instead of a murky skeleton. Below the hero, the actual product flow is laid
+// out as three numbered steps so a first-time user knows exactly what to do.
 // ===========================================================================
 
-const GHOST_TILES = [
-    { label: "Targets", icon: Target },
-    { label: "Critical", icon: ShieldCheck },
-    { label: "High", icon: Crosshair },
-    { label: "Findings", icon: Broadcast },
+const STEPS = [
+    { n: "01", t: "Add a spec", d: "Paste an OpenAPI or Swagger URL into the bar above." },
+    { n: "02", t: "Verify the domain", d: "Prove you own the target with a file or DNS record." },
+    { n: "03", t: "Launch", d: "Payloads fire and findings stream in live, scored by severity." },
 ];
 
-const GHOST_COLS = ["Severity", "Endpoint", "Status", "Latency"];
-
 function IdleCommandCenter({ reduce }: { reduce: boolean | null }) {
+    const focusInput = () => {
+        const el = document.querySelector<HTMLInputElement>('input[type="url"]');
+        el?.focus();
+        el?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    };
+
     return (
         <motion.div
             key="idle"
             initial={reduce ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
-            className="relative overflow-hidden"
+            className="flex flex-col"
         >
-            {/* ---- Ghost skeleton of the real dashboard (dimmed, inert) ---- */}
-            <div
-                aria-hidden="true"
-                className="pointer-events-none select-none opacity-[0.32] h-full"
-            >
-                {/* Zero-value metric tiles */}
-                <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06] border-b border-white/[0.06]">
-                    {GHOST_TILES.map(({ label, icon: Ic }) => (
-                        <div key={label} className="px-5 py-4">
-                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <Ic size={12} weight="regular" /> {label}
-                            </span>
-                            <div className="mt-2 font-['JetBrains_Mono'] text-2xl leading-none text-neutral-700 tabular-nums">
-                                0
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            {/* ---- Hero: single focused action ---- */}
+            <div className="flex flex-col items-center text-center px-6 py-16 sm:py-20">
+                <span className="inline-grid place-items-center h-12 w-12 bg-[#f0f6ff] border border-[#93c5fd]">
+                    <Crosshair size={22} weight="regular" className="text-[#3b82f6]" />
+                </span>
 
-                {/* Two-column body mirroring the live layout: findings table + rail */}
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px]">
-                    {/* Findings table: real column headers + skeleton rows */}
-                    <div className="lg:border-r border-white/[0.06]">
-                        <div className="grid grid-cols-[90px_1fr_70px_72px] gap-4 px-5 py-2.5 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[9.5px] text-neutral-600 uppercase tracking-[0.15em]">
-                            {GHOST_COLS.map((c) => (
-                                <span key={c}>{c}</span>
-                            ))}
-                        </div>
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="grid grid-cols-[90px_1fr_70px_72px] gap-4 items-center px-5 py-[11px] border-b border-white/[0.03]"
-                            >
-                                <span className="h-3 w-14 rounded-sm bg-white/[0.05]" />
-                                <span className="h-3 rounded-sm bg-white/[0.05]" style={{ width: `${62 - i * 5}%` }} />
-                                <span className="h-3 w-8 rounded-sm bg-white/[0.05]" />
-                                <span className="h-3 w-10 rounded-sm bg-white/[0.04]" />
-                            </div>
-                        ))}
-                    </div>
-                    {/* Right rail: latency + top endpoints (headers + skeleton) */}
-                    <div className="hidden lg:block">
-                        <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <Broadcast size={11} /> Latency
-                            </span>
-                            <div className="mt-2 h-9 rounded bg-white/[0.03]" />
-                        </div>
-                        <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                            <span className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                                <Target size={11} /> Top Vulnerable
-                            </span>
-                        </div>
-                        <div className="p-2 space-y-1.5">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="rounded bg-white/[0.02] px-2.5 py-2.5">
-                                    <span className="block h-3 rounded-sm bg-white/[0.05]" style={{ width: `${70 - i * 8}%` }} />
-                                    <span className="mt-1.5 block h-2 w-12 rounded-sm bg-white/[0.03]" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                <h2 className="mt-5 text-[20px] leading-tight tracking-tight text-black font-medium">
+                    No active scans
+                </h2>
+                <p className="mt-2 text-[14px] leading-relaxed text-[#666] max-w-[46ch]">
+                    Point Onyx at an OpenAPI or Swagger spec and launch a run. Live findings,
+                    severity, and per-endpoint results populate this console as each payload fires.
+                </p>
+
+                <button
+                    type="button"
+                    onClick={focusInput}
+                    className="group mono-btn mt-6"
+                >
+                    Launch a scan
+                    <ArrowRight
+                        size={15}
+                        weight="bold"
+                        className="transition-transform duration-200 group-hover:translate-x-0.5"
+                    />
+                </button>
+
+                {/* Quiet capability line */}
+                <div className="mt-6 flex items-center gap-3 text-[11px] text-[#999] font-mono uppercase tracking-wider whitespace-nowrap">
+                    <span className="flex items-center gap-1.5">
+                        <span className="h-1 w-1 rounded-full bg-[#3b82f6]" />
+                        CVSS
+                    </span>
+                    <span className="text-[#ccc]">/</span>
+                    <span>Severity</span>
+                    <span className="text-[#ccc]">/</span>
+                    <span>Live stream</span>
                 </div>
             </div>
 
-            {/* Fade the ghost out toward the bottom so the skeleton reads as
-                "preview", not real content. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0C0D0E] to-transparent" />
-
-            {/* ---- Launch card: left-biased, single focused action ---- */}
-            <div className="absolute inset-0 flex items-center justify-center lg:justify-start px-6 sm:px-10 lg:pl-16">
-                <div className="w-full max-w-[400px] rounded-lg bg-[#141516] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.7)]">
-                    {/* Muted line icon in a quiet container */}
-                    <span className="inline-grid place-items-center h-11 w-11 rounded-md bg-white/[0.04] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]">
-                        <Crosshair size={22} weight="regular" className="text-neutral-400" />
-                    </span>
-
-                    <h2 className="mt-5 text-[22px] leading-tight tracking-[-0.02em] text-neutral-100 font-semibold">
-                        No active scans
-                    </h2>
-                    <p className="mt-2 text-[13.5px] leading-relaxed text-neutral-400 max-w-[42ch]">
-                        Point Onyx at an OpenAPI or Swagger spec and launch a run. Live
-                        findings, severity, and per-endpoint results populate this console
-                        as each payload fires.
-                    </p>
-
-                    {/* One primary action. Scrolls focus to the launch input above. */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const el = document.querySelector<HTMLInputElement>('input[type="url"]');
-                            el?.focus();
-                            el?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
-                        }}
-                        className="group mt-6 inline-flex items-center gap-2 rounded-md bg-[#5fb3b8] px-4 h-10 text-[13px] font-semibold text-[#06181a] hover:bg-[#6cc0c5] transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5fb3b8]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#141516]"
-                    >
-                        Launch a scan
-                        <ArrowRight
-                            size={15}
-                            weight="bold"
-                            className="transition-transform duration-200 group-hover:translate-x-0.5"
-                        />
-                    </button>
-
-                    {/* Quiet capability line — no chips, just muted supporting copy */}
-                    <div className="mt-6 flex items-center gap-3 text-[11px] text-neutral-600 font-['JetBrains_Mono'] whitespace-nowrap">
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-1 w-1 rounded-full bg-[#5fb3b8]" />
-                            CVSS
-                        </span>
-                        <span className="text-neutral-700">/</span>
-                        <span>Severity</span>
-                        <span className="text-neutral-700">/</span>
-                        <span>Live stream</span>
+            {/* ---- Three-step guide: the real product flow ---- */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#e6e6e6] border-t border-[#e6e6e6]">
+                {STEPS.map((s) => (
+                    <div key={s.n} className="px-5 py-5">
+                        <span className="font-mono text-[11px] text-[#3b82f6] tracking-widest">{s.n}</span>
+                        <p className="mt-1.5 text-[14px] font-medium text-black">{s.t}</p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-[#666]">{s.d}</p>
                     </div>
-                </div>
+                ))}
             </div>
         </motion.div>
     );

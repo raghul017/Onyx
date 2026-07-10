@@ -77,11 +77,11 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
 
     if (step === "verified") {
         return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-sm text-[11px] font-['JetBrains_Mono'] text-emerald-400">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#f0fdf4] border border-[#86efac] text-[11px] font-mono text-[#16a34a]">
                 <ShieldCheck size={12} />
                 <span>DOMAIN VERIFIED</span>
                 {verifiedAt && (
-                    <span className="text-emerald-600 ml-1">
+                    <span className="text-[#16a34a]/70 ml-1">
                         {new Date(verifiedAt).toLocaleDateString()}
                     </span>
                 )}
@@ -96,13 +96,13 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                     type="button"
                     onClick={handleInitiate}
                     disabled={loading || !specUrl.trim()}
-                    className="shrink-0 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-cyan-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Geist']"
+                    className="shrink-0 bg-[#f0f6ff] border border-[#93c5fd] text-[#3b82f6] text-[12px] font-medium px-3 h-10 sm:h-auto sm:py-1.5 hover:bg-[#e0edff] transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
                     {loading ? <Loader2 size={11} className="animate-spin" /> : <ShieldCheck size={11} />}
                     {loading ? "Preparing..." : "Verify Domain"}
                 </button>
                 {error && (
-                    <span className="text-red-400 text-[11px] font-['JetBrains_Mono'] flex items-center gap-1">
+                    <span className="text-[#dc2626] text-[11px] font-mono flex items-center gap-1">
                         <AlertTriangle size={10} /> {error}
                     </span>
                 )}
@@ -112,25 +112,25 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
 
     // step === "pending"
     return (
-        <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-4 space-y-3">
+        <div className="border border-[#e6e6e6] bg-white p-4 space-y-3">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider text-neutral-400">
-                    <ShieldCheck size={11} className="text-cyan-400" />
-                    Verify ownership of <span className="text-cyan-400">{domain}</span>
+                <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[#666]">
+                    <ShieldCheck size={11} className="text-[#3b82f6]" />
+                    Verify ownership of <span className="text-[#3b82f6]">{domain}</span>
                 </div>
                 {/* Tab toggle */}
-                <div className="flex text-[10px] font-['JetBrains_Mono']">
+                <div className="flex text-[10px] font-mono">
                     <button
                         type="button"
                         onClick={() => setActiveTab("file")}
-                        className={`px-2 py-1 border-b ${activeTab === "file" ? "border-cyan-500 text-cyan-400" : "border-neutral-700 text-neutral-500 hover:text-neutral-300"}`}
+                        className={`px-2 py-1 border-b-2 transition-colors ${activeTab === "file" ? "border-[#3b82f6] text-[#3b82f6]" : "border-transparent text-[#999] hover:text-black"}`}
                     >
                         FILE
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab("dns")}
-                        className={`px-2 py-1 border-b ${activeTab === "dns" ? "border-cyan-500 text-cyan-400" : "border-neutral-700 text-neutral-500 hover:text-neutral-300"}`}
+                        className={`px-2 py-1 border-b-2 transition-colors ${activeTab === "dns" ? "border-[#3b82f6] text-[#3b82f6]" : "border-transparent text-[#999] hover:text-black"}`}
                     >
                         DNS
                     </button>
@@ -138,24 +138,24 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
             </div>
 
             {/* Instructions */}
-            <p className="text-[11px] text-neutral-500 font-['JetBrains_Mono']">
+            <p className="text-[11px] text-[#666] font-mono">
                 {activeTab === "file"
                     ? `Place a file at: https://${domain}/.well-known/onyx-verify.txt`
                     : `Add a DNS TXT record: _onyx-verify.${domain}`}
             </p>
 
             {/* Token box */}
-            <div className="flex items-center gap-2 bg-[#111] border border-neutral-800 rounded-sm px-3 py-2">
-                <span className="flex-1 font-['JetBrains_Mono'] text-[11px] text-neutral-300 select-all break-all">
+            <div className="flex items-center gap-2 bg-[#fafafa] border border-[#e6e6e6] px-3 py-2">
+                <span className="flex-1 font-mono text-[11px] text-[#333] select-all break-all">
                     {token}
                 </span>
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className="shrink-0 text-neutral-500 hover:text-white transition-colors"
+                    className="shrink-0 text-[#999] hover:text-black transition-colors"
                     aria-label="Copy token"
                 >
-                    {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    {copied ? <Check size={13} className="text-[#16a34a]" /> : <Copy size={13} />}
                 </button>
             </div>
 
@@ -165,7 +165,7 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                     type="button"
                     onClick={handleCheck}
                     disabled={checking}
-                    className="bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Geist']"
+                    className="bg-black text-white text-[12px] font-medium px-4 py-1.5 hover:bg-[#1a1a1a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
                     {checking ? <Loader2 size={11} className="animate-spin" /> : <ShieldCheck size={11} />}
                     {checking ? "Checking..." : "Check Verification"}
@@ -173,14 +173,14 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                 <button
                     type="button"
                     onClick={() => { setStep("idle"); setError(null); }}
-                    className="text-neutral-500 hover:text-white text-[12px] font-['Geist'] transition-colors"
+                    className="text-[#666] hover:text-black text-[12px] transition-colors"
                 >
                     Cancel
                 </button>
             </div>
 
             {error && (
-                <p className="text-red-400 text-[11px] font-['JetBrains_Mono'] flex items-center gap-1.5">
+                <p className="text-[#dc2626] text-[11px] font-mono flex items-center gap-1.5">
                     <AlertTriangle size={10} /> {error}
                 </p>
             )}

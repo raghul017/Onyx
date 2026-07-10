@@ -1,7 +1,8 @@
 // =============================================================================
 // Dashboard — "Onyx Command Center"
-// High-density command UI on the brand off-black surface (#080808 / #0B0C0D),
-// teal live-accent, semantic severity colors. Matches the landing design system.
+// High-density command UI in the light-mono system (#fafafa surface, white
+// hairline console, sharp corners, no shadows, Geist + JetBrains Mono, single
+// blue #3b82f6 accent, semantic severity colors). Matches the whole app.
 // =============================================================================
 
 import { useState, useEffect } from "react";
@@ -160,39 +161,36 @@ const Dashboard = () => {
     const isAttacking = status === "attacking";
 
     return (
-        <div className="relative min-h-screen bg-[#0A0A0A] text-white font-['Geist'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
+        <div className="onyx-mono relative min-h-screen overflow-x-clip">
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
 
                 <ColdStartBanner />
 
                 {/* ============================================================= */}
-                {/* Main content — one continuous surface (launch row + body),    */}
-                {/* not two floating cards on a void.                             */}
+                {/* Main content — one continuous console surface (launch row +   */}
+                {/* body), not two floating cards on a void.                      */}
                 {/* ============================================================= */}
-                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 flex flex-col py-6">
+                <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 flex flex-col py-8 sm:py-10">
                     {/* Page title row */}
-                    <div className="flex items-end justify-between gap-4 mb-4">
+                    <div className="flex items-end justify-between gap-4 mb-5">
                         <div>
-                            <h1
-                                className="text-neutral-100 text-[22px] leading-none tracking-[-0.02em]"
-                                style={{ fontFamily: '"Geist", ui-sans-serif, system-ui, sans-serif', fontWeight: 600 }}
-                            >
+                            <h1 className="text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-normal tracking-tight text-balance">
                                 Command center
                             </h1>
-                            <p className="mt-1.5 text-[13px] text-neutral-500">
+                            <p className="mt-2 text-sm text-[#666]">
                                 Launch a scan against an API spec and watch results stream in live.
                             </p>
                         </div>
-                        {/* Run status — plain text, appears only when relevant */}
+                        {/* Run status — appears only when relevant */}
                         {status !== "idle" && (
-                            <div className="hidden sm:flex items-center gap-2 text-[12px]">
+                            <div className="hidden sm:flex items-center gap-2 text-[12px] font-mono uppercase tracking-wider shrink-0">
                                 <span
                                     className={`h-1.5 w-1.5 rounded-full ${
-                                        isAttacking ? "bg-[#5fb3b8] animate-pulse" : "bg-neutral-600"
+                                        isAttacking ? "bg-[#3b82f6] animate-pulse" : "bg-[#ccc]"
                                     }`}
                                 />
-                                <span className={isAttacking ? "text-[#8fc9cd]" : "text-neutral-500"}>
+                                <span className={isAttacking ? "text-[#3b82f6]" : "text-[#999]"}>
                                     {statusLabel}
                                 </span>
                             </div>
@@ -200,23 +198,23 @@ const Dashboard = () => {
                     </div>
 
                     {/* Unified console surface */}
-                    <section className="flex flex-col rounded-[10px] bg-[#0C0D0E] shadow-[0_0_0_1px_rgba(255,255,255,0.06)] overflow-hidden">
+                    <section className="flex flex-col border border-[#e6e6e6] bg-white overflow-hidden">
                         {/* Launch row — a real toolbar, not a floating pill card */}
                         <form
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 handleStartAttack();
                             }}
-                            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-2.5 border-b border-white/[0.06] bg-[#0A0B0C]"
+                            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-2.5 border-b border-[#e6e6e6] bg-[#fafafa]"
                         >
-                            <div className="flex-1 flex items-center gap-2.5 rounded-md bg-[#070809] px-3.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] focus-within:shadow-[inset_0_0_0_1px_rgba(95,179,184,0.45)] transition-shadow">
-                                <Terminal size={14} className="shrink-0 text-neutral-600" />
+                            <div className="flex-1 flex items-center gap-2.5 bg-white px-3.5 border border-[#e6e6e6] focus-within:border-[#3b82f6] transition-colors">
+                                <Terminal size={14} className="shrink-0 text-[#999]" />
                                 <input
                                     type="url"
                                     value={inputUrl}
                                     onChange={(e) => setInputUrl(e.target.value)}
                                     placeholder="https://petstore.swagger.io/v2/swagger.json"
-                                    className="flex-1 bg-transparent text-neutral-200 font-['JetBrains_Mono'] text-[13px] py-2.5 outline-none placeholder:text-neutral-700"
+                                    className="flex-1 bg-transparent text-black font-mono text-[13px] py-2.5 outline-none placeholder:text-[#ccc]"
                                     disabled={launching}
                                 />
                             </div>
@@ -235,7 +233,7 @@ const Dashboard = () => {
                                         !domainVerified ||
                                         isAttacking
                                     }
-                                    className="flex-1 sm:flex-none justify-center bg-[#5fb3b8] text-[#06181a] text-[13px] font-semibold pl-4 pr-4 h-10 rounded-md hover:bg-[#6cc0c5] transition-colors active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2 font-['Geist']"
+                                    className="flex-1 sm:flex-none justify-center bg-black text-white text-[13px] font-medium px-4 h-10 hover:bg-[#1a1a1a] transition-[background-color,transform] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fafafa]"
                                 >
                                     <Play size={13} className="translate-x-px" />
                                     {launching ? "Launching…" : "Launch scan"}
@@ -247,7 +245,7 @@ const Dashboard = () => {
                                         type="button"
                                         onClick={handleStopAttack}
                                         disabled={aborting}
-                                        className="flex-1 sm:flex-none justify-center text-red-300 text-[13px] font-semibold px-4 h-10 rounded-md shadow-[inset_0_0_0_1px_rgba(239,68,68,0.4)] hover:bg-red-500/10 transition-colors active:scale-[0.98] disabled:opacity-40 flex items-center gap-2 font-['Geist']"
+                                        className="flex-1 sm:flex-none justify-center text-[#dc2626] text-[13px] font-medium px-4 h-10 border border-[#fca5a5] hover:bg-[#fef2f2] hover:border-[#dc2626] transition-colors active:scale-[0.98] disabled:opacity-40 flex items-center gap-2"
                                     >
                                         <Square size={11} />
                                         {aborting ? "Stopping…" : "Stop"}
@@ -256,7 +254,7 @@ const Dashboard = () => {
                             </div>
                         </form>
 
-                        {/* Body — ghost idle state OR live command center */}
+                        {/* Body — clean idle state OR live command center */}
                         <div className="flex-1 flex flex-col">
                             <DashboardCommand
                                 logs={logs}
