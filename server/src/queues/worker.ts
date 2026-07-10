@@ -98,16 +98,29 @@ export function startOnyxWorker(): Worker {
  * so concurrent finishers can't double-complete. Broadcasts only if this call
  * was the one that actually set COMPLETED. Safe to call from any path.
  */
-async function finalizeIfComplete(testRunId: string): Promise<void> {
-    const run = await prisma.testRun.findUnique({
-        where: { id: testRunId },
-        select: {
-            enqueuedAt: true,
-            completedAttacks: true,
-            totalAttacks: true,
-            status: true,
-        },
-    });
+async function finalizeIfComplete(
+    testRunId: string,
+    // When the caller just wrote the run (the increment `update` returns the
+    // fresh row), pass it here to skip a redundant SELECT — this is the hot
+    // path, so avoiding one round-trip per attack is a real speedup.
+    known?: {
+        enqueuedAt: Date | null;
+        completedAttacks: number;
+        totalAttacks: number;
+        status: string;
+    },
+): Promise<void> {
+    const run =
+        known ??
+        (await prisma.testRun.findUnique({
+            where: { id: testRunId },
+            select: {
+                enqueuedAt: true,
+                completedAttacks: true,
+                totalAttacks: true,
+                status: true,
+            },
+        }));
     if (!run) return;
     // Don't resurrect a run the user aborted / that already failed.
     if (run.status === "FAILED" || run.status === "COMPLETED") return;
@@ -206,26 +219,28 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     try {
         await assertNotSSRF(targetUrl);
     } catch {
-        // Skip this job — target resolves to a private/internal IP
-        const attackLog = await prisma.attackLog.create({
-            data: {
-                testRunId,
-                endpointId,
-                method,
-                path,
-                payload: payload.replace(/\0/g, "\\u0000"),
-                statusCode: 0,
-                latencyMs: 0,
-                responseSnippet: null,
-                attackType,
-                error: "SSRF blocked: target resolves to internal/private IP",
-            },
-        });
-
-        const testRun = await prisma.testRun.update({
-            where: { id: testRunId },
-            data: { completedAttacks: { increment: 1 } },
-        });
+        // Skip this job — target resolves to a private/internal IP.
+        // One round-trip: create the log + increment the counter together.
+        const [attackLog, testRun] = await prisma.$transaction([
+            prisma.attackLog.create({
+                data: {
+                    testRunId,
+                    endpointId,
+                    method,
+                    path,
+                    payload: payload.replace(/\0/g, "\\u0000"),
+                    statusCode: 0,
+                    latencyMs: 0,
+                    responseSnippet: null,
+                    attackType,
+                    error: "SSRF blocked: target resolves to internal/private IP",
+                },
+            }),
+            prisma.testRun.update({
+                where: { id: testRunId },
+                data: { completedAttacks: { increment: 1 } },
+            }),
+        ]);
 
         const wsMsg: WsServerMessage = {
             type: "ATTACK_RESULT",
@@ -246,8 +261,9 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         wsManager.broadcast(testRunId, wsMsg);
 
         // Check completion — only once ALL jobs are enqueued (enqueuedAt set),
-        // so an early-finishing job can't complete a run mid-enqueue.
-        await finalizeIfComplete(testRunId);
+        // so an early-finishing job can't complete a run mid-enqueue. Reuse the
+        // row we just wrote instead of re-reading it.
+        await finalizeIfComplete(testRunId, testRun);
         return;
     }
 
@@ -275,29 +291,32 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         }
     }
 
-    // Save to database
-    const attackLog = await prisma.attackLog.create({
-        data: {
-            testRunId,
-            endpointId,
-            method,
-            path,
-            payload: payload.replace(/\0/g, "\\u0000"),
-            statusCode,
-            latencyMs,
-            responseSnippet: responseSnippet?.replace(/\0/g, "\\u0000") ?? null,
-            attackType,
-            error: error?.replace(/\0/g, "\\u0000") ?? null,
-        },
-    });
-
-    // Update test run progress
-    const testRun = await prisma.testRun.update({
-        where: { id: testRunId },
-        data: {
-            completedAttacks: { increment: 1 },
-        },
-    });
+    // Persist the result + advance progress in a single round-trip. This runs
+    // once per payload (the hottest path in the app), so collapsing two
+    // sequential awaits into one batched transaction meaningfully cuts the
+    // per-attack DB latency against a remote Postgres.
+    const [attackLog, testRun] = await prisma.$transaction([
+        prisma.attackLog.create({
+            data: {
+                testRunId,
+                endpointId,
+                method,
+                path,
+                payload: payload.replace(/\0/g, "\\u0000"),
+                statusCode,
+                latencyMs,
+                responseSnippet: responseSnippet?.replace(/\0/g, "\\u0000") ?? null,
+                attackType,
+                error: error?.replace(/\0/g, "\\u0000") ?? null,
+            },
+        }),
+        prisma.testRun.update({
+            where: { id: testRunId },
+            data: {
+                completedAttacks: { increment: 1 },
+            },
+        }),
+    ]);
 
     // Build attack result for WebSocket broadcast
     const attackResult: AttackResult = {
@@ -333,10 +352,11 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     };
     wsManager.broadcast(testRunId, statusMessage);
 
-    // Check if all attacks are complete. Shared helper re-reads fresh counts,
-    // guards on enqueuedAt + terminal status, and broadcasts COMPLETED exactly
-    // once via an atomic status-filtered update.
-    await finalizeIfComplete(testRunId);
+    // Check if all attacks are complete. Reuse the row we just wrote (fresh
+    // counts + status + enqueuedAt) so we skip a redundant SELECT; the helper
+    // still guards on enqueuedAt + terminal status and broadcasts COMPLETED
+    // exactly once via an atomic status-filtered update.
+    await finalizeIfComplete(testRunId, testRun);
 }
 
 // ---------------------------------------------------------------------------
