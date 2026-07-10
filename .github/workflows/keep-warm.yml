@@ -1,0 +1,52 @@
+# =============================================================================
+# Keep-warm — pings the backend health endpoint on a schedule so the Render
+# free-tier instance doesn't spin down (it sleeps after ~15 min idle, and the
+# cold start then costs the first visitor 30-60s). This is the cheapest fix for
+# the "everything feels slow" first-load complaint.
+#
+# Notes / caveats:
+#  - GitHub's cron can be delayed several minutes under load, so we ping every
+#    10 min to stay comfortably under Render's ~15 min idle window.
+#  - GitHub disables scheduled workflows on a repo with 60 days of no commits;
+#    any push re-enables it.
+#  - A single always-on free service uses ~730 of Render's 750 free
+#    instance-hours/month — fine for one service, watch it if you add more.
+#  - Override the target without editing this file by setting a repo variable
+#    BACKEND_HEALTH_URL (Settings → Secrets and variables → Actions → Variables).
+# =============================================================================
+
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping backend health endpoint
+        env:
+          HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://onyx-server-a38v.onrender.com/api/health' }}
+        run: |
+          echo "Pinging $HEALTH_URL"
+          # Retry a few times: a cold instance can take 30-60s to wake, so the
+          # first request may hang/timeout while it boots. --max-time per attempt.
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/body.txt -w "%{http_code}" --max-time 70 "$HEALTH_URL" || echo "000")
+            echo "Attempt $attempt → HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Awake:"; cat /tmp/body.txt; echo
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Health check did not return 200 after 5 attempts"
+          cat /tmp/body.txt || true
+          exit 1
