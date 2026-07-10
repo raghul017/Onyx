@@ -252,6 +252,16 @@ const Billing = () => {
 
     const effectivePlan = user?.plan ?? "FREE";
     const isPaid = effectivePlan === "PRO" || effectivePlan === "TEAM";
+    // Tier order — decides upgrade vs. downgrade CTA per card.
+    const RANK: Record<string, number> = { FREE: 0, PRO: 1, TEAM: 2 };
+    const planExpiry =
+        user?.planExpiresAt != null
+            ? new Date(user.planExpiresAt).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+              })
+            : null;
 
     // -------------------------------------------------------------------------
     // Plan CTA
@@ -261,18 +271,21 @@ const Billing = () => {
         const isCurrentPlan = effectivePlan === plan.key;
         const isLoading = subscribingTo === plan.key;
 
+        // The plan you're on — a calm, non-interactive confirmation.
         if (isCurrentPlan) {
             return (
-                <div className="w-full text-center py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#93c5fd] text-[#3b82f6]">
-                    Current Plan
+                <div className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[12px] font-mono uppercase tracking-wide bg-[#f4f4f5] border border-[#e6e6e6] text-[#666] cursor-default">
+                    <Check size={13} />
+                    Current plan
                 </div>
             );
         }
 
-        if (plan.key === "FREE") {
+        // A lower tier than your current one — only reachable by cancelling.
+        if (RANK[plan.key] < RANK[effectivePlan]) {
             return (
-                <div className="w-full text-center py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#e6e6e6] text-[#999]">
-                    Downgrade via Cancel
+                <div className="w-full text-center py-2.5 text-[12px] font-mono uppercase tracking-wide border border-[#e6e6e6] text-[#999] cursor-default">
+                    Cancel to switch
                 </div>
             );
         }
@@ -322,28 +335,40 @@ const Billing = () => {
                             <GoBackButton to="/dashboard" label="Dashboard" size="sm" className="shrink-0" />
                         </div>
 
-                        {/* Current-plan strip */}
-                        <div className="mb-6 flex items-center gap-3 border border-[#e6e6e6] bg-white px-4 py-3">
-                            <span className="grid place-items-center h-8 w-8 bg-[#f0f6ff] text-[#3b82f6] shrink-0">
-                                <ShieldCheck size={16} />
-                            </span>
-                            <div className="min-w-0">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
-                                    Current plan
-                                </p>
-                                <p className="text-sm font-medium tabular-nums text-black">
-                                    {loadingUser ? (
-                                        <span className="text-[#999]">Loading…</span>
-                                    ) : (
-                                        <>
-                                            {PLANS.find((p) => p.key === effectivePlan)?.name ?? effectivePlan}
-                                            {user?.email && (
-                                                <span className="text-[#999] font-normal"> · {user.email}</span>
-                                            )}
-                                        </>
-                                    )}
-                                </p>
+                        {/* Current-plan strip — balanced: identity left, billing status right */}
+                        <div className="mb-8 flex items-center justify-between gap-4 border border-[#e6e6e6] bg-white px-5 py-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="grid place-items-center h-9 w-9 bg-[#f0f6ff] text-[#3b82f6] shrink-0">
+                                    <ShieldCheck size={17} />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
+                                        Current plan
+                                    </p>
+                                    <p className="text-[15px] font-medium text-black truncate">
+                                        {loadingUser ? (
+                                            <span className="text-[#999]">Loading…</span>
+                                        ) : (
+                                            <>
+                                                {PLANS.find((p) => p.key === effectivePlan)?.name ?? effectivePlan}
+                                                {user?.email && (
+                                                    <span className="text-[#999] font-normal"> · {user.email}</span>
+                                                )}
+                                            </>
+                                        )}
+                                    </p>
+                                </div>
                             </div>
+                            {!loadingUser && (
+                                <div className="text-right shrink-0 hidden sm:block">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
+                                        {isPaid ? "Renews" : "Billing"}
+                                    </p>
+                                    <p className="text-[14px] text-black tabular-nums">
+                                        {isPaid ? planExpiry ?? "Active" : "No card required"}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Inline notice (replaces alert popups) */}
@@ -373,8 +398,8 @@ const Billing = () => {
                         {/* Pricing cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                             {PLANS.map((plan, i) => {
-                                const isActive = effectivePlan === plan.key;
-                                const isHighlight = plan.highlight && !isActive;
+                                const isCurrent = effectivePlan === plan.key;
+                                const isRecommended = plan.highlight; // Pro — the single visual anchor
                                 return (
                                     <motion.div
                                         key={plan.key}
@@ -382,34 +407,39 @@ const Billing = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.35, delay: i * 0.06, ease: [0.2, 0, 0, 1] }}
                                         className={`relative flex flex-col p-6 border ${
-                                            isActive
-                                                ? "border-[#3b82f6] bg-white"
-                                                : isHighlight
+                                            isRecommended
                                                 ? "border-[#93c5fd] bg-[#f0f6ff]"
                                                 : "border-[#e6e6e6] bg-white"
                                         }`}
                                     >
-                                        {/* Popular / Active badge */}
-                                        {isHighlight && (
+                                        {/* One badge per card: the recommended anchor, else a quiet
+                                            "Current" marker — never two competing emphases. */}
+                                        {isRecommended ? (
                                             <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
                                                 <span className="bg-black text-white text-[10px] font-bold font-mono tracking-widest uppercase px-3 py-0.5">
                                                     Most Popular
                                                 </span>
                                             </div>
-                                        )}
-                                        {isActive && (
+                                        ) : isCurrent ? (
                                             <div className="absolute -top-px left-1/2 -translate-x-1/2 z-20">
-                                                <span className="bg-[#3b82f6] text-white text-[10px] font-bold font-mono tracking-widest uppercase px-3 py-0.5">
-                                                    Active
+                                                <span className="bg-[#f4f4f5] text-[#666] border border-[#e6e6e6] text-[10px] font-bold font-mono tracking-widest uppercase px-3 py-0.5">
+                                                    Current
                                                 </span>
                                             </div>
-                                        )}
+                                        ) : null}
 
                                         <div className="flex flex-col flex-1">
                                             <div className="mb-4">
-                                                <p className="text-[#999] text-[11px] font-mono uppercase tracking-widest mb-2">
-                                                    {plan.name}
-                                                </p>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <p className="text-[#999] text-[11px] font-mono uppercase tracking-widest">
+                                                        {plan.name}
+                                                    </p>
+                                                    {isRecommended && isCurrent && (
+                                                        <span className="text-[#3b82f6] text-[9px] font-mono uppercase tracking-widest">
+                                                            · Current
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-baseline gap-1">
                                                     <span className="text-3xl font-semibold tabular-nums text-black">{plan.price}</span>
                                                     <span className="text-[#666] text-sm">{plan.period}</span>
@@ -437,6 +467,22 @@ const Billing = () => {
                                     </motion.div>
                                 );
                             })}
+                        </div>
+
+                        {/* Trust row — reassurance every real billing page carries */}
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-wide text-[#999]">
+                            <span className="inline-flex items-center gap-1.5">
+                                <ShieldCheck size={13} className="text-[#3b82f6]" />
+                                Secured by Razorpay
+                            </span>
+                            <span className="text-[#e6e6e6]" aria-hidden="true">
+                                /
+                            </span>
+                            <span>Cancel anytime</span>
+                            <span className="text-[#e6e6e6]" aria-hidden="true">
+                                /
+                            </span>
+                            <span>Priced in USD, billed in INR</span>
                         </div>
 
                         {/* Cancel subscription */}
