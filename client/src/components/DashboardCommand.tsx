@@ -216,7 +216,7 @@ const DashboardCommand = ({
             <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 sm:px-5 py-3 border-t border-white/[0.06] bg-[#080808]">
                 {/* score chip */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="font-['Satoshi_Variable'] text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-neutral-600 text-sm">/100</span></span>
+                    <span className="font-['Geist'] text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-neutral-600 text-sm">/100</span></span>
                     <span className="font-['JetBrains_Mono'] text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{ color: scoreColor, backgroundColor: scoreColor + "1A" }}>{scoreLabel} RISK</span>
                 </div>
                 {/* severity bar + legend */}

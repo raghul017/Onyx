@@ -14,7 +14,7 @@ import {
 const SupportedTech = () => {
     return (
         <section className="px-8 lg:px-12 w-full pt-40 pb-32">
-            <h2 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-[32px] md:text-[40px] text-[rgb(255,255,255)] mb-8 tracking-tight">
+            <h2 className="font-['Geist'] font-normal text-[32px] md:text-[40px] text-[rgb(255,255,255)] mb-8 tracking-tight">
                 Built with
             </h2>
 
@@ -25,10 +25,10 @@ const SupportedTech = () => {
                         <Globe size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             React
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Interactive UI
                         </span>
                     </div>
@@ -40,10 +40,10 @@ const SupportedTech = () => {
                         <Database size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             Node.js
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Express Server
                         </span>
                     </div>
@@ -55,10 +55,10 @@ const SupportedTech = () => {
                         <Activity size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             BullMQ
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Job Queues
                         </span>
                     </div>
@@ -70,10 +70,10 @@ const SupportedTech = () => {
                         <Cpu size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             Gemini AI
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Payload Engine
                         </span>
                     </div>
@@ -85,10 +85,10 @@ const SupportedTech = () => {
                         <Webhook size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             WebSockets
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Real-time Streams
                         </span>
                     </div>
@@ -100,10 +100,10 @@ const SupportedTech = () => {
                         <Code size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             Prisma ORM
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Type-safe Database
                         </span>
                     </div>
@@ -115,10 +115,10 @@ const SupportedTech = () => {
                         <Terminal size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             PostgreSQL
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             Relational Storage
                         </span>
                     </div>
@@ -130,10 +130,10 @@ const SupportedTech = () => {
                         <Zap size={26} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             Redis
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#888888] text-[15px] leading-tight">
+                        <span className="font-['Geist'] font-normal text-[#888888] text-[15px] leading-tight">
                             In-memory Cache
                         </span>
                     </div>
@@ -150,10 +150,10 @@ const SupportedTech = () => {
                         <Plus size={32} strokeWidth={1} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-['Inter',sans-serif] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
+                        <span className="font-['Geist'] font-normal text-[rgb(255,255,255)] text-[18px] leading-tight mb-1">
                             And more coming soon
                         </span>
-                        <span className="font-['Inter',sans-serif] font-normal text-[#22d3ee] text-[15px] leading-tight flex items-center gap-1 group-hover:underline">
+                        <span className="font-['Geist'] font-normal text-[#22d3ee] text-[15px] leading-tight flex items-center gap-1 group-hover:underline">
                             View on GitHub{" "}
                             <ArrowRight size={14} className="inline-block" />
                         </span>
@@ -165,7 +165,7 @@ const SupportedTech = () => {
                 href="https://github.com/raghul017/Onyx"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-[#22d3ee] text-[15px] font-['Inter',sans-serif] font-normal hover:underline mt-8 transition-colors"
+                className="inline-flex items-center gap-1.5 text-[#22d3ee] text-[15px] font-['Geist'] font-normal hover:underline mt-8 transition-colors"
             >
                 View full stack <ArrowRight size={14} />
             </a>

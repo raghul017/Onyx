@@ -160,7 +160,7 @@ const Dashboard = () => {
     const isAttacking = status === "attacking";
 
     return (
-        <div className="relative min-h-screen bg-[#0A0A0A] text-white font-['Inter'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
+        <div className="relative min-h-screen bg-[#0A0A0A] text-white font-['Geist'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
 
@@ -176,7 +176,7 @@ const Dashboard = () => {
                         <div>
                             <h1
                                 className="text-neutral-100 text-[22px] leading-none tracking-[-0.02em]"
-                                style={{ fontFamily: '"Satoshi Variable", sans-serif', fontWeight: 600 }}
+                                style={{ fontFamily: '"Geist", ui-sans-serif, system-ui, sans-serif', fontWeight: 600 }}
                             >
                                 Command center
                             </h1>
@@ -235,7 +235,7 @@ const Dashboard = () => {
                                         !domainVerified ||
                                         isAttacking
                                     }
-                                    className="flex-1 sm:flex-none justify-center bg-[#5fb3b8] text-[#06181a] text-[13px] font-semibold pl-4 pr-4 h-10 rounded-md hover:bg-[#6cc0c5] transition-colors active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2 font-['Inter']"
+                                    className="flex-1 sm:flex-none justify-center bg-[#5fb3b8] text-[#06181a] text-[13px] font-semibold pl-4 pr-4 h-10 rounded-md hover:bg-[#6cc0c5] transition-colors active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2 font-['Geist']"
                                 >
                                     <Play size={13} className="translate-x-px" />
                                     {launching ? "Launching…" : "Launch scan"}
@@ -247,7 +247,7 @@ const Dashboard = () => {
                                         type="button"
                                         onClick={handleStopAttack}
                                         disabled={aborting}
-                                        className="flex-1 sm:flex-none justify-center text-red-300 text-[13px] font-semibold px-4 h-10 rounded-md shadow-[inset_0_0_0_1px_rgba(239,68,68,0.4)] hover:bg-red-500/10 transition-colors active:scale-[0.98] disabled:opacity-40 flex items-center gap-2 font-['Inter']"
+                                        className="flex-1 sm:flex-none justify-center text-red-300 text-[13px] font-semibold px-4 h-10 rounded-md shadow-[inset_0_0_0_1px_rgba(239,68,68,0.4)] hover:bg-red-500/10 transition-colors active:scale-[0.98] disabled:opacity-40 flex items-center gap-2 font-['Geist']"
                                     >
                                         <Square size={11} />
                                         {aborting ? "Stopping…" : "Stop"}

@@ -192,7 +192,7 @@ const Report = () => {
     };
 
     return (
-        <div className="relative min-h-screen flex flex-col bg-[#080808] text-white font-['Inter'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
+        <div className="relative min-h-screen flex flex-col bg-[#080808] text-white font-['Geist'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
             {/* Subtle gradient accent, matches landing/dashboard */}
             <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
             <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-[#080808] to-[#080808]" />
@@ -221,7 +221,7 @@ const Report = () => {
                     <button
                         onClick={handleExportPDF}
                         disabled={exporting}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-[#73bfc4] text-black text-[12px] font-bold font-['Inter'] rounded-full hover:bg-[#8fd0d4] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-[#73bfc4] text-black text-[12px] font-bold font-['Geist'] rounded-full hover:bg-[#8fd0d4] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
                     >
                         {exporting ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
                         {exporting ? "Exporting..." : "Export PDF"}

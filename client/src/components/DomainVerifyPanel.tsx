@@ -96,7 +96,7 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                     type="button"
                     onClick={handleInitiate}
                     disabled={loading || !specUrl.trim()}
-                    className="shrink-0 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-cyan-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                    className="shrink-0 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[12px] font-bold px-3 py-1.5 rounded-sm hover:bg-cyan-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Geist']"
                 >
                     {loading ? <Loader2 size={11} className="animate-spin" /> : <ShieldCheck size={11} />}
                     {loading ? "Preparing..." : "Verify Domain"}
@@ -165,7 +165,7 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                     type="button"
                     onClick={handleCheck}
                     disabled={checking}
-                    className="bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Inter']"
+                    className="bg-white text-black text-[12px] font-bold px-4 py-1.5 rounded-sm hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-['Geist']"
                 >
                     {checking ? <Loader2 size={11} className="animate-spin" /> : <ShieldCheck size={11} />}
                     {checking ? "Checking..." : "Check Verification"}
@@ -173,7 +173,7 @@ export default function DomainVerifyPanel({ specUrl, onVerified }: DomainVerifyP
                 <button
                     type="button"
                     onClick={() => { setStep("idle"); setError(null); }}
-                    className="text-neutral-500 hover:text-white text-[12px] font-['Inter'] transition-colors"
+                    className="text-neutral-500 hover:text-white text-[12px] font-['Geist'] transition-colors"
                 >
                     Cancel
                 </button>

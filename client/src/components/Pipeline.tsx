@@ -25,7 +25,7 @@ const Pipeline = () => {
                 id="how-it-works"
                 className="relative z-10 py-32 flex flex-col items-center justify-center"
             >
-                <h2 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-[32px] md:text-[40px] text-white mb-16 text-center tracking-tight">
+                <h2 className="font-['Geist'] font-normal text-[32px] md:text-[40px] text-white mb-16 text-center tracking-tight">
                     How Onyx breaks your API.
                 </h2>
                 <div className="max-w-7xl w-full mx-auto px-6">
@@ -36,10 +36,10 @@ const Pipeline = () => {
                                 [01]
                             </div>
                             <div>
-                                <h3 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
+                                <h3 className="font-['Geist'] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
                                     Ingest Schema
                                 </h3>
-                                <p className="font-['Inter',sans-serif] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
+                                <p className="font-['Geist'] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
                                     Paste your OpenAPI v3 or Swagger URL. The
                                     engine parses every route, parameter, and
                                     request body schema automatically.
@@ -60,10 +60,10 @@ const Pipeline = () => {
                                 [02]
                             </div>
                             <div>
-                                <h3 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
+                                <h3 className="font-['Geist'] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
                                     AI Generation
                                 </h3>
-                                <p className="font-['Inter',sans-serif] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
+                                <p className="font-['Geist'] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
                                     Gemini 2.5 Flash analyzes your specific
                                     endpoints and engineers dozens of highly
                                     targeted, malicious JSON payloads.
@@ -84,10 +84,10 @@ const Pipeline = () => {
                                 [03]
                             </div>
                             <div>
-                                <h3 className="font-['Satoshi_Variable','Satoshi_Variable_Placeholder',sans-serif] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
+                                <h3 className="font-['Geist'] font-normal text-3xl md:text-4xl tracking-tight mb-4 text-white">
                                     Queue & Fire
                                 </h3>
-                                <p className="font-['Inter',sans-serif] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
+                                <p className="font-['Geist'] font-normal text-[15px] md:text-[16px] leading-relaxed text-[#A1A1AA]">
                                     Payloads are loaded into a BullMQ Redis
                                     queue and fired at the target, streaming
                                     results back via WebSockets.
