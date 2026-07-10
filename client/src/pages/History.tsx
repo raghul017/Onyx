@@ -16,17 +16,17 @@ import {
     type CurrentUser,
 } from "@/services/api";
 
-// Severity-aware score color (matches dashboard/report language).
+// Severity-aware score color (light-mono semantics: red → orange → amber → green).
 function scoreColor(score: number) {
-    return score <= 25 ? "#ef4444" : score <= 50 ? "#ff810a" : score <= 75 ? "#d8b24a" : "#73bfc4";
+    return score <= 25 ? "#dc2626" : score <= 50 ? "#ea580c" : score <= 75 ? "#ca8a04" : "#16a34a";
 }
 
 function scoreChip(score: number, label: ScoreLabel) {
     const c = scoreColor(score);
     return (
         <span
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold font-['JetBrains_Mono'] tabular-nums"
-            style={{ color: c, backgroundColor: `${c}1A` }}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-bold font-mono tabular-nums border"
+            style={{ color: c, backgroundColor: `${c}12`, borderColor: `${c}40` }}
         >
             {score}/100
             <span className="text-[9px] font-normal opacity-70">{label}</span>
@@ -101,57 +101,44 @@ const History = () => {
     };
 
     return (
-        <div className="relative min-h-screen bg-[#080808] text-white font-['Inter'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
-            {/* Subtle gradient accent, matches landing/dashboard */}
-            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
-            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-[#080808] to-[#080808]" />
-
+        <div className="onyx-mono relative min-h-screen overflow-x-clip">
             <div className="relative z-10 flex flex-col min-h-screen">
                 <AppHeader user={user} />
                 <ColdStartBanner />
 
                 <main className="w-full px-5 sm:px-8 lg:px-12 flex-1 py-8 sm:py-10">
                     {/* Page Header */}
-                    <h1
-                        className="text-white mb-2"
-                        style={{
-                            fontFamily: '"Satoshi Variable", sans-serif',
-                            fontWeight: 400,
-                            fontSize: "clamp(1.75rem,4vw,2.5rem)",
-                            lineHeight: 1.1,
-                            letterSpacing: "-0.03em",
-                        }}
-                    >
+                    <h1 className="text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-normal tracking-tight text-balance mb-2">
                         Execution History
                     </h1>
-                    <p className="text-white/50 text-sm mb-6">
+                    <p className="text-[#666] text-sm mb-6">
                         Review past vulnerability scans and access historical
                         payload data.
                     </p>
 
                     {/* Summary strip — flat, hairline-divided (mirrors the dashboard) */}
                     {!loading && !error && testRuns.length > 0 && (
-                        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 rounded-2xl bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] overflow-hidden divide-x divide-white/[0.06]">
+                        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 border border-[#e6e6e6] bg-white overflow-hidden divide-x divide-[#e6e6e6]">
                             {[
-                                { l: "Total Runs", v: String(testRuns.length), c: "#ffffff" },
+                                { l: "Total Runs", v: String(testRuns.length), c: "#000000" },
                                 {
                                     l: "Avg Score",
                                     v: avgScore !== null ? `${avgScore}/100` : "—",
-                                    c: avgScore !== null ? scoreColor(avgScore) : "#71717a",
+                                    c: avgScore !== null ? scoreColor(avgScore) : "#999999",
                                 },
-                                { l: "Payloads Fired", v: totalPayloads.toLocaleString(), c: "#ffffff" },
+                                { l: "Payloads Fired", v: totalPayloads.toLocaleString(), c: "#000000" },
                                 {
                                     l: "At-Risk Runs",
                                     v: String(atRiskRuns),
-                                    c: atRiskRuns > 0 ? "#ff810a" : "#71717a",
+                                    c: atRiskRuns > 0 ? "#ea580c" : "#999999",
                                 },
                             ].map((s) => (
                                 <div key={s.l} className="px-4 sm:px-5 py-3.5">
-                                    <div className="text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                                    <div className="text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
                                         {s.l}
                                     </div>
                                     <div
-                                        className="mt-1.5 font-['JetBrains_Mono'] text-2xl leading-none tabular-nums"
+                                        className="mt-1.5 font-mono text-2xl leading-none tabular-nums"
                                         style={{ color: s.c }}
                                     >
                                         {s.v}
@@ -161,10 +148,10 @@ const History = () => {
                         </div>
                     )}
 
-                    {/* Audit Log Table — flat terminal surface */}
-                    <div className="w-full bg-[#0B0C0D] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] rounded-2xl overflow-hidden flex flex-col">
+                    {/* Audit Log Table — flat hairline surface */}
+                    <div className="w-full border border-[#e6e6e6] bg-white overflow-hidden flex flex-col">
                         {/* Table Headers — desktop only */}
-                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] gap-4 px-6 py-3 bg-[#080808] border-b border-white/[0.06] text-[10px] text-neutral-600 font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                        <div className="hidden md:grid grid-cols-[110px_1fr_90px_110px_100px_120px_150px] gap-4 px-6 py-3 bg-[#fafafa] border-b border-[#e6e6e6] text-[10px] text-[#999] font-mono uppercase tracking-[0.15em]">
                             <span>Date</span>
                             <span>Target API</span>
                             <span>Payloads</span>
@@ -175,34 +162,34 @@ const History = () => {
                         </div>
 
                         {/* Mobile header */}
-                        <div className="md:hidden px-4 py-3 bg-[#080808] border-b border-white/[0.06] text-[10px] text-neutral-600 font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+                        <div className="md:hidden px-4 py-3 bg-[#fafafa] border-b border-[#e6e6e6] text-[10px] text-[#999] font-mono uppercase tracking-[0.15em]">
                             Execution History
                         </div>
 
                         {/* Table Body */}
                         <div className="flex flex-col min-h-[400px]">
                             {loading ? (
-                                <div className="flex-1 flex items-center justify-center text-neutral-500 font-mono text-sm">
+                                <div className="flex-1 flex items-center justify-center text-[#999] font-mono text-sm">
                                     [ FETCHING_TELEMETRY ]
                                 </div>
                             ) : error ? (
-                                <div className="flex-1 flex items-center justify-center text-red-500 font-mono text-sm bg-red-500/5">
+                                <div className="flex-1 flex items-center justify-center text-[#dc2626] font-mono text-sm bg-[#fef2f2]">
                                     {error}
                                 </div>
                             ) : testRuns.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16 text-center">
-                                    <span className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#73bfc4]/10 shadow-[inset_0_0_0_1px_rgba(115,191,196,0.25)]">
-                                        <Clock size={22} className="text-[#73bfc4]" />
+                                    <span className="flex items-center justify-center w-12 h-12 bg-[#f0f6ff] border border-[#93c5fd]">
+                                        <Clock size={22} className="text-[#3b82f6]" />
                                     </span>
                                     <div>
-                                        <p className="text-white text-[15px] font-medium">No scans yet</p>
-                                        <p className="mt-1 text-neutral-500 text-[13px]">
+                                        <p className="text-black text-[15px] font-medium">No scans yet</p>
+                                        <p className="mt-1 text-[#666] text-[13px]">
                                             Your completed runs and their security scores will appear here.
                                         </p>
                                     </div>
                                     <button
                                         onClick={() => navigate("/dashboard")}
-                                        className="mt-1 inline-flex items-center gap-2 rounded-full bg-[#73bfc4] text-black text-[13px] font-semibold px-4 py-2 hover:bg-[#8fd0d4] transition-colors active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
+                                        className="mono-btn mt-1"
                                     >
                                         Run your first scan
                                         <ArrowRight size={14} />
@@ -212,21 +199,21 @@ const History = () => {
                                 testRuns.map((row) => (
                                     <div key={row.id}>
                                         {/* Desktop row */}
-                                        <div className="hidden md:grid grid-cols-[120px_1fr_120px_160px_100px_110px_120px] items-center gap-4 px-6 py-4 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.025] transition-colors cursor-pointer group">
-                                            <span className="text-sm text-neutral-400 truncate pr-2">
+                                        <div className="hidden md:grid grid-cols-[110px_1fr_90px_110px_100px_120px_150px] items-center gap-4 px-6 py-4 border-b border-[#e6e6e6] last:border-b-0 hover:bg-[#f9f9f9] transition-colors cursor-pointer group">
+                                            <span className="text-sm text-[#666] truncate pr-2 tabular-nums">
                                                 {formatDate(row.createdAt)}
                                             </span>
-                                            <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate pr-4">
+                                            <span className="text-sm font-mono text-[#333] truncate pr-4">
                                                 {row.specUrl}
                                             </span>
-                                            <span className="text-sm text-neutral-400">
+                                            <span className="text-sm text-[#666] tabular-nums">
                                                 {row.totalAttacks}
                                             </span>
                                             <span
-                                                className={`text-sm font-semibold ${
+                                                className={`text-sm font-semibold tabular-nums ${
                                                     row.completedAttacks > 0
-                                                        ? "text-[#73bfc4]"
-                                                        : "text-neutral-600"
+                                                        ? "text-[#3b82f6]"
+                                                        : "text-[#999]"
                                                 }`}
                                             >
                                                 {row.completedAttacks}
@@ -235,10 +222,10 @@ const History = () => {
                                                 className={`text-sm ${
                                                     row.status === "FAILED" ||
                                                     row.status === "ABORTED"
-                                                        ? "text-[#ff810a]"
+                                                        ? "text-[#ea580c]"
                                                         : row.status === "COMPLETED"
-                                                          ? "text-neutral-400"
-                                                          : "text-[#73bfc4]"
+                                                          ? "text-[#666]"
+                                                          : "text-[#3b82f6]"
                                                 }`}
                                             >
                                                 {row.status}
@@ -246,7 +233,7 @@ const History = () => {
                                             <span>
                                                 {row.status === "COMPLETED"
                                                     ? scoreChip(row.overallScore, row.scoreLabel)
-                                                    : <span className="text-neutral-700 text-xs font-['JetBrains_Mono']">—</span>}
+                                                    : <span className="text-[#ccc] text-xs font-mono">—</span>}
                                             </span>
                                             <div className="text-right">
                                                 <div className="flex items-center justify-end gap-3 w-full">
@@ -257,7 +244,7 @@ const History = () => {
                                                                 row.id,
                                                             )
                                                         }
-                                                        className="p-1.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                                        className="p-1.5 text-[#999] hover:text-[#dc2626] hover:bg-[#fef2f2] transition-colors"
                                                         title="Delete Record"
                                                     >
                                                         <Trash2 size={15} />
@@ -269,7 +256,7 @@ const History = () => {
                                                                 `/report/${row.id}`,
                                                             );
                                                         }}
-                                                        className="text-sm text-neutral-500 group-hover:text-white transition-colors flex items-center justify-end gap-1.5"
+                                                        className="text-sm text-[#666] group-hover:text-black transition-colors flex items-center justify-end gap-1.5 whitespace-nowrap"
                                                     >
                                                         View Report
                                                         <ArrowRight
@@ -282,38 +269,38 @@ const History = () => {
                                         </div>
 
                                         {/* Mobile card */}
-                                        <div className="md:hidden px-4 py-4 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.025] transition-colors space-y-2">
+                                        <div className="md:hidden px-4 py-4 border-b border-[#e6e6e6] last:border-b-0 hover:bg-[#f9f9f9] transition-colors space-y-2">
                                             <div className="flex items-start justify-between gap-2">
-                                                <span className="text-sm font-['JetBrains_Mono'] text-neutral-300 truncate flex-1 min-w-0">
+                                                <span className="text-sm font-mono text-[#333] truncate flex-1 min-w-0">
                                                     {row.specUrl}
                                                 </span>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     {row.status === "COMPLETED" && scoreChip(row.overallScore, row.scoreLabel)}
                                                     <span
-                                                        className={`text-xs px-2 py-0.5 rounded ${
+                                                        className={`text-xs px-2 py-0.5 border ${
                                                             row.status === "FAILED" || row.status === "ABORTED"
-                                                                ? "text-[#ff810a] bg-[#ff810a]/10"
+                                                                ? "text-[#ea580c] bg-[#fff7ed] border-[#fdba74]"
                                                                 : row.status === "COMPLETED"
-                                                                  ? "text-neutral-400 bg-white/[0.05]"
-                                                                  : "text-[#73bfc4] bg-[#73bfc4]/10"
+                                                                  ? "text-[#666] bg-[#fafafa] border-[#e6e6e6]"
+                                                                  : "text-[#3b82f6] bg-[#f0f6ff] border-[#93c5fd]"
                                                         }`}
                                                     >
                                                         {row.status}
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 text-xs text-neutral-500">
-                                                <span>
+                                            <div className="flex items-center gap-4 text-xs text-[#666]">
+                                                <span className="tabular-nums">
                                                     {formatDate(row.createdAt)}
                                                 </span>
-                                                <span>
+                                                <span className="tabular-nums">
                                                     {row.totalAttacks} payloads
                                                 </span>
                                                 <span
                                                     className={
                                                         row.completedAttacks > 0
-                                                            ? "text-[#73bfc4]"
-                                                            : ""
+                                                            ? "text-[#3b82f6] tabular-nums"
+                                                            : "tabular-nums"
                                                     }
                                                 >
                                                     {row.completedAttacks}{" "}
@@ -325,7 +312,7 @@ const History = () => {
                                                     onClick={(e) =>
                                                         handleDelete(e, row.id)
                                                     }
-                                                    className="p-1.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                                    className="p-1.5 text-[#999] hover:text-[#dc2626] hover:bg-[#fef2f2] transition-colors"
                                                     title="Delete Record"
                                                 >
                                                     <Trash2 size={14} />
@@ -337,7 +324,7 @@ const History = () => {
                                                             `/report/${row.id}`,
                                                         );
                                                     }}
-                                                    className="text-sm text-[#73bfc4] flex items-center gap-1"
+                                                    className="text-sm text-[#3b82f6] hover:text-black transition-colors flex items-center gap-1"
                                                 >
                                                     View Report
                                                     <ArrowRight size={14} />

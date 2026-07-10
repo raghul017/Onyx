@@ -13,26 +13,26 @@ const ColdStartBanner = () => {
 
     if (serverStatus === "offline") {
         return (
-            <div className="shrink-0 bg-red-500/[0.06] border-b border-red-500/10 px-4 py-3 flex items-center justify-center gap-3 font-['JetBrains_Mono'] text-[12px] overflow-hidden">
+            <div className="onyx-mono shrink-0 bg-[#fef2f2] border-b border-[#fca5a5] px-4 py-2.5 flex items-center justify-center gap-3 font-mono text-[12px] overflow-hidden">
                 {/* Static status dot */}
                 <div className="relative shrink-0">
-                    <div className="w-2 h-2 bg-red-400 rounded-full" />
-                    <div className="absolute inset-0 w-2 h-2 bg-red-400 rounded-full animate-ping opacity-30" />
+                    <div className="w-2 h-2 bg-[#dc2626] rounded-full" />
+                    <div className="absolute inset-0 w-2 h-2 bg-[#dc2626] rounded-full animate-ping opacity-30" />
                 </div>
 
-                <Server size={13} className="text-red-500/60 shrink-0" />
+                <Server size={13} className="text-[#dc2626] shrink-0" />
 
-                <span className="text-red-300/90">
+                <span className="text-[#dc2626]">
                     Server unreachable
-                    <span className="text-red-500/50 mx-1.5">·</span>
-                    <span className="text-neutral-500">
+                    <span className="text-[#fca5a5] mx-1.5">·</span>
+                    <span className="text-[#666]">
                         the backend may be down, please try again later
                     </span>
                 </span>
 
                 <WifiOff
                     size={13}
-                    className="text-red-500/30 shrink-0 hidden sm:block"
+                    className="text-[#fca5a5] shrink-0 hidden sm:block"
                 />
             </div>
         );
@@ -40,38 +40,38 @@ const ColdStartBanner = () => {
 
     // serverStatus === "waking"
     return (
-        <div className="shrink-0 bg-cyan-500/[0.06] border-b border-cyan-500/10 px-4 py-3 flex items-center justify-center gap-3 font-['JetBrains_Mono'] text-[12px] overflow-hidden">
+        <div className="onyx-mono shrink-0 bg-[#f0f6ff] border-b border-[#93c5fd] px-4 py-2.5 flex items-center justify-center gap-3 font-mono text-[12px] overflow-hidden">
             {/* Animated pulse */}
             <div className="relative shrink-0">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                <div className="absolute inset-0 w-2 h-2 bg-cyan-400 rounded-full animate-ping opacity-40" />
+                <div className="w-2 h-2 bg-[#3b82f6] rounded-full animate-pulse" />
+                <div className="absolute inset-0 w-2 h-2 bg-[#3b82f6] rounded-full animate-ping opacity-40" />
             </div>
 
-            <Server size={13} className="text-cyan-500/60 shrink-0" />
+            <Server size={13} className="text-[#3b82f6] shrink-0" />
 
-            <span className="text-cyan-300/90">
+            <span className="text-[#3b82f6]">
                 Server is waking up
-                <span className="text-cyan-500/50 mx-1.5">·</span>
-                <span className="text-neutral-500">
+                <span className="text-[#93c5fd] mx-1.5">·</span>
+                <span className="text-[#666]">
                     Render free-tier cold start
                 </span>
             </span>
 
             {/* Elapsed counter */}
-            <span className="text-cyan-400/70 tabular-nums">
+            <span className="text-[#3b82f6] tabular-nums">
                 {coldStartElapsed}s
             </span>
 
             {/* Animated dots */}
             <span className="inline-flex gap-[2px]">
-                <span className="w-1 h-1 bg-cyan-500/50 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-1 h-1 bg-cyan-500/50 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-1 h-1 bg-cyan-500/50 rounded-full animate-bounce [animation-delay:300ms]" />
+                <span className="w-1 h-1 bg-[#93c5fd] rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1 h-1 bg-[#93c5fd] rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1 h-1 bg-[#93c5fd] rounded-full animate-bounce [animation-delay:300ms]" />
             </span>
 
             <Wifi
                 size={13}
-                className="text-cyan-500/30 shrink-0 hidden sm:block"
+                className="text-[#93c5fd] shrink-0 hidden sm:block"
             />
         </div>
     );
