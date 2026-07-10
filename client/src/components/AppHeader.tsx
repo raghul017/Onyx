@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { CreditCard, ArrowLeft } from "lucide-react";
+import { CreditCard, ArrowLeft, User } from "lucide-react";
 import type { CurrentUser } from "@/services/api";
 import OrgSwitcher from "./OrgSwitcher";
 
@@ -96,20 +96,24 @@ const AppHeader = ({ user }: AppHeaderProps) => {
                         <CreditCard size={14} />
                         Billing
                     </button>
-                    {user && (
-                        <button
-                            onClick={() => navigate("/profile")}
-                            aria-label="Profile"
-                            title={`${user.email} · Profile`}
-                            className={`flex items-center justify-center w-8 h-8 bg-black text-white text-[12px] font-medium cursor-pointer ring-offset-2 ring-offset-[#fafafa] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] ${
-                                pathname === "/profile"
-                                    ? "ring-2 ring-[#3b82f6]"
-                                    : "hover:ring-2 hover:ring-[#e6e6e6]"
-                            }`}
-                        >
-                            {user.email.charAt(0).toUpperCase()}
-                        </button>
-                    )}
+                    {/* Profile — always shown on the (authenticated) app header,
+                        even while `user` is still loading, so it never disappears. */}
+                    <button
+                        onClick={() => navigate("/profile")}
+                        aria-label="Profile"
+                        title={user ? `${user.email} · Profile` : "Profile"}
+                        className={`flex items-center justify-center w-8 h-8 shrink-0 bg-black text-white text-[12px] font-medium cursor-pointer ring-offset-2 ring-offset-[#fafafa] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] ${
+                            pathname === "/profile"
+                                ? "ring-2 ring-[#3b82f6]"
+                                : "hover:ring-2 hover:ring-[#e6e6e6]"
+                        }`}
+                    >
+                        {user?.email ? (
+                            user.email.charAt(0).toUpperCase()
+                        ) : (
+                            <User size={15} />
+                        )}
+                    </button>
                 </div>
             </div>
         </header>
