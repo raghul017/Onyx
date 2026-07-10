@@ -80,8 +80,8 @@ const Hero = () => {
                 >
                     <span>Break your</span>
                     <span className="inline-flex items-center gap-2 sm:gap-3 bg-white px-2.5 py-1.5 sm:px-4 sm:py-2 border border-[#e6e6e6]">
-                        <span className="flex items-center justify-center w-7 h-7 sm:w-10 sm:h-10 bg-black text-white text-[11px] sm:text-[13px] font-mono font-bold">
-                            API
+                        <span className="flex items-center justify-center w-7 h-7 sm:w-10 sm:h-10 bg-black text-white text-[13px] sm:text-[16px] font-mono font-bold leading-none">
+                            {"{ }"}
                         </span>
                         <span>API</span>
                     </span>

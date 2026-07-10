@@ -5,10 +5,9 @@
 // =============================================================================
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { CreditCard } from "lucide-react";
+import { CreditCard, ArrowLeft } from "lucide-react";
 import type { CurrentUser } from "@/services/api";
 import OrgSwitcher from "./OrgSwitcher";
-import GoBackButton from "./GoBackButton";
 
 interface AppHeaderProps {
     user: CurrentUser | null;
@@ -39,7 +38,16 @@ const AppHeader = ({ user }: AppHeaderProps) => {
             <div className="w-full px-5 sm:px-8 lg:px-12 h-14 flex items-center justify-between gap-4">
                 {/* Left — back + brand + nav */}
                 <div className="flex items-center gap-5 shrink-0">
-                    <GoBackButton to="/" label="Home" size="sm" className="hidden sm:block" />
+                    <button
+                        onClick={() => navigate("/")}
+                        className="group hidden sm:flex items-center gap-1.5 text-[14px] text-[#666] hover:text-black transition-colors"
+                    >
+                        <ArrowLeft
+                            size={15}
+                            className="transition-transform group-hover:-translate-x-0.5"
+                        />
+                        Home
+                    </button>
                     <button
                         className="flex items-center gap-2"
                         onClick={() => navigate("/")}
@@ -92,11 +100,11 @@ const AppHeader = ({ user }: AppHeaderProps) => {
                         <button
                             onClick={() => navigate("/profile")}
                             aria-label="Profile"
-                            title={user.email}
-                            className={`flex items-center justify-center w-8 h-8 bg-black text-white text-[12px] font-medium transition-shadow focus-visible:outline-none ${
+                            title={`${user.email} · Profile`}
+                            className={`flex items-center justify-center w-8 h-8 bg-black text-white text-[12px] font-medium cursor-pointer ring-offset-2 ring-offset-[#fafafa] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] ${
                                 pathname === "/profile"
-                                    ? "ring-2 ring-[#3b82f6] ring-offset-2 ring-offset-[#fafafa]"
-                                    : ""
+                                    ? "ring-2 ring-[#3b82f6]"
+                                    : "hover:ring-2 hover:ring-[#e6e6e6]"
                             }`}
                         >
                             {user.email.charAt(0).toUpperCase()}

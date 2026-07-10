@@ -127,17 +127,9 @@ const FeatureShowcase = () => {
                 ref={railRef}
                 className="flex gap-6 overflow-x-auto onyx-no-scrollbar scroll-smooth pb-2"
             >
-                {FEATURES.map((f, i) => (
-                    <motion.div
+                {FEATURES.map((f) => (
+                    <div
                         key={f.title}
-                        initial={{ opacity: 0, y: 24 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, margin: "-60px" }}
-                        transition={{
-                            delay: i * 0.08,
-                            duration: 0.5,
-                            ease: [0.2, 0, 0, 1],
-                        }}
                         className={`group min-w-[320px] flex flex-col justify-between border border-[#e6e6e6] p-6 hover:border-black transition-colors cursor-pointer ${f.tint}`}
                     >
                         <div>
@@ -167,7 +159,7 @@ const FeatureShowcase = () => {
                                 className="transition-transform duration-300 group-hover:translate-x-1"
                             />
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
         </section>
