@@ -25,7 +25,7 @@ import {
     ArrowRight,
 } from "@phosphor-icons/react";
 // Launch-form icons re-exported to the parent stay on lucide (its button context).
-import { Play, Square, Terminal } from "lucide-react";
+import { Play, Square, Terminal, Gauge } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
 import { useCountUp } from "@/hooks/useCountUp";
 
@@ -95,14 +95,6 @@ const DashboardCommand = ({
         score >= 90 ? "CLEAN" : score >= 70 ? "LOW" : score >= 50 ? "MEDIUM" : score >= 25 ? "HIGH" : "CRITICAL";
     const scoreColor =
         score >= 90 ? GREEN : score >= 70 ? ACCENT : score >= 50 ? AMBER : RED;
-
-    // ---- Derived: severity donut data ----
-    const sev = [
-        { name: "Critical", value: criticalCount, color: RED },
-        { name: "Warning", value: blockedCount, color: AMBER },
-        { name: "Info", value: Math.max(0, infoCount), color: SLATE },
-    ];
-    const sevTotal = sev.reduce((a, b) => a + b.value, 0);
 
     // ---- Derived: latency sparkline (recent logs, chronological) ----
     const latencySeries = useMemo(
@@ -215,33 +207,56 @@ const DashboardCommand = ({
                 })}
             </div>
 
-            {/* ---- Score + severity band + latency (one compact row) ---- */}
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 sm:px-5 py-3 border-t border-[#e6e6e6] bg-[#fafafa]">
-                {/* score chip */}
-                <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="text-2xl tabular-nums leading-none transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}<span className="text-[#999] text-sm">/100</span></span>
-                    <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 border" style={{ color: scoreColor, backgroundColor: scoreColor + "12", borderColor: scoreColor + "40" }}>{scoreLabel} RISK</span>
-                </div>
-                {/* severity bar + legend */}
-                <div className="flex-1 min-w-0">
-                    <div className="flex h-2 w-full overflow-hidden bg-[#f0f0f0]">
-                        {sevTotal === 0 ? <div className="h-full w-full" /> : sev.map((s) => s.value > 0 ? (
-                            <div key={s.name} className="onyx-progress-fill h-full" style={{ width: (s.value / sevTotal) * 100 + "%", backgroundColor: s.color }} title={s.name + ": " + s.value} />
-                        ) : null)}
+            {/* ---- Score + breakdown bar (mirrors the Report page) ---- */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 px-4 sm:px-5 py-3 border-t border-[#e6e6e6] bg-[#fafafa]">
+                {/* Score pill */}
+                <div
+                    className="flex items-baseline gap-1.5 px-4 py-2.5 bg-white border shrink-0"
+                    style={{ backgroundColor: scoreColor + "0f", borderColor: scoreColor + "40" }}
+                >
+                    <span className="text-4xl font-bold font-mono tabular-nums transition-colors duration-300" style={{ color: scoreColor }}>{scoreCU}</span>
+                    <span className="text-[#999] text-lg font-mono">/100</span>
+                    <div className="ml-2 flex flex-col justify-center">
+                        <Gauge size={14} style={{ color: scoreColor }} />
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1">
-                        {sev.map((s) => (
-                            <span key={s.name} className="flex items-center gap-1.5 text-[10.5px] font-mono text-[#666]">
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color, opacity: s.value ? 1 : 0.3 }} />
-                                <span className="tabular-nums text-[#333]">{s.value}</span> {s.name.toLowerCase()}
-                            </span>
-                        ))}
+                    <div className="ml-1 flex flex-col">
+                        <span className="text-[9px] font-bold font-mono uppercase tracking-widest" style={{ color: scoreColor }}>
+                            {scoreLabel === "CLEAN" ? "CLEAN" : `${scoreLabel} RISK`}
+                        </span>
+                        <span className="text-[9px] text-[#999] font-mono uppercase tracking-wider">Security Score</span>
                     </div>
                 </div>
-                {/* avg latency */}
-                <div className="shrink-0 text-right">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#999]">avg</span>
-                    <span className="ml-1.5 font-mono text-sm tabular-nums text-[#333]">{avgLatency}ms</span>
+
+                {/* Breakdown bar + counts (5 severity levels, from live counts) */}
+                <div className="flex-1 flex flex-col gap-2 min-w-0 w-full">
+                    {(() => {
+                        const segs = [
+                            { key: "critical", label: "critical", n: counts.critical, c: RED },
+                            { key: "high", label: "high", n: counts.high, c: AMBER },
+                            { key: "medium", label: "medium", n: counts.medium, c: MED },
+                            { key: "low", label: "low", n: counts.low, c: ACCENT },
+                            { key: "info", label: "info", n: counts.info, c: SLATE },
+                        ];
+                        const total = segs.reduce((a, s) => a + s.n, 0);
+                        return (
+                            <>
+                                <div className="flex h-2 w-full overflow-hidden bg-[#f0f0f0]">
+                                    {total > 0 && segs.map((s) => s.n > 0 ? (
+                                        <div key={s.key} className="onyx-progress-fill h-full" style={{ width: (s.n / total) * 100 + "%", backgroundColor: s.c }} title={`${s.label}: ${s.n}`} />
+                                    ) : null)}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-[11px]">
+                                    {segs.map((s) => (
+                                        <span key={s.key} className="flex items-center gap-1.5">
+                                            <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: s.c, opacity: s.n ? 1 : 0.3 }} />
+                                            <span className="text-[#666]"><span className="tabular-nums text-[#333]">{s.n}</span> {s.label}</span>
+                                        </span>
+                                    ))}
+                                    <span className="ml-auto text-[10px] text-[#999] tabular-nums">avg {avgLatency}ms</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 
