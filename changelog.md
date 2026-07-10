@@ -7,6 +7,27 @@
 
 ---
 
+## 🎨 Full Light-Mono UI Conversion (Jul 10, 2026)
+
+The entire client was migrated to the **light-mono** design system (composio /
+Linear-clean: `#fafafa` surface, white `#e6e6e6` hairline cards, sharp corners,
+no shadows, Geist + JetBrains Mono, single blue `#3b82f6` accent, semantic
+severity red → orange → amber → green). Shipped page-by-page to `main`.
+
+- **Every page converted**: Landing, Docs, SignIn/SignUp, Settings, **Profile**
+  (new), Billing (also redesigned — single visual anchor, balanced current-plan
+  strip, trust row), History, Report, and the **Dashboard command center**
+  (full rebuild — the murky ghost-skeleton idle state was replaced with a clean
+  empty state + 3-step guide; the live console mirrors the Report page).
+- **Shared shell**: AppHeader (avatar always visible), GoBackButton (now a
+  minimal text link, not the sliding pill), OrgSwitcher, ColdStartBanner,
+  DomainVerifyPanel, DashboardCommand.
+- **Font unified to Geist** app-wide; zero Inter/Satoshi overrides remain.
+
+Next focus: **backend performance + architecture** (analysis in progress).
+
+---
+
 ## 🔒 Security & Reliability Hardening (Jul 2026)
 
 A full backend audit (auth, attack pipeline, billing, orgs, data) closed every
