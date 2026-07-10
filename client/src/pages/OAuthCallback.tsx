@@ -55,29 +55,34 @@ const OAuthCallback = () => {
     }, [navigate, setAuth]);
 
     return (
-        <main className="min-h-screen bg-[#080808] text-white font-['Inter'] antialiased flex items-center justify-center px-6">
+        <main className="onyx-mono min-h-screen flex items-center justify-center px-6">
             <div className="w-full max-w-sm text-center">
-                <span className="font-['Inter'] text-white text-[22px] tracking-tight">
-                    Onyx
-                </span>
+                <div className="flex items-center justify-center gap-2">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect width="24" height="24" fill="black" />
+                        <path d="M7 7H11V11H7V7Z" fill="white" />
+                        <path d="M13 13H17V17H13V13Z" fill="white" />
+                        <path d="M7 13H11V17H7V13Z" fill="white" />
+                    </svg>
+                    <span className="font-semibold text-[22px] tracking-tight">Onyx</span>
+                </div>
 
                 {!error ? (
                     <div className="mt-8 flex flex-col items-center gap-4">
                         <span
-                            className="h-6 w-6 rounded-full border-2 border-white/15 border-t-[#73bfc4] animate-spin"
+                            className="h-6 w-6 rounded-full border-2 border-[#e6e6e6] border-t-[#3b82f6] animate-spin"
                             aria-hidden="true"
                         />
-                        <p className="text-[14px] text-white/55">Signing you in…</p>
+                        <p className="font-mono text-[13px] uppercase tracking-wide text-[#666]">
+                            Signing you in…
+                        </p>
                     </div>
                 ) : (
                     <div className="mt-8 flex flex-col items-center gap-5">
-                        <p className="text-[14px] leading-[1.6] text-[#A1A1AA] text-pretty max-w-[34ch]">
+                        <p className="text-[14px] leading-[1.6] text-[#555] text-pretty max-w-[34ch]">
                             {error}
                         </p>
-                        <Link
-                            to="/signin"
-                            className="inline-flex items-center justify-center bg-white text-black rounded-full px-5 py-2 text-[14px] font-semibold hover:bg-neutral-100 active:scale-[0.96] transition-[background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] focus-visible:ring-[#73bfc4]"
-                        >
+                        <Link to="/signin" className="mono-btn">
                             Back to sign in
                         </Link>
                     </div>

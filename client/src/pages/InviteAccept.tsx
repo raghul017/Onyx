@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Shield, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { acceptInviteApi, getMyOrgs } from "@/services/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useOrgStore } from "@/store/useOrgStore";
@@ -53,47 +53,63 @@ export default function InviteAccept() {
     }, [token, isAuthenticated]);
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center font-['Inter']">
+        <div className="onyx-mono min-h-screen flex items-center justify-center">
             <div className="w-full max-w-md px-6">
                 <div className="flex items-center gap-2 mb-8">
-                    <Shield size={18} className="text-cyan-400" />
-                    <span className="text-white font-semibold tracking-tight">Onyx</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect width="24" height="24" fill="black" />
+                        <path d="M7 7H11V11H7V7Z" fill="white" />
+                        <path d="M13 13H17V17H13V13Z" fill="white" />
+                        <path d="M7 13H11V17H7V13Z" fill="white" />
+                    </svg>
+                    <span className="font-semibold text-xl tracking-tight">Onyx</span>
                 </div>
 
-                <div className="border border-neutral-800 bg-[#0A0A0A] rounded-sm p-8 text-center">
+                <div className="border border-[#e6e6e6] bg-white p-8 text-center">
                     {state === "loading" && (
                         <>
-                            <Loader2 size={32} className="text-neutral-600 animate-spin mx-auto mb-4" />
-                            <p className="text-neutral-400 text-[14px]">Accepting invite...</p>
+                            <Loader2 size={30} className="text-[#3b82f6] animate-spin mx-auto mb-4" />
+                            <p className="font-mono text-[13px] uppercase tracking-wide text-[#666]">
+                                Accepting invite…
+                            </p>
                         </>
                     )}
 
                     {state === "success" && (
                         <>
-                            <CheckCircle size={32} className="text-emerald-400 mx-auto mb-4" />
-                            <h2 className="text-white font-semibold text-lg mb-2">You're in!</h2>
+                            <span className="inline-flex items-center justify-center w-11 h-11 bg-[#16a34a] text-white mx-auto mb-4">
+                                <CheckCircle size={22} />
+                            </span>
+                            <h2 className="text-black font-medium text-[20px] tracking-tight mb-2">
+                                You're in.
+                            </h2>
                             {orgName && (
-                                <p className="text-neutral-400 text-[14px] mb-6">
-                                    You've joined <span className="text-white font-medium">{orgName}</span>.
+                                <p className="text-[#666] text-[14px] mb-6">
+                                    You've joined{" "}
+                                    <span className="text-black font-medium">{orgName}</span>.
                                 </p>
                             )}
                             <button
                                 onClick={() => navigate("/dashboard")}
-                                className="bg-white text-black text-[13px] font-bold px-6 py-2 rounded-sm hover:bg-neutral-200 transition-colors"
+                                className="mono-btn justify-center"
                             >
-                                Go to Dashboard
+                                Go to dashboard
                             </button>
                         </>
                     )}
 
                     {state === "error" && (
                         <>
-                            <XCircle size={32} className="text-red-400 mx-auto mb-4" />
-                            <h2 className="text-white font-semibold text-lg mb-2">Invite Failed</h2>
-                            <p className="text-neutral-400 text-[14px] mb-6">{errorMsg}</p>
+                            <span className="inline-flex items-center justify-center w-11 h-11 bg-[#dc2626] text-white mx-auto mb-4">
+                                <XCircle size={22} />
+                            </span>
+                            <h2 className="text-black font-medium text-[20px] tracking-tight mb-2">
+                                Invite failed
+                            </h2>
+                            <p className="text-[#666] text-[14px] mb-6">{errorMsg}</p>
                             <button
                                 onClick={() => navigate("/")}
-                                className="text-neutral-500 hover:text-white text-[13px] transition-colors"
+                                className="mono-btn-ghost justify-center"
                             >
                                 Go home
                             </button>
