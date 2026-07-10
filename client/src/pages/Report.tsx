@@ -31,33 +31,33 @@ import GoBackButton from "@/components/GoBackButton";
 // Severity helpers
 // ---------------------------------------------------------------------------
 
-// Brand severity palette (shared across dashboard / history / report)
+// Light-mono severity palette (shared language: red → orange → amber → blue → slate)
 const SEV_COLOR: Record<string, string> = {
-    CRITICAL: "#ef4444",
-    HIGH: "#ff810a",
-    MEDIUM: "#d8b24a",
-    LOW: "#73bfc4",
-    INFO: "#8da0ce",
+    CRITICAL: "#dc2626",
+    HIGH: "#ea580c",
+    MEDIUM: "#ca8a04",
+    LOW: "#3b82f6",
+    INFO: "#64748b",
 };
 
 function severityBadge(severity: SeverityLevel) {
     const c = SEV_COLOR[severity] ?? SEV_COLOR.INFO;
     return (
         <span
-            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-['JetBrains_Mono']"
-            style={{ color: c, backgroundColor: `${c}1A` }}
+            className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold font-mono border"
+            style={{ color: c, backgroundColor: `${c}12`, borderColor: `${c}40` }}
         >
             {severity}
         </span>
     );
 }
 
-// Score color as a hex (severity-aware): CRITICAL red → CLEAN teal
+// Score color as a hex (severity-aware): CRITICAL red → CLEAN green
 function scoreHex(score: number): string {
-    if (score <= 25) return "#ef4444";
-    if (score <= 50) return "#ff810a";
-    if (score <= 75) return "#d8b24a";
-    return "#73bfc4";
+    if (score <= 25) return "#dc2626";
+    if (score <= 50) return "#ea580c";
+    if (score <= 75) return "#ca8a04";
+    return "#16a34a";
 }
 
 function scoreLabelText(label: string): string {
@@ -154,22 +154,22 @@ const Report = () => {
 
     const getRowClass = (sev: SeverityLevel) => {
         switch (sev) {
-            case "CRITICAL": return "bg-red-500/[0.05] border-l-2 border-l-red-500";
-            case "HIGH":     return "bg-[#ff810a]/[0.04] border-l-2 border-l-[#ff810a]/60";
-            case "MEDIUM":   return "bg-[#d8b24a]/[0.03] border-l-2 border-l-[#d8b24a]/40";
-            case "LOW":      return "border-l-2 border-l-[#73bfc4]/25";
-            default:         return "";
+            case "CRITICAL": return "bg-[#fef2f2] border-l-2 border-l-[#dc2626]";
+            case "HIGH":     return "bg-[#fff7ed] border-l-2 border-l-[#ea580c]";
+            case "MEDIUM":   return "bg-[#fefce8] border-l-2 border-l-[#ca8a04]";
+            case "LOW":      return "border-l-2 border-l-[#93c5fd]";
+            default:         return "border-l-2 border-l-transparent";
         }
     };
 
     const getMethodColor = (method: string) => {
         switch (method) {
-            case "GET":    return "text-[#73bfc4]";
-            case "POST":   return "text-emerald-400";
-            case "PUT":    return "text-[#d8b24a]";
-            case "DELETE": return "text-red-400";
-            case "PATCH":  return "text-[#a78bfa]";
-            default:       return "text-neutral-400";
+            case "GET":    return "text-[#3b82f6]";
+            case "POST":   return "text-[#16a34a]";
+            case "PUT":    return "text-[#ca8a04]";
+            case "DELETE": return "text-[#dc2626]";
+            case "PATCH":  return "text-[#7c3aed]";
+            default:       return "text-[#666]";
         }
     };
 
@@ -192,11 +192,7 @@ const Report = () => {
     };
 
     return (
-        <div className="relative min-h-screen flex flex-col bg-[#080808] text-white font-['Geist'] antialiased selection:bg-[#73bfc4]/25 selection:text-black overflow-x-hidden">
-            {/* Subtle gradient accent, matches landing/dashboard */}
-            <div className="fixed inset-x-0 top-0 h-72 pointer-events-none z-0 c5-animated-gradient opacity-[0.08] blur-3xl" />
-            <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-transparent via-[#080808] to-[#080808]" />
-
+        <div className="onyx-mono relative min-h-screen flex flex-col overflow-x-clip">
             {/* Shared app header */}
             <div className="relative z-30">
                 <AppHeader user={user} />
@@ -205,23 +201,24 @@ const Report = () => {
             <ColdStartBanner />
 
             {/* Report sub-bar: back to history · target · status · export */}
-            <div className="relative z-10 shrink-0 border-b border-white/[0.06] bg-[#0B0C0D] px-5 sm:px-8 lg:px-12 py-3 flex items-center gap-3">
+            <div className="relative z-10 shrink-0 border-b border-[#e6e6e6] bg-white px-5 sm:px-8 lg:px-12 py-3 flex items-center gap-3">
                 <GoBackButton to="/history" label="History" size="sm" className="shrink-0" />
+                <span className="hidden md:block w-px h-4 bg-[#e6e6e6] shrink-0" aria-hidden="true" />
                 <div className="hidden md:flex items-center gap-2 flex-1 min-w-0">
-                    <Terminal size={12} className="text-neutral-600 shrink-0" />
-                    <span className="font-['JetBrains_Mono'] text-[12px] text-neutral-400 truncate">
+                    <Terminal size={12} className="text-[#999] shrink-0" />
+                    <span className="font-mono text-[12px] text-[#666] truncate">
                         {loading ? "Decrypting logs..." : summary?.specUrl || "Unknown Target"}
                     </span>
                 </div>
-                <div className="hidden sm:flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] uppercase tracking-wider shrink-0">
-                    <span className={`w-2 h-2 rounded-full ${statusLabel === "SEQUENCE COMPLETE" ? "bg-[#73bfc4]" : "bg-red-500"}`} />
-                    <span className="text-neutral-500">{statusLabel}</span>
+                <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider shrink-0">
+                    <span className={`w-2 h-2 rounded-full ${statusLabel === "SEQUENCE COMPLETE" ? "bg-[#16a34a]" : "bg-[#dc2626]"}`} />
+                    <span className="text-[#999]">{statusLabel}</span>
                 </div>
                 {summary?.status === "COMPLETED" && (
                     <button
                         onClick={handleExportPDF}
                         disabled={exporting}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-[#73bfc4] text-black text-[12px] font-bold font-['Geist'] rounded-full hover:bg-[#8fd0d4] transition-transform active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#73bfc4]/60"
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-black text-white text-[12px] font-medium hover:bg-[#1a1a1a] transition-[background-color,transform] active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]"
                     >
                         {exporting ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
                         {exporting ? "Exporting..." : "Export PDF"}
@@ -230,19 +227,19 @@ const Report = () => {
             </div>
 
             {/* 2. Telemetry Row */}
-            <div className="relative z-10 shrink-0 grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/[0.06] border-b border-white/[0.06]">
-                <div className="bg-[#0B0C0D] p-4 sm:p-5 flex flex-col min-h-[96px] relative overflow-hidden">
-                    <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
+            <div className="relative z-10 shrink-0 grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#e6e6e6] border-b border-[#e6e6e6] bg-white">
+                <div className="p-4 sm:p-5 flex flex-col min-h-[96px] relative overflow-hidden">
+                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
                         <Crosshair size={11} /> Payloads Fired
                     </div>
                     <div className="mt-auto flex items-baseline gap-1">
-                        <span className="text-3xl font-['JetBrains_Mono'] text-white tabular-nums">{completedCount}</span>
-                        {totalPayloads > 0 && <span className="text-sm font-['JetBrains_Mono'] text-neutral-600">/ {totalPayloads}</span>}
+                        <span className="text-3xl font-mono text-black tabular-nums">{completedCount}</span>
+                        {totalPayloads > 0 && <span className="text-sm font-mono text-[#999]">/ {totalPayloads}</span>}
                     </div>
                     {totalPayloads > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/[0.05]">
+                        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#e6e6e6]">
                             <motion.div
-                                className="h-full bg-[#73bfc4] opacity-70"
+                                className="h-full bg-[#3b82f6]"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progressPct}%` }}
                                 transition={{ duration: 0.5, ease: "easeOut" }}
@@ -251,57 +248,57 @@ const Report = () => {
                     )}
                 </div>
 
-                <div className="bg-[#0B0C0D] p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                        <AlertTriangle size={11} className="text-red-500" /> Critical Failures
+                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
+                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
+                        <AlertTriangle size={11} className="text-[#dc2626]" /> Critical Failures
                     </div>
                     <div className="mt-auto flex items-baseline gap-2">
-                        <span className="text-3xl font-['JetBrains_Mono'] text-red-500 font-bold tabular-nums">{criticalCount}</span>
+                        <span className="text-3xl font-mono text-[#dc2626] font-bold tabular-nums">{criticalCount}</span>
                         {criticalCount > 0 && (
-                            <span className="text-[10px] font-['JetBrains_Mono'] text-red-500/80 uppercase tracking-wider animate-pulse">VULN DETECTED</span>
+                            <span className="text-[10px] font-mono text-[#dc2626] uppercase tracking-wider animate-pulse">VULN DETECTED</span>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-[#0B0C0D] p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                        <ShieldAlert size={11} className="text-orange-500" /> Payloads Blocked
+                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
+                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
+                        <ShieldAlert size={11} className="text-[#ea580c]" /> Payloads Blocked
                     </div>
                     <div className="mt-auto">
-                        <span className="text-3xl font-['JetBrains_Mono'] tabular-nums text-[#ff810a]">{blockedCount}</span>
+                        <span className="text-3xl font-mono tabular-nums text-[#ea580c]">{blockedCount}</span>
                     </div>
                 </div>
 
-                <div className="bg-[#0B0C0D] p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-neutral-600 text-[10px] font-['JetBrains_Mono'] uppercase tracking-[0.15em]">
-                        <ShieldCheck size={11} className="text-neutral-500" /> Info / Passed
+                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
+                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
+                        <ShieldCheck size={11} className="text-[#16a34a]" /> Info / Passed
                     </div>
                     <div className="mt-auto">
-                        <span className="text-3xl font-['JetBrains_Mono'] text-neutral-500 tabular-nums">{infoCount}</span>
+                        <span className="text-3xl font-mono text-[#16a34a] tabular-nums">{infoCount}</span>
                     </div>
                 </div>
             </div>
 
             {/* 3. Score + Breakdown Bar */}
             {!loading && summary && (
-                <div className={`relative z-10 shrink-0 border-b border-white/[0.06] px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#080808]`}>
+                <div className="relative z-10 shrink-0 border-b border-[#e6e6e6] px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#fafafa]">
                     {/* Score pill */}
                     <div
-                        className="flex items-baseline gap-1.5 px-4 py-2.5 rounded-xl"
-                        style={{ backgroundColor: `${scoreHex(overallScore)}14`, boxShadow: `inset 0 0 0 1px ${scoreHex(overallScore)}33` }}
+                        className="flex items-baseline gap-1.5 px-4 py-2.5 bg-white border"
+                        style={{ backgroundColor: `${scoreHex(overallScore)}0f`, borderColor: `${scoreHex(overallScore)}40` }}
                     >
-                        <span className="text-4xl font-bold font-['JetBrains_Mono'] tabular-nums" style={{ color: scoreHex(overallScore) }}>
+                        <span className="text-4xl font-bold font-mono tabular-nums" style={{ color: scoreHex(overallScore) }}>
                             {overallScore}
                         </span>
-                        <span className="text-neutral-500 text-lg font-['JetBrains_Mono']">/100</span>
+                        <span className="text-[#999] text-lg font-mono">/100</span>
                         <div className="ml-2 flex flex-col justify-center">
                             <Gauge size={14} style={{ color: scoreHex(overallScore) }} />
                         </div>
                         <div className="ml-1 flex flex-col">
-                            <span className="text-[9px] font-bold font-['JetBrains_Mono'] uppercase tracking-widest" style={{ color: scoreHex(overallScore) }}>
+                            <span className="text-[9px] font-bold font-mono uppercase tracking-widest" style={{ color: scoreHex(overallScore) }}>
                                 {scoreLabelText(scoreLabel)}
                             </span>
-                            <span className="text-[9px] text-neutral-600 font-['JetBrains_Mono'] uppercase tracking-wider">Security Score</span>
+                            <span className="text-[9px] text-[#999] font-mono uppercase tracking-wider">Security Score</span>
                         </div>
                     </div>
 
@@ -309,29 +306,29 @@ const Report = () => {
                     <div className="flex-1 flex flex-col gap-2 min-w-0">
                         {(() => {
                             const segs = [
-                                { key: "critical", label: "critical", n: breakdown.critical, c: "#ef4444" },
-                                { key: "high", label: "high", n: breakdown.high, c: "#ff810a" },
-                                { key: "medium", label: "medium", n: breakdown.medium, c: "#d8b24a" },
-                                { key: "low", label: "low", n: breakdown.low, c: "#73bfc4" },
-                                { key: "info", label: "info", n: breakdown.info, c: "#8da0ce" },
+                                { key: "critical", label: "critical", n: breakdown.critical, c: "#dc2626" },
+                                { key: "high", label: "high", n: breakdown.high, c: "#ea580c" },
+                                { key: "medium", label: "medium", n: breakdown.medium, c: "#ca8a04" },
+                                { key: "low", label: "low", n: breakdown.low, c: "#3b82f6" },
+                                { key: "info", label: "info", n: breakdown.info, c: "#64748b" },
                             ];
                             return (
                                 <>
                                     {breakdownTotal > 0 && (
-                                        <div className="flex h-2 rounded-full overflow-hidden gap-px w-full">
+                                        <div className="flex h-2 overflow-hidden gap-px w-full bg-[#f0f0f0]">
                                             {segs.map((s) => s.n > 0 ? (
                                                 <div key={s.key} style={{ backgroundColor: s.c, width: `${(s.n / breakdownTotal) * 100}%` }} />
                                             ) : null)}
                                         </div>
                                     )}
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-['JetBrains_Mono'] text-[11px]">
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px]">
                                         {segs.map((s) => (
                                             <span key={s.key} className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.c, opacity: s.n ? 1 : 0.35 }} />
-                                                <span className="text-neutral-400"><span className="tabular-nums">{s.n}</span> {s.label}</span>
+                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.c, opacity: s.n ? 1 : 0.3 }} />
+                                                <span className="text-[#666]"><span className="tabular-nums">{s.n}</span> {s.label}</span>
                                             </span>
                                         ))}
-                                        <span className="hidden sm:block text-neutral-600 ml-auto text-[10px] tabular-nums">avg {avgLatency}ms</span>
+                                        <span className="hidden sm:block text-[#999] ml-auto text-[10px] tabular-nums">avg {avgLatency}ms</span>
                                     </div>
                                 </>
                             );
@@ -343,10 +340,10 @@ const Report = () => {
             {/* 4. Attack Log Table */}
             <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
                 {/* Filter buttons + column headers */}
-                <div className="shrink-0 bg-[#080808] border-b border-white/[0.06]">
+                <div className="shrink-0 bg-white border-b border-[#e6e6e6]">
                     {/* Filter row */}
-                    <div className="flex items-center gap-1 px-4 sm:px-6 py-2 border-b border-white/[0.06] overflow-x-auto">
-                        <span className="text-[10px] font-['JetBrains_Mono'] text-neutral-600 uppercase tracking-wider mr-2 shrink-0">Filter:</span>
+                    <div className="flex items-center gap-1 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] overflow-x-auto">
+                        <span className="text-[10px] font-mono text-[#999] uppercase tracking-wider mr-2 shrink-0">Filter:</span>
                         {SEVERITY_FILTERS.map((f) => {
                             const on = severityFilter === f;
                             const n =
@@ -360,19 +357,19 @@ const Report = () => {
                                 <button
                                     key={f}
                                     onClick={() => setSeverityFilter(f)}
-                                    className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold font-['JetBrains_Mono'] uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#73bfc4]/60 ${
-                                        on ? "bg-white/[0.08] text-white" : "text-neutral-500 hover:text-neutral-300"
+                                    className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold font-mono uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#3b82f6]/60 ${
+                                        on ? "bg-black text-white" : "text-[#666] hover:bg-[#f0f0f0]"
                                     }`}
                                 >
                                     {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dot, opacity: n ? 1 : 0.35 }} />}
-                                    {f} <span className="tabular-nums text-neutral-600">({n})</span>
+                                    {f} <span className={`tabular-nums ${on ? "text-white/60" : "text-[#999]"}`}>({n})</span>
                                 </button>
                             );
                         })}
                     </div>
 
                     {/* Column headers — desktop */}
-                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 font-mono text-[10px] text-[#999] uppercase tracking-[0.15em]">
                         <span>Time</span>
                         <span>Method</span>
                         <span>Endpoint</span>
@@ -381,22 +378,22 @@ const Report = () => {
                         <span>Latency</span>
                         <span>Payload</span>
                     </div>
-                    <div className="md:hidden px-4 py-2.5 font-['JetBrains_Mono'] text-[10px] text-neutral-600 uppercase tracking-[0.15em]">
+                    <div className="md:hidden px-4 py-2.5 font-mono text-[10px] text-[#999] uppercase tracking-[0.15em]">
                         Attack Log Archive
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-[#0B0C0D]">
+                <div className="flex-1 overflow-y-auto bg-white">
                     {error && (
-                        <div className="mx-4 sm:mx-6 mt-3 px-3 py-2.5 border border-red-500/30 bg-red-500/5 text-red-400 text-[11px] font-['JetBrains_Mono'] flex items-center gap-2 rounded-sm">
+                        <div className="mx-4 sm:mx-6 mt-3 px-3 py-2.5 border border-[#fca5a5] bg-[#fef2f2] text-[#dc2626] text-[11px] font-mono flex items-center gap-2">
                             <AlertTriangle size={12} className="shrink-0" />
                             {error}
                         </div>
                     )}
 
                     {!loading && filteredLogs.length === 0 && !error && (
-                        <div className="flex flex-col items-center justify-center h-52 text-neutral-700 font-['JetBrains_Mono'] text-xs gap-3">
-                            <Terminal size={20} className="text-neutral-800" />
+                        <div className="flex flex-col items-center justify-center h-52 text-[#999] font-mono text-xs gap-3">
+                            <Terminal size={20} className="text-[#ccc]" />
                             <span>{severityFilter === "ALL" ? "No logs recorded for this operation." : `No ${severityFilter} severity findings.`}</span>
                         </div>
                     )}
@@ -416,47 +413,47 @@ const Report = () => {
                                     className={getRowClass(log.severity)}
                                 >
                                     {/* Desktop row */}
-                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] items-center hover:bg-white/[0.025] transition-colors">
-                                        <span className="text-neutral-600 text-[11px] tabular-nums">
+                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] font-mono text-[12px] items-center hover:bg-black/[0.02] transition-colors">
+                                        <span className="text-[#999] text-[11px] tabular-nums">
                                             {formatTime(log.timestamp)}
                                         </span>
                                         <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>
                                             {log.method}
                                         </span>
-                                        <span className={`truncate pr-3 ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-white" : "text-neutral-300"}`}>
+                                        <span className={`truncate pr-3 ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#333]"}`}>
                                             {log.endpoint}
                                         </span>
                                         <span className="flex items-center">
                                             {severityBadge(log.severity)}
                                         </span>
-                                        <span className="text-neutral-500 tabular-nums">
+                                        <span className="text-[#666] tabular-nums">
                                             {log.statusCode || "ERR"}
                                         </span>
-                                        <span className="text-neutral-500 text-[11px] tabular-nums">
-                                            {log.responseTime}<span className="text-neutral-700">ms</span>
+                                        <span className="text-[#666] text-[11px] tabular-nums">
+                                            {log.responseTime}<span className="text-[#ccc]">ms</span>
                                         </span>
-                                        <span className="text-neutral-500 text-[11px] truncate" title={payloadStr}>
+                                        <span className="text-[#999] text-[11px] truncate" title={payloadStr}>
                                             {payloadStr}
                                         </span>
                                     </div>
 
                                     {/* Mobile card */}
-                                    <div className="md:hidden px-4 py-3 border-b border-white/[0.06] font-['JetBrains_Mono'] text-[12px] hover:bg-white/[0.025] transition-colors space-y-1.5">
+                                    <div className="md:hidden px-4 py-3 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors space-y-1.5">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>{log.method}</span>
-                                                <span className="text-neutral-500 tabular-nums text-[11px]">{log.statusCode || "ERR"}</span>
+                                                <span className="text-[#666] tabular-nums text-[11px]">{log.statusCode || "ERR"}</span>
                                                 {severityBadge(log.severity)}
                                             </div>
-                                            <div className="flex items-center gap-2 text-neutral-600 text-[10px]">
+                                            <div className="flex items-center gap-2 text-[#999] text-[10px]">
                                                 <span className="tabular-nums">{log.responseTime}ms</span>
                                                 <span className="tabular-nums">{formatTime(log.timestamp)}</span>
                                             </div>
                                         </div>
-                                        <div className={`text-[11px] truncate ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-white" : "text-neutral-400"}`}>
+                                        <div className={`text-[11px] truncate ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#666]"}`}>
                                             {log.endpoint}
                                         </div>
-                                        <div className="text-neutral-600 text-[10px] truncate" title={payloadStr}>
+                                        <div className="text-[#999] text-[10px] truncate" title={payloadStr}>
                                             {payloadStr}
                                         </div>
                                     </div>
@@ -466,15 +463,15 @@ const Report = () => {
                     </AnimatePresence>
                 </div>
 
-                <div className="shrink-0 h-7 bg-[#080808] border-t border-white/[0.06] flex items-center justify-between px-4 sm:px-6 font-['JetBrains_Mono'] text-[10px] text-neutral-600">
+                <div className="shrink-0 h-7 bg-[#fafafa] border-t border-[#e6e6e6] flex items-center justify-between px-4 sm:px-6 font-mono text-[10px] text-[#999]">
                     <span>
                         {filteredLogs.length} / {totalPayloads || "—"} results
-                        {severityFilter !== "ALL" && <span className="text-neutral-500 ml-1">(filtered: {severityFilter})</span>}
-                        {breakdown.critical > 0 && <span className="text-red-500/80 ml-2">● {breakdown.critical} critical</span>}
-                        {breakdown.high > 0 && <span className="text-orange-500/80 ml-2">● {breakdown.high} high</span>}
+                        {severityFilter !== "ALL" && <span className="text-[#666] ml-1">(filtered: {severityFilter})</span>}
+                        {breakdown.critical > 0 && <span className="text-[#dc2626] ml-2">● {breakdown.critical} critical</span>}
+                        {breakdown.high > 0 && <span className="text-[#ea580c] ml-2">● {breakdown.high} high</span>}
                     </span>
                     <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#ccc]" />
                         Log Terminal Immutable
                     </span>
                 </div>
