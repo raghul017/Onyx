@@ -112,9 +112,15 @@ const Navbar = () => {
                         >
                             Billing
                         </button>
-                        <span className="flex items-center gap-2 border border-[#e6e6e6] bg-white rounded-none pl-1.5 pr-3 py-1 text-[11px] normal-case">
+                        <button
+                            onClick={() => navigate("/profile")}
+                            title={`${user.email} · Profile`}
+                            aria-label="Profile"
+                            className="flex items-center gap-2 border border-[#e6e6e6] bg-white pl-1.5 pr-3 py-1 text-[11px] normal-case text-[#666] hover:text-black hover:border-black transition-colors"
+                            style={{ transitionProperty: "color, border-color" }}
+                        >
                             <span
-                                className="flex items-center justify-center w-5 h-5 rounded-none bg-black text-white text-[10px] font-semibold"
+                                className="flex items-center justify-center w-5 h-5 bg-black text-white text-[10px] font-semibold"
                                 aria-hidden="true"
                             >
                                 {user.email.charAt(0).toUpperCase()}
@@ -122,7 +128,7 @@ const Navbar = () => {
                             <span className="max-w-[120px] truncate">
                                 {user.email.split("@")[0]}
                             </span>
-                        </span>
+                        </button>
                         <button
                             onClick={handleLogout}
                             className="flex items-center justify-center w-9 h-9 border border-[#e6e6e6] text-[#666] hover:text-black hover:border-black transition-colors"
@@ -211,6 +217,15 @@ const Navbar = () => {
                                     className="text-left hover:opacity-60"
                                 >
                                     Billing
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigate("/profile");
+                                        setMobileOpen(false);
+                                    }}
+                                    className="text-left hover:opacity-60"
+                                >
+                                    Profile
                                 </button>
                                 <button
                                     onClick={() => {

@@ -57,8 +57,12 @@
 
     body {
         @apply bg-background text-foreground antialiased;
+        /* Geist everywhere — matches the landing page so every route (converted
+           or not) shares one typeface. Mono chrome opts back in via .font-mono. */
         font-family:
-            "Inter",
+            "Geist",
+            ui-sans-serif,
+            system-ui,
             -apple-system,
             BlinkMacSystemFont,
             sans-serif;
