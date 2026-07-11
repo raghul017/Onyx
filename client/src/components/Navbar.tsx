@@ -32,11 +32,25 @@ const Navbar = () => {
     const [fullUser, setFullUser] = useState<CurrentUser | null>(null);
 
     useEffect(() => {
-        if (isAuthenticated) {
+        if (!isAuthenticated) return;
+
+        const fetchUser = () => {
             getCurrentUser()
                 .then(setFullUser)
                 .catch(() => {});
-        }
+        };
+
+        fetchUser();
+
+        // Re-fetch whenever the tab becomes visible again (e.g. user edits name
+        // on the Profile page, then navigates back to the landing page).
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") fetchUser();
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
     }, [isAuthenticated]);
 
     const handleLogout = () => {
@@ -123,10 +137,12 @@ const Navbar = () => {
                                 className="flex items-center justify-center w-5 h-5 bg-black text-white text-[10px] font-semibold"
                                 aria-hidden="true"
                             >
-                                {user.email.charAt(0).toUpperCase()}
+                                {(fullUser?.name ?? user.email)
+                                    .charAt(0)
+                                    .toUpperCase()}
                             </span>
                             <span className="max-w-[120px] truncate">
-                                {user.email.split("@")[0]}
+                                {fullUser?.name ?? user.email.split("@")[0]}
                             </span>
                         </button>
                         <button
