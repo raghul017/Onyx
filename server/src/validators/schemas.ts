@@ -143,3 +143,18 @@ export const updateMemberRoleSchema = z.object({
 export const acceptInviteSchema = z.object({
     token: z.string().min(1, "token is required"),
 });
+
+// ---------------------------------------------------------------------------
+// User Profile
+// ---------------------------------------------------------------------------
+
+export const updateUserSchema = z.object({
+    name: z
+        .string()
+        .trim()
+        .min(1, "Name cannot be empty")
+        .max(80, "Name must be 80 characters or fewer")
+        .optional(),
+});
+
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

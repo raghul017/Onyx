@@ -29,6 +29,7 @@ import { injectOrgContext } from "../middleware/org.middleware.js";
 import { getEffectivePlan } from "../services/org.service.js";
 import { generateTestRunPDF } from "../services/pdf.service.js";
 import { openApiSpec } from "../openapi.js";
+import { updateUserSchema } from "../validators/schemas.js";
 
 const router = Router();
 
@@ -168,7 +169,7 @@ router.get("/user/me", authenticateToken, async (req, res) => {
     const [user, memberships] = await Promise.all([
         prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, email: true, plan: true, planExpiresAt: true },
+            select: { id: true, email: true, name: true, plan: true, planExpiresAt: true },
         }),
         prisma.orgMember.findMany({
             where: { userId },
@@ -183,6 +184,23 @@ router.get("/user/me", authenticateToken, async (req, res) => {
         ...user,
         orgs: memberships.map((m) => ({ ...m.org, role: m.role })),
     });
+});
+
+/** Update the authenticated user's display name. */
+router.patch("/user/me", authenticateToken, async (req, res) => {
+    const userId = req.user!.id;
+    const validation = updateUserSchema.safeParse(req.body);
+    if (!validation.success) {
+        res.status(400).json({ error: "Validation failed", details: validation.error.issues });
+        return;
+    }
+    const { name } = validation.data;
+    const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { name },
+        select: { id: true, email: true, name: true, plan: true, planExpiresAt: true },
+    });
+    res.json(updated);
 });
 
 export default router;

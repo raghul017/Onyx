@@ -215,6 +215,7 @@ export interface OrgSummary {
 export interface CurrentUser {
     id: string;
     email: string;
+    name: string | null;
     plan: Plan;
     planExpiresAt: string | null;
     orgs: OrgSummary[];
@@ -222,6 +223,11 @@ export interface CurrentUser {
 
 export async function getCurrentUser(): Promise<CurrentUser> {
     const res = await api.get("/user/me");
+    return res.data;
+}
+
+export async function updateCurrentUser(data: { name?: string }): Promise<CurrentUser> {
+    const res = await api.patch("/user/me", data);
     return res.data;
 }
 
