@@ -2,7 +2,15 @@
 
 A complete architectural breakdown of how every piece of this project works — from the moment you paste a URL to the final attack result streaming to your dashboard.
 
-> Last updated: 2026-06-17 | Reflects Feature #2 — Organization / Multi-Tenancy
+> Last updated: 2026-07-13 | Core flow below is current. Since this was written,
+> Onyx also added: an **explained-findings** analysis layer (each result gets a
+> category / cause / evidence / remediation — see
+> `server/src/services/finding-analysis.ts`), a **denormalized run score** stored
+> on the run at completion (History no longer reloads every log), and several
+> attack-pipeline performance trims (SSRF DNS cache, single-transaction per-attack
+> writes, throttled progress broadcasts). The UI is now the **light-mono** design
+> system (light surface, blue accent) — see [AGENTS.md](AGENTS.md). Details in
+> [changelog.md](changelog.md).
 
 ---
 
@@ -652,7 +660,7 @@ ws://server/ws?token=<JWT>
 ```mermaid
 graph TD
     classDef client fill:#0c0c0c,stroke:#333,stroke-width:1px,color:#fff
-    classDef server fill:#141414,stroke:#22d3ee,stroke-width:1px,color:#fff
+    classDef server fill:#141414,stroke:#3b82f6,stroke-width:1px,color:#fff
     classDef external fill:#1a1a1a,stroke:#ff5f57,stroke-width:1px,color:#fff
     classDef db fill:#1a1a1a,stroke:#339933,stroke-width:1px,color:#fff
     classDef security fill:#141414,stroke:#f59e0b,stroke-width:1px,color:#fff

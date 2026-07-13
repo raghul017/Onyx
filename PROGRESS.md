@@ -1,7 +1,7 @@
 # 🛡️ Onyx — Build Progress Log
 
 > Full history of what has been built, when, and what's left.
-> Updated: 2026-06-23 (UI redesign — landing + app pages)
+> Updated: 2026-07-13 (light-mono UI, explained findings, backend performance)
 
 ---
 
@@ -16,9 +16,31 @@
 | Domain ownership verification | ✅ Complete (Jun 17) |
 | Multi-tenancy / org model | ✅ Complete (Jun 17) |
 | UI redesign (landing + app pages) | ✅ Complete (Jun 23) |
+| Light-mono design system (whole app) | ✅ Complete (Jul 10) |
+| Explained findings (analysis engine) | ✅ Complete (Jul 13) |
+| Backend performance pass | ✅ Complete (Jul 13) |
 | Public REST API + API keys | ⬜ Not started |
 | Scheduled scanning | ⬜ Not started |
 | Audit logging | ⬜ Not started |
+
+### Recent milestones (Jul 2026)
+
+- **Light-mono UI (Jul 10)** — the entire client was migrated off the old dark/
+  teal theme to a light, monospace-accented system (`#fafafa` surface, white
+  hairline cards, sharp corners, single blue `#3b82f6` accent, Geist + JetBrains
+  Mono). Every page + the shared shell; a new **Profile** page; Billing was also
+  flaw-fixed; the Dashboard was fully rebuilt. See [AGENTS.md](AGENTS.md) and
+  [changelog.md](changelog.md).
+- **Explained findings (Jul 13)** — a rule-based analysis engine
+  (`server/src/services/finding-analysis.ts`) turns each result into a real
+  finding (category, cause, evidence, remediation, confidence) from data already
+  captured — confirmed reflected XSS, SQL/stack-trace disclosure, path traversal,
+  secret leaks, auth bypass, 5xx crashes. Shown as expandable detail in the
+  Dashboard + Report.
+- **Backend performance (Jul 13)** — SSRF DNS cache (~400 lookups → 1) + an IPv6
+  SSRF-bypass fix, Prisma pool raised above worker concurrency, per-attack DB
+  writes collapsed to one transaction + throttled progress broadcasts, and the
+  run score denormalized so History stops loading every log.
 
 ---
 

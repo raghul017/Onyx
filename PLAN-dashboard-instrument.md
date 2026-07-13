@@ -1,10 +1,15 @@
 # PLAN — "Onyx Instrument" dashboard redesign (paused, build next session)
 
-> Status: **APPROVED, paused to build next session.** Accent decision = **warm
-> amber / signal-orange** (user chose this). Scope = **both idle + live states**
-> (I chose, per user). This doc is self-contained: everything needed to build is
-> here — no re-research required. Local only (this file is git-ignored via the
-> DESIGN_SYSTEM/EXPLAIN pattern? NO — it's tracked; fine to commit).
+> ⛔️ **SUPERSEDED / DO NOT BUILD (as of 2026-07-10).** This plan is a dark,
+> off-black + amber "instrument" direction. It was **abandoned**: the whole app,
+> Dashboard included, was migrated to the **light-mono** design system (light
+> `#fafafa` surface, single blue `#3b82f6` accent, Geist + JetBrains Mono — see
+> [AGENTS.md](AGENTS.md) → Design system). Kept only as historical record; do not
+> reintroduce off-black/amber. The Dashboard rebuild that shipped is light-mono.
+
+> Status (historical): **APPROVED, paused to build next session.** Accent decision
+> = **warm amber / signal-orange** (user chose this). Scope = **both idle + live
+> states**. Self-contained plan; no re-research required.
 
 ## Why we're doing this
 
