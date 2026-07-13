@@ -16,7 +16,12 @@ function createPrismaClient(): PrismaClient {
     const pool = new pg.Pool({
         connectionString,
         min: 2, // Keep warm connections to avoid Neon cold-start latency
-        max: 10,
+        // Must comfortably exceed the BullMQ worker's concurrency (12 in-flight
+        // attack jobs, each doing a few sequential queries) PLUS headroom for
+        // concurrent HTTP requests — the web server and the worker share this
+        // single pool. At max:10 the worker alone could starve the pool and
+        // serialize jobs on connection acquisition. 20 = 12 worker + ~8 HTTP.
+        max: 20,
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 5_000,
     });
