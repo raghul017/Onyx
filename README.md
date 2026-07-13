@@ -3,6 +3,8 @@
   <p><strong>AI-Powered API Security Testing Platform</strong></p>
   <p>Feed it an OpenAPI spec. Watch Gemini synthesize attack payloads. Stream results live.</p>
 
+  <img src="Onyx.png" alt="Onyx — break your API before they do" width="100%" />
+
   [![CI](https://github.com/raghul017/Onyx/actions/workflows/ci.yml/badge.svg)](https://github.com/raghul017/Onyx/actions/workflows/ci.yml)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
   [![Node](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org/)
