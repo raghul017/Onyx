@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
+import type { FindingDetail } from "@/services/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +18,8 @@ export interface AttackLog {
     statusCode: number;
     latencyMs: number;
     timestamp: number;
+    responseSnippet?: string;
+    finding?: FindingDetail;
 }
 
 export type AttackStatus = "idle" | "attacking" | "completed";
@@ -135,6 +138,8 @@ export const useAttackStore = create<AttackState & AttackActions>(
                                     msg.data.responseTime ??
                                     0,
                                 timestamp: msg.data.timestamp ?? Date.now(),
+                                responseSnippet: msg.data.responseSnippet,
+                                finding: msg.data.finding,
                             };
                             get().addLog(log);
                             // Move to "attacking" on first result

@@ -110,6 +110,18 @@ export interface TestRunSummary {
     severityBreakdown: SeverityBreakdown;
 }
 
+export type FindingConfidence = "confirmed" | "firm" | "tentative" | "info";
+
+export interface FindingDetail {
+    severity: SeverityLevel;
+    category: string;
+    title: string;
+    cause: string;
+    evidence: string | null;
+    remediation: string;
+    confidence: FindingConfidence;
+}
+
 export interface AttackResult {
     id: string;
     testRunId: string;
@@ -122,6 +134,7 @@ export interface AttackResult {
     attackType: string;
     timestamp: string;
     severity: SeverityLevel;
+    finding?: FindingDetail;
 }
 
 export interface GetTestRunResponse {

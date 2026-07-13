@@ -14,7 +14,9 @@ import {
     Terminal,
     FileDown,
     Loader2,
+    ChevronDown,
 } from "lucide-react";
+import FindingDetailPanel from "@/components/FindingDetailPanel";
 import {
     getTestRun,
     exportTestRunPDF,
@@ -88,6 +90,7 @@ const Report = () => {
     const [exporting, setExporting] = useState(false);
     const [severityFilter, setSeverityFilter] = useState<FilterValue>("ALL");
     const [user, setUser] = useState<CurrentUser | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => {
         getCurrentUser().then(setUser).catch(() => {});
@@ -402,6 +405,8 @@ const Report = () => {
                         {filteredLogs.map((log) => {
                             const payloadStr =
                                 typeof log.payload === "string" ? log.payload : JSON.stringify(log.payload);
+                            const isOpen = expandedId === log.id;
+                            const toggle = () => setExpandedId(isOpen ? null : log.id);
 
                             return (
                                 <motion.div
@@ -413,7 +418,10 @@ const Report = () => {
                                     className={getRowClass(log.severity)}
                                 >
                                     {/* Desktop row */}
-                                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] font-mono text-[12px] items-center hover:bg-black/[0.02] transition-colors">
+                                    <div
+                                        onClick={toggle}
+                                        className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] font-mono text-[12px] items-center hover:bg-black/[0.02] transition-colors cursor-pointer"
+                                    >
                                         <span className="text-[#999] text-[11px] tabular-nums">
                                             {formatTime(log.timestamp)}
                                         </span>
@@ -432,13 +440,22 @@ const Report = () => {
                                         <span className="text-[#666] text-[11px] tabular-nums">
                                             {log.responseTime}<span className="text-[#ccc]">ms</span>
                                         </span>
-                                        <span className="text-[#999] text-[11px] truncate" title={payloadStr}>
-                                            {payloadStr}
+                                        <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-[#999] text-[11px] truncate flex-1" title={payloadStr}>
+                                                {log.finding?.category ?? payloadStr}
+                                            </span>
+                                            <ChevronDown
+                                                size={13}
+                                                className={`shrink-0 text-[#ccc] transition-transform ${isOpen ? "rotate-180 text-[#666]" : ""}`}
+                                            />
                                         </span>
                                     </div>
 
                                     {/* Mobile card */}
-                                    <div className="md:hidden px-4 py-3 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors space-y-1.5">
+                                    <div
+                                        onClick={toggle}
+                                        className="md:hidden px-4 py-3 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors space-y-1.5 cursor-pointer"
+                                    >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>{log.method}</span>
@@ -447,16 +464,28 @@ const Report = () => {
                                             </div>
                                             <div className="flex items-center gap-2 text-[#999] text-[10px]">
                                                 <span className="tabular-nums">{log.responseTime}ms</span>
-                                                <span className="tabular-nums">{formatTime(log.timestamp)}</span>
+                                                <ChevronDown
+                                                    size={13}
+                                                    className={`text-[#ccc] transition-transform ${isOpen ? "rotate-180 text-[#666]" : ""}`}
+                                                />
                                             </div>
                                         </div>
                                         <div className={`text-[11px] truncate ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#666]"}`}>
                                             {log.endpoint}
                                         </div>
-                                        <div className="text-[#999] text-[10px] truncate" title={payloadStr}>
-                                            {payloadStr}
+                                        <div className="text-[#999] text-[10px] truncate">
+                                            {log.finding?.title ?? payloadStr}
                                         </div>
                                     </div>
+
+                                    {/* Expanded finding detail */}
+                                    {isOpen && log.finding && (
+                                        <FindingDetailPanel
+                                            finding={log.finding}
+                                            payload={payloadStr}
+                                            responseSnippet={log.responseSnippet}
+                                        />
+                                    )}
                                 </motion.div>
                             );
                         })}

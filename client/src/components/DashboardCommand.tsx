@@ -25,9 +25,10 @@ import {
     ArrowRight,
 } from "@phosphor-icons/react";
 // Launch-form icons re-exported to the parent stay on lucide (its button context).
-import { Play, Square, Terminal, Gauge } from "lucide-react";
+import { Play, Square, Terminal, Gauge, ChevronDown } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
 import { useCountUp } from "@/hooks/useCountUp";
+import FindingDetailPanel from "@/components/FindingDetailPanel";
 
 // Light-mono palette — single blue accent + shared severity semantics.
 const ACCENT = "#3b82f6";
@@ -120,8 +121,11 @@ const DashboardCommand = ({
         return [...map.values()].sort((a, b) => b.worst - a.worst || b.hits - a.hits).slice(0, 5);
     }, [logs]);
 
-    // ---- Per-log severity (for filter tabs + row tinting) ----
-    const sevOf = (code: number): "critical" | "high" | "medium" | "low" | "info" => {
+    type SevKey = "critical" | "high" | "medium" | "low" | "info";
+
+    // Fallback severity from status code, used only when the server hasn't
+    // attached an analyzed finding yet.
+    const sevOfCode = (code: number): SevKey => {
         if (code >= 500) return "critical";
         if (code === 401 || code === 403) return "high";
         if (code >= 400) return "medium";
@@ -129,16 +133,24 @@ const DashboardCommand = ({
         return "info";
     };
 
+    // The authoritative per-row severity: prefer the analyzed finding (which
+    // catches a confirmed CRITICAL auth-bypass or HIGH reflected-XSS on a 200
+    // that a status-code-only rule would miss), else fall back to the status.
+    const sevOf = (log: AttackLog): SevKey =>
+        (log.finding?.severity?.toLowerCase() as SevKey | undefined) ??
+        sevOfCode(log.statusCode);
+
     const [filter, setFilter] = useState<"all" | "critical" | "high" | "medium" | "low" | "info">("all");
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const counts = useMemo(() => {
         const c = { all: logs.length, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-        for (const l of logs) c[sevOf(l.statusCode)]++;
+        for (const l of logs) c[sevOf(l)]++;
         return c;
     }, [logs]);
 
     const visibleLogs = useMemo(() => {
-        const f = filter === "all" ? logs : logs.filter((l) => sevOf(l.statusCode) === filter);
+        const f = filter === "all" ? logs : logs.filter((l) => sevOf(l) === filter);
         return f.slice(0, 200);
     }, [logs, filter]);
 
@@ -280,7 +292,7 @@ const DashboardCommand = ({
                 {/* table */}
                 <div className="min-w-0 flex flex-col max-h-[560px] bg-white">
                     {/* column header */}
-                    <div className="hidden md:grid grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 px-4 sm:px-5 py-2 bg-[#fafafa] border-b border-[#e6e6e6] font-mono text-[9.5px] text-[#999] uppercase tracking-[0.15em] sticky top-0 z-10">
+                    <div className="hidden md:grid grid-cols-[64px_56px_1fr_84px_54px_72px] gap-3 px-4 sm:px-5 py-2 bg-[#fafafa] border-b border-[#e6e6e6] font-mono text-[9.5px] text-[#999] uppercase tracking-[0.15em] sticky top-0 z-10">
                         <span>Time</span><span>Method</span><span>Endpoint</span><span>Severity</span><span>Status</span><span>Latency</span>
                     </div>
                     <div className="flex-1 overflow-y-auto">
@@ -292,17 +304,33 @@ const DashboardCommand = ({
                             </div>
                         )}
                         {visibleLogs.map((log, i) => {
-                            const sv = sevOf(log.statusCode);
+                            const sv = sevOf(log);
                             const tint = sv === "critical" ? "bg-[#fef2f2]" : sv === "high" ? "bg-[#fff7ed]" : "";
                             const chip = { critical: RED, high: AMBER, medium: MED, low: ACCENT, info: SLATE }[sv];
+                            const isOpen = expandedId === log.id;
                             return (
-                                <div key={log.id} className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_60px] gap-3 items-center px-4 sm:px-5 py-1.5 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors " + tint + (i === 0 ? " onyx-row-enter onyx-row-flash" : "")}>
-                                    <span className="text-[#999] text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
-                                    <span className="font-semibold text-[11px]" style={{ color: methodColor(log.method) }}>{log.method}</span>
-                                    <span className={"truncate " + (sv === "critical" ? "text-black" : "text-[#333]")}>{log.endpoint}</span>
-                                    <span><span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 border" style={{ color: chip, backgroundColor: chip + "12", borderColor: chip + "40" }}>{sv.toUpperCase()}</span></span>
-                                    <span className="tabular-nums text-[#666] text-[11px]">{log.statusCode || "ERR"}</span>
-                                    <span className="tabular-nums text-[#999] text-[10px]">{log.latencyMs}ms</span>
+                                <div key={log.id}>
+                                    <div
+                                        onClick={() => setExpandedId(isOpen ? null : log.id)}
+                                        className={"md:grid md:grid-cols-[64px_56px_1fr_84px_54px_72px] gap-3 items-center px-4 sm:px-5 py-1.5 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors cursor-pointer " + tint + (i === 0 ? " onyx-row-enter onyx-row-flash" : "")}
+                                    >
+                                        <span className="text-[#999] text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
+                                        <span className="font-semibold text-[11px]" style={{ color: methodColor(log.method) }}>{log.method}</span>
+                                        <span className={"truncate " + (sv === "critical" ? "text-black" : "text-[#333]")}>{log.endpoint}</span>
+                                        <span><span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 border" style={{ color: chip, backgroundColor: chip + "12", borderColor: chip + "40" }}>{sv.toUpperCase()}</span></span>
+                                        <span className="tabular-nums text-[#666] text-[11px]">{log.statusCode || "ERR"}</span>
+                                        <span className="flex items-center gap-1 tabular-nums text-[#999] text-[10px]">
+                                            {log.latencyMs}ms
+                                            <ChevronDown size={12} className={"shrink-0 text-[#ccc] transition-transform " + (isOpen ? "rotate-180 text-[#666]" : "")} />
+                                        </span>
+                                    </div>
+                                    {isOpen && log.finding && (
+                                        <FindingDetailPanel
+                                            finding={log.finding}
+                                            payload={typeof log.payload === "string" ? log.payload : JSON.stringify(log.payload)}
+                                            responseSnippet={log.responseSnippet}
+                                        />
+                                    )}
                                 </div>
                             );
                         })}
