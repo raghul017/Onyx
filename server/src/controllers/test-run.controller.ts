@@ -21,8 +21,13 @@ import type {
     TestRunSummary,
     WsServerMessage,
 } from "../types/shared.js";
-import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
+import { getOverallScore, getScoreLabel } from "../utils/severity.js";
 import { analyzeFinding } from "../services/finding-analysis.js";
+import {
+    scoreAndPersistRun,
+    computeScore,
+    isMissingScoreColumn,
+} from "../services/run-score.js";
 
 /**
  * Shared access check for a test run. Returns true when the caller owns the run
@@ -57,42 +62,85 @@ export async function getAllTestRuns(
         }
 
         const orgId = req.orgId;
-        const rawRuns = await prisma.testRun.findMany({
-            where: orgId ? { orgId } : { userId },
-            orderBy: { createdAt: "desc" },
-            select: {
-                id: true,
-                specUrl: true,
-                status: true,
-                totalEndpoints: true,
-                totalAttacks: true,
-                completedAttacks: true,
-                createdAt: true,
-                completedAt: true,
-                logs: {
-                    select: {
-                        statusCode: true,
-                        attackType: true,
-                        responseSnippet: true,
-                    },
-                },
-            },
-        });
+        const where = orgId ? { orgId } : { userId };
+        const baseSelect = {
+            id: true,
+            specUrl: true,
+            status: true,
+            totalEndpoints: true,
+            totalAttacks: true,
+            completedAttacks: true,
+            createdAt: true,
+            completedAt: true,
+        } as const;
 
-        const testRuns = rawRuns.map(({ logs, ...run }) => {
-            const scoredLogs = logs.map((l) => ({
-                severity: getSeverity(
-                    l.attackType,
-                    l.statusCode ?? 0,
-                    l.responseSnippet ?? "",
-                ),
-            }));
-            const overallScore = getOverallScore(scoredLogs);
-            return {
-                ...run,
-                overallScore,
-                scoreLabel: getScoreLabel(overallScore),
-            };
+        // Fast path: read the denormalized score, no logs. Falls back to the
+        // pre-migration path (compute from logs) if the score columns aren't in
+        // the DB yet — so this deploys safely without a coordinated migration.
+        let runs: Array<
+            Record<string, unknown> & {
+                id: string;
+                status: string;
+                overallScore: number | null;
+                scoreLabel: string | null;
+            }
+        >;
+        let hasScoreColumns = true;
+        try {
+            runs = (await prisma.testRun.findMany({
+                where,
+                orderBy: { createdAt: "desc" },
+                select: { ...baseSelect, overallScore: true, scoreLabel: true },
+            })) as any;
+        } catch (e) {
+            if (!isMissingScoreColumn(e)) throw e;
+            hasScoreColumns = false;
+            const bare = await prisma.testRun.findMany({
+                where,
+                orderBy: { createdAt: "desc" },
+                select: baseSelect,
+            });
+            runs = bare.map((r) => ({ ...r, overallScore: null, scoreLabel: null }));
+        }
+
+        // Only runs without a stored score need their logs loaded (in-progress
+        // runs, plus older/terminal runs not yet backfilled).
+        const needScore = runs.filter((r) => r.overallScore == null).map((r) => r.id);
+        const logsByRun = new Map<
+            string,
+            { statusCode: number | null; attackType: string; responseSnippet: string | null }[]
+        >();
+        if (needScore.length > 0) {
+            const logs = await prisma.attackLog.findMany({
+                where: { testRunId: { in: needScore } },
+                select: {
+                    testRunId: true,
+                    statusCode: true,
+                    attackType: true,
+                    responseSnippet: true,
+                },
+            });
+            for (const l of logs) {
+                const arr = logsByRun.get(l.testRunId) ?? [];
+                arr.push(l);
+                logsByRun.set(l.testRunId, arr);
+            }
+        }
+
+        const testRuns = runs.map((run) => {
+            const { overallScore: stored, scoreLabel: storedLabel, ...rest } = run;
+            if (stored != null && storedLabel != null) {
+                return { ...rest, overallScore: stored, scoreLabel: storedLabel };
+            }
+            const { overallScore, scoreLabel } = computeScore(logsByRun.get(run.id) ?? []);
+            // Lazily backfill terminal runs so the next load hits the fast path.
+            if (
+                hasScoreColumns &&
+                (run.status === "COMPLETED" || run.status === "FAILED")
+            ) {
+                void scoreAndPersistRun(run.id);
+            }
+            return { ...rest, overallScore, scoreLabel };
         });
 
         res.json({ testRuns });
@@ -432,6 +480,7 @@ async function processTestRunAsync(
                 data: { status: "COMPLETED", completedAt: new Date() },
             });
             if (count > 0) {
+                void scoreAndPersistRun(testRunId);
                 wsManager.broadcast(testRunId, {
                     type: "TEST_RUN_STATUS",
                     data: {
@@ -782,6 +831,9 @@ export async function abortTestRun(
                 totalAttacks: testRun.completedAttacks, // Cap the total so the UI knows it's fully done
             },
         });
+
+        // Persist the (partial) score for this now-terminal run.
+        void scoreAndPersistRun(id);
 
         // 3. Broadcast abort via WebSocket
         const abortMsg: WsServerMessage = {

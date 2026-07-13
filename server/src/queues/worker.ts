@@ -14,6 +14,7 @@ import {
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
 import { analyzeFinding } from "../services/finding-analysis.js";
+import { scoreAndPersistRun } from "../services/run-score.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -176,6 +177,8 @@ async function finalizeIfComplete(
 
     if (count > 0) {
         lastProgressBroadcast.delete(testRunId); // stop tracking a finished run
+        // Persist the final score so the history list needn't reload every log.
+        void scoreAndPersistRun(testRunId);
         const completionMessage: WsServerMessage = {
             type: "TEST_RUN_STATUS",
             data: {

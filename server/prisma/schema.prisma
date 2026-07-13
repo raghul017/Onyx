@@ -113,6 +113,11 @@ model TestRun {
   totalAttacks    Int       @default(0)
   completedAttacks Int      @default(0)
   enqueuedAt      DateTime? // set once ALL attack jobs are enqueued; guards premature completion
+  // Denormalized score, computed once when the run reaches a terminal state so
+  // the history list doesn't have to load every log to re-derive it. Nullable:
+  // in-progress runs and pre-migration rows fall back to on-the-fly scoring.
+  overallScore    Int?
+  scoreLabel      String?
   errorMessage    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
