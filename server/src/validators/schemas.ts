@@ -75,6 +75,17 @@ export const wsClientMessageSchema = z.discriminatedUnion("type", [
 // Job Data Validation
 // ---------------------------------------------------------------------------
 
+/** A single OpenAPI parameter definition carried on the job so the worker's
+ *  request-builder knows where the payload can be injected (path/query/header). */
+export const parsedParameterSchema = z.object({
+    name: z.string(),
+    in: z.enum(["query", "header", "path", "cookie"]),
+    required: z.boolean().default(false),
+    schema: z.record(z.unknown()).nullable().default(null),
+});
+
+export type ParsedParameterInput = z.infer<typeof parsedParameterSchema>;
+
 export const attackJobDataSchema = z.object({
     testRunId: z.string().uuid(),
     endpointId: z.string().uuid(),
@@ -83,6 +94,10 @@ export const attackJobDataSchema = z.object({
     baseUrl: z.string().url(),
     payload: z.string(),
     attackType: attackTypeEnum,
+    // Optional + defaulted so jobs enqueued before T4 (no params on them) still
+    // validate and behave like a bare request (path resolved, no param injection).
+    parameters: z.array(parsedParameterSchema).optional().default([]),
+    requestBodySchema: z.record(z.unknown()).nullable().optional().default(null),
 });
 
 export type AttackJobData = z.infer<typeof attackJobDataSchema>;

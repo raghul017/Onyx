@@ -15,6 +15,11 @@ import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
 import { analyzeFinding } from "../services/finding-analysis.js";
 import { scoreAndPersistRun } from "../services/run-score.js";
+import {
+    buildAttackRequest,
+    type BuiltAttackRequest,
+} from "../services/request-builder.js";
+import { redactSecrets } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
 import { initSentry, captureException } from "../lib/sentry.js";
 
@@ -265,6 +270,8 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         baseUrl,
         payload,
         attackType,
+        parameters,
+        requestBodySchema,
     } = validation.data;
 
     let statusCode: number | null = null;
@@ -272,12 +279,22 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     let responseSnippet: string | null = null;
     let error: string | null = null;
 
-    // Build the full URL
-    const targetUrl = buildTargetUrl(baseUrl, path);
+    // Build the concrete request: resolve path placeholders and inject the
+    // payload into the correct location(s) (path/query/header/body) based on the
+    // endpoint's declared params + attack type. ONE payload => ONE request.
+    const request = buildAttackRequest({
+        method,
+        path,
+        baseUrl,
+        payload,
+        attackType,
+        parameters,
+        requestBodySchema,
+    });
 
-    // SSRF guard — block requests to private/internal IPs
+    // SSRF guard — vet the FINAL resolved URL's host before firing.
     try {
-        await assertNotSSRF(targetUrl);
+        await assertNotSSRF(request.url);
     } catch {
         // Skip this job — target resolves to a private/internal IP.
         // One round-trip: create the log + increment the counter together.
@@ -337,8 +354,8 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     }
 
     try {
-        // Execute the HTTP request
-        const result = await executeAttack(method, targetUrl, payload);
+        // Execute the HTTP request built above (method/url/headers/body).
+        const result = await executeAttack(request);
         statusCode = result.statusCode;
         latencyMs = result.latencyMs;
         responseSnippet = result.responseSnippet;
@@ -360,6 +377,33 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         }
     }
 
+    // Analyze the RAW response FIRST — detection must see the unredacted bytes
+    // so SECRET_LEAK / FILE_LEAK / SQL_ERROR / XSS / STACK_TRACE fire exactly as
+    // before. This is pure + microsecond-cheap, so running it before the DB
+    // write costs nothing and lets us redact based on the classified finding.
+    const finding = analyzeFinding({
+        attackType,
+        method,
+        statusCode: statusCode ?? 0,
+        latencyMs: latencyMs ?? 0,
+        payload,
+        responseSnippet: responseSnippet ?? "", // RAW — never persisted as-is
+    });
+
+    // Redact ONLY what leaves the process (DB row + WS payload). The in-memory
+    // `finding` above (severity/category/confidence) is untouched; we build a
+    // redacted copy so no secret/PII from the target reaches storage or the
+    // browser. On read, re-detection runs on the stored (redacted) snippet — the
+    // key names survive redaction, so classification stays identical.
+    const storedSnippet =
+        responseSnippet != null
+            ? redactSecrets(responseSnippet).replace(/\0/g, "\\u0000")
+            : null;
+    const safeFinding = {
+        ...finding,
+        evidence: finding.evidence != null ? redactSecrets(finding.evidence) : null,
+    };
+
     // Persist the result + advance progress in a single round-trip. This runs
     // once per payload (the hottest path in the app), so collapsing two
     // sequential awaits into one batched transaction meaningfully cuts the
@@ -374,7 +418,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 payload: payload.replace(/\0/g, "\\u0000"),
                 statusCode,
                 latencyMs,
-                responseSnippet: responseSnippet?.replace(/\0/g, "\\u0000") ?? null,
+                responseSnippet: storedSnippet,
                 attackType,
                 error: error?.replace(/\0/g, "\\u0000") ?? null,
             },
@@ -387,17 +431,8 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         }),
     ]);
 
-    // Analyze the result into an explained finding (what / why / cause / fix).
-    const finding = analyzeFinding({
-        attackType,
-        method,
-        statusCode: statusCode ?? 0,
-        latencyMs: latencyMs ?? 0,
-        payload,
-        responseSnippet: responseSnippet ?? "",
-    });
-
-    // Build attack result for WebSocket broadcast
+    // Build attack result for WebSocket broadcast — using the REDACTED snippet
+    // and evidence so secrets never reach the client either.
     const attackResult: AttackResult = {
         id: attackLog.id,
         testRunId,
@@ -406,11 +441,11 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         statusCode: statusCode ?? 0,
         responseTime: latencyMs ?? 0,
         payload,
-        responseSnippet: responseSnippet ?? "",
+        responseSnippet: storedSnippet ?? "",
         attackType: attackType as AttackResult["attackType"],
         timestamp: attackLog.createdAt.toISOString(),
         severity: finding.severity,
-        finding,
+        finding: safeFinding,
     };
 
     // Broadcast the result for THIS payload (the client needs every one).
@@ -443,34 +478,18 @@ interface AttackExecutionResult {
 }
 
 async function executeAttack(
-    method: string,
-    url: string,
-    payload: string,
+    request: BuiltAttackRequest,
 ): Promise<AttackExecutionResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const headers: Record<string, string> = {
-        "User-Agent": "Onyx/1.0 (Security Testing)",
-    };
-
-    let body: string | undefined;
-
-    // For methods that support a body, try to send the payload as JSON
-    if (["POST", "PUT", "PATCH"].includes(method)) {
-        headers["Content-Type"] = "application/json";
-        body = isJsonLike(payload)
-            ? payload
-            : JSON.stringify({ data: payload });
-    }
-
     const startTime = performance.now();
 
     try {
-        const response = await fetch(url, {
-            method,
-            headers,
-            body,
+        const response = await fetch(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
             signal: controller.signal,
             redirect: "follow",
         });
@@ -498,23 +517,4 @@ async function executeAttack(
     } finally {
         clearTimeout(timeout);
     }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function buildTargetUrl(baseUrl: string, path: string): string {
-    // Ensure baseUrl doesn't end with / and path starts with /
-    const base = baseUrl.replace(/\/+$/, "");
-    const p = path.startsWith("/") ? path : `/${path}`;
-    return `${base}${p}`;
-}
-
-function isJsonLike(str: string): boolean {
-    const trimmed = str.trim();
-    return (
-        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-        (trimmed.startsWith("[") && trimmed.endsWith("]"))
-    );
 }

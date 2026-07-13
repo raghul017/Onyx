@@ -97,7 +97,7 @@ The v2 empty state fixed the panel but the *page composition* still read amateur
 two separate rounded cards floating on a void, a `>_ NEW ATTACK RUN` terminal
 eyebrow, a fully-rounded pill URL input, an always-visible red Stop button, a
 page-level gradient wash, and `rounded-2xl` everywhere. Rebuilt
-[Dashboard.tsx](client/src/pages/Dashboard.tsx) + the idle/active bodies as ONE
+[Dashboard.tsx](../client/src/pages/Dashboard.tsx) + the idle/active bodies as ONE
 continuous console surface:
 - Page background `#0A0A0A`; removed the page-level `c5-animated-gradient` blob.
 - A real page title ("Command center" + one-line sub) instead of the mono eyebrow.
@@ -115,7 +115,7 @@ continuous console surface:
 The gradient-hero idle state (below) still read as AI-generated. Ran deep research
 on how premium dev tools (Linear, Vercel Geist, Sentry) design empty dashboards;
 the teal+orange gradient + gradient text was the #1 tell. Rebuilt the idle state
-as a "Ghost Command Center" ([DashboardCommand.tsx](client/src/components/DashboardCommand.tsx),
+as a "Ghost Command Center" ([DashboardCommand.tsx](../client/src/components/DashboardCommand.tsx),
 `IdleCommandCenter`):
 - Near-black `#0A0A0A`, 1px hairline borders (white @ ~6-8%), depth from surface
   tint not shadow, 6-8px radii. NO gradient, NO glow, NO gradient text.
@@ -134,7 +134,7 @@ dashboard (still used by SignIn). Accent decision: keep teal, drop the gradient.
 ### 2026-07-02 — Dashboard idle state: gradient hero + smooth idle→active transition
 
 The idle "command center" read flat (small icon + text + faint blob). Rebuilt in
-[DashboardCommand.tsx](client/src/components/DashboardCommand.tsx):
+[DashboardCommand.tsx](../client/src/components/DashboardCommand.tsx):
 - Real WebGL gradient hero (`ShaderBackground`, the same one on SignIn) mounted
   ONLY on the idle panel and lazy-loaded, so it never competes with the live
   stream for frames. Radial + vertical scrims keep text WCAG-legible over it.
@@ -148,7 +148,7 @@ typecheck + build clean.
 
 ### 2026-07-02 — Billing page brand redesign
 
-Rebuilt [Billing.tsx](client/src/pages/Billing.tsx) to the app design language
+Rebuilt [Billing.tsx](../client/src/pages/Billing.tsx) to the app design language
 (was pure `bg-black` + generic cyan). Now: off-black `#080808` surface, teal
 `#73bfc4` accent, shadow-as-border cards, Satoshi/JetBrains-Mono type, framer-
 motion staggered card enter, `GoBackButton`, a current-plan strip, `tabular-nums`
@@ -186,7 +186,7 @@ typecheck + build clean.
   `completedAttacks >= totalAttacks` was never true and the run stuck (also
   burning the user's active-run slot). Added a shared
   `finalizeIfComplete` + `recordFailedAttempt` path in
-  [worker.ts](server/src/queues/worker.ts); the `failed` handler now counts the
+  [worker.ts](../server/src/queues/worker.ts); the `failed` handler now counts the
   terminal failure and finalizes.
 - **Worker drops jobs for terminal runs** — `processAttackJob` re-reads run
   status up front and skips aborted/deleted runs, so they stop firing at the

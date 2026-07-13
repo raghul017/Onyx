@@ -440,6 +440,10 @@ async function processTestRunAsync(
                     method: endpoint.method,
                     path: endpoint.path,
                     baseUrl,
+                    // Carry the parsed param defs + body schema so the worker can
+                    // inject the payload into the correct location(s).
+                    parameters: endpoint.parameters,
+                    requestBodySchema: endpoint.requestBodySchema,
                 });
                 // Keep the running total in sync as this endpoint's jobs land,
                 // so the progress denominator updates live in the dashboard.

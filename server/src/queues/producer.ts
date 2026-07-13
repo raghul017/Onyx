@@ -3,7 +3,10 @@
 // =============================================================================
 
 import { chaosQueue } from "./chaos-queue.js";
-import type { GeneratedPayload } from "../validators/schemas.js";
+import type {
+    GeneratedPayload,
+    ParsedParameterInput,
+} from "../validators/schemas.js";
 import { logger } from "../lib/logger.js";
 
 const log = logger.child({ component: "producer" });
@@ -14,6 +17,10 @@ interface EnqueueOptions {
     method: string;
     path: string;
     baseUrl: string;
+    // Parameter definitions + body schema so the worker's request-builder can
+    // inject the payload into the right location (path/query/header/body).
+    parameters?: ParsedParameterInput[];
+    requestBodySchema?: Record<string, unknown> | null;
 }
 
 /**
@@ -27,7 +34,15 @@ export async function enqueueAttackJobs(
     payloads: GeneratedPayload[],
     options: EnqueueOptions,
 ): Promise<number> {
-    const { testRunId, endpointId, method, path, baseUrl } = options;
+    const {
+        testRunId,
+        endpointId,
+        method,
+        path,
+        baseUrl,
+        parameters = [],
+        requestBodySchema = null,
+    } = options;
 
     const jobs = payloads.map((p, index) => ({
         name: `attack-${testRunId}-${index}`,
@@ -42,6 +57,8 @@ export async function enqueueAttackJobs(
                     ? p.payload
                     : JSON.stringify(p.payload),
             attackType: p.attackType,
+            parameters,
+            requestBodySchema,
         },
         opts: {
             // Stable, unique job id so re-enqueues are idempotent per (run, endpoint, payload).
