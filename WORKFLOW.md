@@ -754,7 +754,7 @@ docker compose up redis -d
 
 # Terminal 2 — Backend
 cd server
-npx prisma db push   # sync schema to Neon (first time or after schema changes)
+npx prisma migrate deploy   # apply migrations (first time / after pulling schema changes) — see docs/MIGRATIONS.md
 npm run dev
 
 # Terminal 3 — Frontend

@@ -5,6 +5,9 @@ import * as billingService from "../services/billing.service.js";
 import { prisma } from "../lib/prisma.js";
 import { Plan } from "@prisma/client";
 import { subscribeSchema, verifySubscriptionSchema } from "../validators/schemas.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "billing" });
 
 const router = Router();
 
@@ -47,7 +50,7 @@ router.post("/verify", authenticateToken, async (req: Request, res: Response): P
     try {
         sub = await billingService.fetchSubscription(subscriptionId);
     } catch (err: any) {
-        console.error("[Billing] verify: failed to fetch subscription", err?.message);
+        log.error({ err, subscriptionId }, "verify: failed to fetch subscription");
         res.status(502).json({ error: "Could not verify subscription with Razorpay" });
         return;
     }
@@ -63,8 +66,9 @@ router.post("/verify", authenticateToken, async (req: Request, res: Response): P
     // The subscription must belong to THIS user. Without this check, any user
     // could pass another user's subscriptionId and inherit their plan.
     if (sub.notes?.userId && sub.notes.userId !== userId) {
-        console.error(
-            `[Billing] verify: subscription ${subscriptionId} belongs to ${sub.notes.userId}, not ${userId}`,
+        log.warn(
+            { subscriptionId, ownerUserId: sub.notes.userId, requestUserId: userId },
+            "verify: subscription belongs to a different user",
         );
         res.status(403).json({ error: "This subscription does not belong to you" });
         return;
@@ -82,7 +86,7 @@ router.post("/verify", authenticateToken, async (req: Request, res: Response): P
         data: { plan, razorpaySubId: subscriptionId },
     });
 
-    console.log(`[Billing] verify: user ${userId} activated plan ${plan} via subscription ${subscriptionId}`);
+    log.info({ userId, plan, subscriptionId }, "verify: plan activated");
     res.json({ plan });
 });
 
@@ -118,7 +122,7 @@ router.post("/cancel", authenticateToken, async (req: Request, res: Response): P
 router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     if (!webhookSecret) {
-        console.error("[Billing] RAZORPAY_WEBHOOK_SECRET not set");
+        log.error("RAZORPAY_WEBHOOK_SECRET not set");
         res.status(500).end();
         return;
     }
@@ -150,7 +154,7 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
             await prisma.webhookEvent.create({ data: { eventId, event: event ?? "unknown" } });
         } catch {
             // Unique-constraint violation → already processed this delivery.
-            console.log(`[Billing] duplicate webhook ${eventId} ignored`);
+            log.info({ eventId }, "duplicate webhook ignored");
             res.status(200).json({ received: true, duplicate: true });
             return;
         }
@@ -162,7 +166,8 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
             const subId: string | undefined = subEntity?.id;
 
             if (!userId || !subId) {
-                console.error("[Billing] subscription.activated missing userId or subId", req.body);
+                // Log identifiers only — never the raw webhook body.
+                log.error({ hasUserId: !!userId, hasSubId: !!subId }, "subscription.activated missing userId or subId");
                 break;
             }
 
@@ -173,21 +178,21 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
             try {
                 verified = await billingService.fetchSubscription(subId);
             } catch (err: any) {
-                console.error("[Billing] webhook: could not fetch subscription", subId, err?.message);
+                log.error({ subId, err }, "webhook: could not fetch subscription");
                 break;
             }
             if (verified.status !== "active") {
-                console.error(`[Billing] webhook: subscription ${subId} not active (${verified.status})`);
+                log.warn({ subId, status: verified.status }, "webhook: subscription not active");
                 break;
             }
             if (verified.notes?.userId && verified.notes.userId !== userId) {
-                console.error(`[Billing] webhook: subscription ${subId} userId mismatch`);
+                log.warn({ subId }, "webhook: subscription userId mismatch");
                 break;
             }
 
             const plan = resolvePlan(verified.plan_id);
             if (plan === Plan.FREE) {
-                console.error(`[Billing] webhook: unrecognized plan for ${subId}`);
+                log.error({ subId }, "webhook: unrecognized plan");
                 break;
             }
 
@@ -231,12 +236,14 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
 
         case "payment.failed": {
             const paymentEntity = payload?.payload?.payment?.entity;
-            console.error("[Billing] payment.failed:", {
-                paymentId: paymentEntity?.id,
-                amount: paymentEntity?.amount,
-                email: paymentEntity?.email,
-                errorDescription: paymentEntity?.error_description,
-            });
+            log.warn(
+                {
+                    paymentId: paymentEntity?.id,
+                    amount: paymentEntity?.amount,
+                    errorDescription: paymentEntity?.error_description,
+                },
+                "payment.failed",
+            );
             break;
         }
 

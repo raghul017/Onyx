@@ -8,6 +8,7 @@
 
 import { prisma } from "../lib/prisma.js";
 import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
+import { logger } from "../lib/logger.js";
 
 /** True when an error is Prisma's "column does not exist" (P2022) for the
  *  not-yet-migrated score columns. Treated as "feature off", never a failure. */
@@ -47,9 +48,9 @@ export async function scoreAndPersistRun(testRunId: string): Promise<void> {
         });
     } catch (e) {
         if (isMissingScoreColumn(e)) return; // columns not pushed yet — compute on read
-        console.error(
-            `[Score] Failed to persist score for ${testRunId.slice(0, 8)}...:`,
-            e instanceof Error ? e.message : e,
+        logger.error(
+            { component: "run-score", testRunId, err: e },
+            "Failed to persist score",
         );
     }
 }

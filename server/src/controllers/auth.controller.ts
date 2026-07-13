@@ -3,11 +3,14 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma.js";
 import { authSchema } from "../validators/schemas.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "auth" });
 
 const _jwtSecret = process.env.JWT_SECRET;
 if (!_jwtSecret) {
-    console.error(
-        "FATAL: JWT_SECRET environment variable is required. Server cannot start without it.",
+    log.fatal(
+        "JWT_SECRET environment variable is required. Server cannot start without it.",
     );
     process.exit(1);
 }
@@ -277,7 +280,7 @@ export async function oauthCallback(
         backToClient(res, `token=${token}`);
     } catch (err) {
         // Don't leak details to the browser; log + send a generic failure.
-        console.error(`[oauth:${provider}]`, err);
+        log.error({ provider, err }, "OAuth callback failed");
         backToClient(res, "error=oauth_failed");
     }
 }

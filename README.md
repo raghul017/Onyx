@@ -126,9 +126,11 @@ VITE_RAZORPAY_TEAM_PLAN_ID=
 
 ```bash
 cd server
-npx prisma db push       # creates tables from schema.prisma
-npx prisma generate      # generates the Prisma client
+npx prisma migrate deploy   # apply migration history to the database
+npx prisma generate         # generate the Prisma client
 ```
+
+> Onyx uses Prisma **migrations** (not `db push`). See [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
 
 ### 5. Run the development servers
 

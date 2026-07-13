@@ -4,6 +4,9 @@
 
 import { chaosQueue } from "./chaos-queue.js";
 import type { GeneratedPayload } from "../validators/schemas.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "producer" });
 
 interface EnqueueOptions {
     testRunId: string;
@@ -53,8 +56,9 @@ export async function enqueueAttackJobs(
     // Use addBulk for efficiency
     await chaosQueue.addBulk(jobs);
 
-    console.log(
-        `[Producer] Enqueued ${jobs.length} attack jobs for ${method} ${path} (testRun: ${testRunId.slice(0, 8)}...)`,
+    log.info(
+        { testRunId, endpointId, method, path, jobCount: jobs.length },
+        "Enqueued attack jobs",
     );
 
     return jobs.length;

@@ -7,6 +7,9 @@ import type { IncomingMessage } from "node:http";
 import type { WsServerMessage, WsClientMessage } from "../types/shared.js";
 import { wsClientMessageSchema } from "../validators/schemas.js";
 import { prisma } from "../lib/prisma.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "ws" });
 
 class WsManager {
     private wss: WebSocketServer | null = null;
@@ -28,9 +31,7 @@ class WsManager {
         this.wss = wss;
 
         wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
-            console.log(
-                `[WS] Client connected from ${req.socket.remoteAddress}`,
-            );
+            log.debug({ remoteAddress: req.socket.remoteAddress }, "Client connected");
 
             this.clientSubscriptions.set(ws, new Set());
 
@@ -43,7 +44,7 @@ class WsManager {
             });
 
             ws.on("error", (err) => {
-                console.error("[WS] Client error:", err.message);
+                log.warn({ err }, "Client socket error");
                 this.handleDisconnect(ws);
             });
 
@@ -58,7 +59,7 @@ class WsManager {
         this.pingInterval = setInterval(() => {
             wss.clients.forEach((ws) => {
                 if ((ws as any).isAlive === false) {
-                    console.log("[WS] Terminating dead connection");
+                    log.debug("Terminating dead connection");
                     ws.terminate();
                     return;
                 }
@@ -100,17 +101,13 @@ class WsManager {
 
             if (msg.type === "SUBSCRIBE") {
                 this.subscribe(msg.testRunId, ws);
-                console.log(
-                    `[WS] Client subscribed to test run ${msg.testRunId}`,
-                );
+                log.debug({ testRunId: msg.testRunId }, "Client subscribed");
             } else if (msg.type === "UNSUBSCRIBE") {
                 this.unsubscribe(msg.testRunId, ws);
-                console.log(
-                    `[WS] Client unsubscribed from test run ${msg.testRunId}`,
-                );
+                log.debug({ testRunId: msg.testRunId }, "Client unsubscribed");
             }
         } catch (err) {
-            console.error("[WS] Failed to parse message:", err);
+            log.warn({ err }, "Failed to parse client message");
             this.sendToClient(ws, {
                 type: "ERROR",
                 data: {
@@ -171,7 +168,7 @@ class WsManager {
                 },
             });
         } catch (err) {
-            console.error("[WS] Error verifying test run ownership:", err);
+            log.error({ err, testRunId }, "Error verifying test run ownership");
             return;
         }
 
@@ -209,7 +206,7 @@ class WsManager {
             }
         }
         this.clientSubscriptions.delete(ws);
-        console.log("[WS] Client disconnected");
+        log.debug("Client disconnected");
     }
 
     // -------------------------------------------------------------------------
@@ -248,7 +245,7 @@ class WsManager {
         this.wss?.close();
         this.subscriptions.clear();
         this.clientSubscriptions.clear();
-        console.log("[WS] Server shut down");
+        log.info("WebSocket server shut down");
     }
 }
 

@@ -14,6 +14,9 @@ import {
     aiPayloadArraySchema,
     type GeneratedPayload,
 } from "../validators/schemas.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "ai-payload" });
 
 // ---------------------------------------------------------------------------
 // Gemini Client (Singleton)
@@ -29,7 +32,7 @@ function getGeminiClient(): GoogleGenAI | null {
     }
     if (!ai) {
         ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-        console.log("[AI] Gemini client initialized");
+        log.info("Gemini client initialized");
     }
     return ai;
 }
@@ -64,16 +67,12 @@ export async function generateAIResponse(
     const client = getGeminiClient();
 
     if (!client) {
-        console.log(
-            "[AI] No GEMINI_API_KEY configured — using fallback payloads",
-        );
+        log.info("No GEMINI_API_KEY configured — using fallback payloads");
         return JSON.stringify(FALLBACK_PAYLOADS);
     }
 
     try {
-        console.log(
-            `[AI] Sending to Gemini 2.5 Flash (${endpointSpec.length} chars)...`,
-        );
+        log.debug({ chars: endpointSpec.length }, "Sending to Gemini 2.5 Flash");
 
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
@@ -89,17 +88,14 @@ export async function generateAIResponse(
         const text = response.text ?? "";
 
         if (!text) {
-            console.warn(
-                "[AI] Gemini returned empty response — using fallback",
-            );
+            log.warn("Gemini returned empty response — using fallback");
             return JSON.stringify(FALLBACK_PAYLOADS);
         }
 
-        console.log(`[AI] Gemini returned ${text.length} chars`);
+        log.debug({ chars: text.length }, "Gemini returned payloads");
         return text;
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("[AI] Gemini API error:", message);
+        log.error({ err }, "Gemini API error — using fallback");
 
         // Graceful fallback — Onyx attack sequence never crashes
         return JSON.stringify(FALLBACK_PAYLOADS);
@@ -185,21 +181,22 @@ export async function generatePayloadsForEndpoint(
         const validated = aiPayloadArraySchema.safeParse(parsed);
 
         if (validated.success) {
-            console.log(
-                `[AI] ✓ Generated ${validated.data.length} payloads for ${endpoint.method} ${endpoint.path}`,
+            log.info(
+                { method: endpoint.method, path: endpoint.path, count: validated.data.length },
+                "Generated payloads",
             );
             return validated.data;
         }
 
-        console.warn(
-            `[AI] ✗ Validation failed for ${endpoint.method} ${endpoint.path}:`,
-            validated.error.issues.slice(0, 3),
+        log.warn(
+            { method: endpoint.method, path: endpoint.path, issues: validated.error.issues.slice(0, 3) },
+            "Payload validation failed — using fallback",
         );
         return FALLBACK_PAYLOADS;
     } catch (err) {
-        console.error(
-            `[AI] ✗ Payload generation failed for ${endpoint.method} ${endpoint.path}:`,
-            err instanceof Error ? err.message : err,
+        log.error(
+            { method: endpoint.method, path: endpoint.path, err },
+            "Payload generation failed — using fallback",
         );
         return FALLBACK_PAYLOADS;
     }

@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { logger } from "../lib/logger.js";
 
 const _jwtSecret = process.env.JWT_SECRET;
 if (!_jwtSecret) {
-    console.error(
-        "FATAL: JWT_SECRET environment variable is required. Server cannot start without it.",
+    logger.fatal(
+        "JWT_SECRET environment variable is required. Server cannot start without it.",
     );
     process.exit(1);
 }
@@ -44,7 +45,8 @@ export function authenticateToken(
         req.user = decoded; // Attached to Express.Request via types/express.d.ts
         next();
     } catch (err) {
-        console.error("[Auth] Invalid token:", err);
+        // Expected for expired/tampered tokens — debug level, no token contents.
+        logger.debug({ err }, "Invalid or expired token rejected");
         res.status(403).json({ error: "Invalid or expired token" });
         return;
     }

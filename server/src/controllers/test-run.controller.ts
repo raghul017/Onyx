@@ -28,6 +28,10 @@ import {
     computeScore,
     isMissingScoreColumn,
 } from "../services/run-score.js";
+import { logger } from "../lib/logger.js";
+import { captureException } from "../lib/sentry.js";
+
+const log = logger.child({ component: "test-run" });
 
 /**
  * Shared access check for a test run. Returns true when the caller owns the run
@@ -281,9 +285,7 @@ export async function createTestRun(
             },
         });
 
-        console.log(
-            `[Controller] Created test run ${testRun.id.slice(0, 8)}... for ${specUrl}`,
-        );
+        log.info({ testRunId: testRun.id, specUrl }, "Created test run");
 
         // Return immediately so the client can subscribe via WebSocket
         const response: CreateTestRunResponse = {
@@ -296,10 +298,8 @@ export async function createTestRun(
 
         // Process asynchronously (non-blocking)
         processTestRunAsync(testRun.id, specUrl).catch((err: unknown) => {
-            console.error(
-                `[Controller] Async processing failed for ${testRun.id}:`,
-                err,
-            );
+            log.error({ testRunId: testRun.id, err }, "Async processing failed");
+            captureException(err, { testRunId: testRun.id, phase: "processTestRunAsync" });
         });
     } catch (err) {
         next(err);
@@ -314,6 +314,7 @@ async function processTestRunAsync(
     testRunId: string,
     specUrl: string,
 ): Promise<void> {
+    const runLog = log.child({ testRunId });
     try {
         // Give the frontend 500ms to establish the WebSocket connection
         // after receiving the initial HTTP response from createTestRun.
@@ -337,7 +338,7 @@ async function processTestRunAsync(
         };
 
         // --- Phase 1: Parse OpenAPI Spec ---
-        console.log(`[Pipeline] Parsing spec for ${testRunId.slice(0, 8)}...`);
+        runLog.info("Parsing spec");
         broadcastStatus("PARSING");
 
         let endpoints;
@@ -388,9 +389,7 @@ async function processTestRunAsync(
         });
 
         broadcastStatus("GENERATING");
-        console.log(
-            `[Pipeline] Parsed ${savedEndpoints.length} endpoints for ${testRunId.slice(0, 8)}...`,
-        );
+        runLog.info({ endpoints: savedEndpoints.length }, "Parsed endpoints");
 
         // --- Phase 2: Generate AI Payloads ---
         let totalJobs = 0;
@@ -403,8 +402,9 @@ async function processTestRunAsync(
         const cappedEndpoints = endpoints.slice(0, MAX_ENDPOINTS);
         const cappedSavedEndpoints = savedEndpoints.slice(0, MAX_ENDPOINTS);
         if (endpoints.length > MAX_ENDPOINTS) {
-            console.warn(
-                `[Pipeline] Spec has ${endpoints.length} endpoints — capped to ${MAX_ENDPOINTS}`,
+            runLog.warn(
+                { total: endpoints.length, cap: MAX_ENDPOINTS },
+                "Endpoint count exceeds cap — truncating",
             );
         }
 
@@ -493,12 +493,11 @@ async function processTestRunAsync(
             }
         }
 
-        console.log(
-            `[Pipeline] ${totalJobs} attack jobs enqueued for ${testRunId.slice(0, 8)}...`,
-        );
+        runLog.info({ totalJobs }, "All attack jobs enqueued");
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        console.error(`[Pipeline] Fatal error for ${testRunId}:`, message);
+        runLog.error({ err }, "Pipeline fatal error");
+        captureException(err, { testRunId, phase: "pipeline" });
 
         await prisma.testRun.update({
             where: { id: testRunId },
@@ -847,9 +846,7 @@ export async function abortTestRun(
         };
         wsManager.broadcast(id, abortMsg);
 
-        console.log(
-            `[Controller] Test run ${id.slice(0, 8)}... ABORTED — removed ${removedCount} pending jobs`,
-        );
+        log.info({ testRunId: id, removedJobs: removedCount }, "Test run ABORTED");
 
         res.json({
             status: "aborted",

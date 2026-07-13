@@ -15,6 +15,11 @@ import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
 import { analyzeFinding } from "../services/finding-analysis.js";
 import { scoreAndPersistRun } from "../services/run-score.js";
+import { logger } from "../lib/logger.js";
+import { initSentry, captureException } from "../lib/sentry.js";
+
+// Base logger for everything in the worker process.
+const log = logger.child({ component: "worker" });
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -28,6 +33,10 @@ const RESPONSE_SNIPPET_MAX_LENGTH = 500;
 // ---------------------------------------------------------------------------
 
 export function startOnyxWorker(): Worker {
+    // Ensure error tracking is live in the worker path too (idempotent — a no-op
+    // when index.ts already initialized it in the same process, or when no DSN).
+    initSentry("worker");
+
     const worker = new Worker<AttackJobData>(
         CHAOS_QUEUE_NAME,
         async (job: Job<AttackJobData>) => {
@@ -50,13 +59,20 @@ export function startOnyxWorker(): Worker {
     );
 
     worker.on("completed", (job) => {
-        console.log(
-            `[Worker] Job ${job.id} completed for ${job.data.method} ${job.data.path}`,
+        log.debug(
+            { jobId: job.id, testRunId: job.data?.testRunId, method: job.data.method, path: job.data.path },
+            "Job completed",
         );
     });
 
     worker.on("failed", (job, err) => {
-        console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+        const testRunId = job?.data?.testRunId;
+        log.error(
+            { jobId: job?.id, testRunId, err },
+            "Job failed",
+        );
+        // Report the failure with job context (never the payload/response body).
+        captureException(err, { jobId: job?.id, testRunId });
 
         // CRITICAL: a permanently-failed job (retries exhausted) must still
         // count toward completion, otherwise completedAttacks can never reach
@@ -67,24 +83,25 @@ export function startOnyxWorker(): Worker {
         const isFinalAttempt = job.attemptsMade >= attemptsAllowed;
         if (!isFinalAttempt) return;
 
-        const testRunId = job.data?.testRunId;
         if (typeof testRunId !== "string") return;
 
         // Fire-and-forget: record the failed attack as completed and finalize
         // the run if this was the last outstanding job.
         void recordFailedAttempt(testRunId).catch((e) => {
-            console.error(
-                `[Worker] Failed to record terminal failure for ${testRunId}:`,
-                e instanceof Error ? e.message : e,
+            log.error(
+                { testRunId, err: e },
+                "Failed to record terminal failure",
             );
+            captureException(e, { testRunId, phase: "recordFailedAttempt" });
         });
     });
 
     worker.on("error", (err) => {
-        console.error("[Worker] Error:", err.message);
+        log.error({ err }, "Worker error");
+        captureException(err, { phase: "worker.error" });
     });
 
-    console.log("[Worker] Onyx worker started");
+    log.info("Onyx worker started");
     return worker;
 }
 
@@ -189,7 +206,7 @@ async function finalizeIfComplete(
             },
         };
         wsManager.broadcast(testRunId, completionMessage);
-        console.log(`[Worker] Test run ${testRunId.slice(0, 8)}... COMPLETED`);
+        log.info({ testRunId }, "Test run COMPLETED");
     }
 }
 
@@ -233,9 +250,9 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // Validate job data
     const validation = attackJobDataSchema.safeParse(job.data);
     if (!validation.success) {
-        console.error(
-            `[Worker] Invalid job data for ${job.id}:`,
-            validation.error.issues,
+        log.error(
+            { jobId: job.id, issues: validation.error.issues },
+            "Invalid job data",
         );
         throw new Error("Invalid job data");
     }

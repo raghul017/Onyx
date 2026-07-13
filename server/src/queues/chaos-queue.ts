@@ -4,6 +4,9 @@
 
 import { Queue } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ component: "queue" });
 
 // ---------------------------------------------------------------------------
 // Redis Connection Config
@@ -44,9 +47,7 @@ if (process.env.REDIS_URL) {
             redisConnectionOptions.tls = {};
         }
     } catch (e) {
-        console.warn(
-            "[Queue] Failed to parse REDIS_URL, falling back to REDIS_HOST",
-        );
+        log.warn({ err: e }, "Failed to parse REDIS_URL, falling back to REDIS_HOST");
     }
 }
 
@@ -74,4 +75,4 @@ export const chaosQueue = new Queue(CHAOS_QUEUE_NAME, {
     },
 });
 
-console.log(`[Queue] "${CHAOS_QUEUE_NAME}" initialized`);
+log.info({ queue: CHAOS_QUEUE_NAME }, "Queue initialized");

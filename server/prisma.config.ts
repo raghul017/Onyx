@@ -1,3 +1,4 @@
+import "dotenv/config"; // Load .env so CLI commands (migrate deploy/status) resolve DATABASE_URL locally. No-op in prod where env vars are set directly.
 import path from "node:path";
 import { defineConfig } from "prisma/config";
 

@@ -17,7 +17,18 @@ import routes from "./routes/index.js";
 import { wsManager } from "./websockets/ws-manager.js";
 import { startOnyxWorker } from "./queues/worker.js";
 import { prisma } from "./lib/prisma.js";
+import { logger } from "./lib/logger.js";
+import {
+    initSentry,
+    captureException,
+    installGlobalErrorHandlers,
+} from "./lib/sentry.js";
 // Redis connections are managed internally by BullMQ via connection options
+
+// Initialize error tracking (no-op without SENTRY_DSN) + process-level guards
+// as early as possible, before the app wires up its routes and the worker.
+initSentry("http");
+installGlobalErrorHandlers();
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -47,7 +58,12 @@ app.use(
         credentials: true,
     }),
 );
-app.use(morgan("dev"));
+// Route HTTP access logs through the structured logger instead of raw stdout.
+app.use(
+    morgan("tiny", {
+        stream: { write: (msg: string) => logger.info(msg.trim()) },
+    }),
+);
 
 // Raw body capture for Razorpay webhook — must come before express.json()
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
@@ -65,7 +81,11 @@ app.use(
         res: express.Response,
         _next: express.NextFunction,
     ) => {
-        console.error("[Server] Unhandled error:", err);
+        logger.error(
+            { err, method: _req.method, path: _req.path },
+            "Unhandled request error",
+        );
+        captureException(err, { method: _req.method, path: _req.path });
         res.status(500).json({
             error: "Internal server error",
             message:
@@ -137,29 +157,27 @@ async function start(): Promise<void> {
     try {
         // Verify database connection
         await prisma.$connect();
-        console.log("[DB] PostgreSQL connected");
+        logger.info("PostgreSQL connected");
 
         // Start BullMQ worker
         const worker = startOnyxWorker();
 
         // Start HTTP server
         server.listen(PORT, () => {
-            console.log("");
-            console.log("╔══════════════════════════════════════════════╗");
-            console.log("║           ⚡ Onyx Server v1.0 ⚡               ║");
-            console.log("╠══════════════════════════════════════════════╣");
-            console.log(`║  HTTP  → http://localhost:${PORT}            ║`);
-            console.log(`║  WS    → ws://localhost:${PORT}/ws           ║`);
-            console.log(
-                `║  CORS  → ${String(CORS_ORIGIN).padEnd(32)}           ║`,
+            logger.info(
+                {
+                    port: PORT,
+                    http: `http://localhost:${PORT}`,
+                    ws: `ws://localhost:${PORT}/ws`,
+                    cors: CORS_ORIGIN,
+                },
+                "⚡ Onyx Server v1.0 started",
             );
-            console.log("╚══════════════════════════════════════════════╝");
-            console.log("");
         });
 
         // Graceful shutdown
         const shutdown = async (signal: string) => {
-            console.log(`\n[Server] ${signal} received — shutting down...`);
+            logger.info({ signal }, "Shutdown signal received");
 
             // Stop accepting new connections
             server.close();
@@ -173,14 +191,15 @@ async function start(): Promise<void> {
             // Close Prisma
             await prisma.$disconnect();
 
-            console.log("[Server] Shutdown complete");
+            logger.info("Shutdown complete");
             process.exit(0);
         };
 
         process.on("SIGTERM", () => shutdown("SIGTERM"));
         process.on("SIGINT", () => shutdown("SIGINT"));
     } catch (err) {
-        console.error("[Server] Failed to start:", err);
+        logger.fatal({ err }, "Server failed to start");
+        captureException(err, { phase: "startup" });
         process.exit(1);
     }
 }
