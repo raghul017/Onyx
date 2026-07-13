@@ -30,14 +30,18 @@
   `EXPLAIN.md`, `.screenshots/`, `.claude/`, `.env*`.
 - **Preview before push** when the user asks: render the page headless and save
   screenshots to `.screenshots/` (git-ignored), then push only on approval.
-- **Design system:** brand off-black (`#080808` / `#0B0C0D` / `#070809`), teal
-  accent (`#73bfc4` + cyan `#22d3ee`/`#06b6d4`), slate `#8da0ce`, semantic
-  severity palette (CRITICAL `#ef4444`, HIGH `#ff810a`, MEDIUM `#d8b24a`,
-  LOW `#73bfc4`, INFO `#8da0ce`). Fonts: Satoshi (display), Inter (body),
-  JetBrains Mono (code). Anti-slop: one accent color, off-black not pure black,
-  no em-dashes in UI copy, red only when something is actually broken. Reusable
-  CSS lives in `client/src/index.css` (`c5-animated-gradient`, `c5-text-gradient`,
-  `onyx-row-enter`, `onyx-gradient-border`) — reuse before inventing.
+- **Design system — LIGHT-MONO (current, as of 2026-07-10).** The whole client
+  was migrated off the old dark/teal theme. Tokens: surface `#fafafa`, cards
+  `#ffffff`, hairline borders `#e6e6e6`, text `#000`/`#333`/`#666`/`#999`/`#ccc`,
+  **single blue accent `#3b82f6`** (tints `#93c5fd` / wash `#f0f6ff`), semantic
+  severity CRITICAL `#dc2626` · HIGH `#ea580c` · MEDIUM `#ca8a04` · LOW `#3b82f6`
+  · INFO `#64748b`, success `#16a34a`, danger bg `#fef2f2` / border `#fca5a5`.
+  **SHARP corners (0 radius), NO shadows.** Fonts: **Geist** everywhere (body),
+  **JetBrains Mono** for accents/labels/IDs (`.font-mono`) — zero Inter/Satoshi.
+  Component classes in `client/src/index.css`: `.mono-btn`, `.mono-btn-ghost`,
+  `.mono-card`, `.mono-eyebrow`, `.mono-pill`, all scoped under `.onyx-mono`.
+  Anti-slop: one accent, no em-dashes in UI copy, red only when truly broken.
+  (The old off-black/teal palette below is retired — do not reintroduce it.)
 - **Skills available** (in `.claude/skills/`): `ui-ux-pro-max`,
   `design-taste-frontend`, `gsap-scrolltrigger`, `make-interfaces-feel-better`.
   Use them for any UI polish work.
@@ -48,6 +52,44 @@
 ---
 
 ## Done
+
+### 2026-07-13 — Backend: SSRF cache, DB/WS trims, explained findings, denormalized score
+
+Performance + depth pass on the server (all pushed to `main`):
+- **SSRF DNS cache + pool fix** (`ee08ef4`) — memoize the safe/blocked verdict
+  per host (60s TTL) so a scan does 1 DNS lookup instead of ~400; raised the
+  Prisma pg pool `max` 10→20 (worker concurrency 12 + HTTP headroom). Also
+  closed a pre-existing SSRF bypass: bracketed IPv6 literals (`[::1]`,
+  `[::ffff:10.0.0.1]`, incl. the hex-normalized `::ffff:a00:1`) now blocked.
+- **Per-attack DB + WS trims** (`2dff371`, `dabe830`) — `attackLog.create` +
+  counter `increment` run in one `$transaction`, finalize reuses the returned
+  row (no re-read), and `TEST_RUN_STATUS` is throttled to ≤1/400ms per run
+  (ATTACK_RESULT still per row). Hot path: 4 DB round-trips + 2 WS → 2 + ~1.
+- **Explained findings** (`3a8998b` server, `82d738d` client) — new
+  `finding-analysis.ts` engine classifies each result (SQL-error disclosure,
+  reflected XSS, path-traversal file read, secret leak, auth bypass, stack-trace
+  disclosure, 5xx crash) into category + cause + evidence + remediation +
+  confidence, from data already captured (no extra traffic). `getSeverity`
+  delegates to it. `AttackResult.finding` flows to the live stream + report;
+  Dashboard & Report rows are click-to-expand (`FindingDetailPanel`). Dashboard
+  row severity now uses the authoritative `finding.severity`.
+- **Denormalized run score** (`8425721`) — `TestRun.overallScore`/`scoreLabel`
+  computed once at terminal state (`run-score.ts`); `getAllTestRuns` reads it
+  instead of loading every log. Backward-compatible (falls back to compute-from-
+  logs if columns absent). **`db push` run against prod Neon 2026-07-13** — live.
+
+### 2026-07-10 — Full light-mono UI conversion (all pages + shared shell)
+
+Migrated the entire client off the dark/teal theme to **light-mono** (see the
+updated Design-system convention above). Shipped page-by-page to `main`:
+Landing, Docs, SignIn/SignUp, Settings, **Profile** (new), Billing (also
+flaw-fixed: single visual anchor, balanced current-plan strip, trust row),
+History, Report, and the **Dashboard** (full rebuild — clean empty state + 3-step
+guide replacing the murky ghost skeleton; live console mirrors Report). Shared
+shell: AppHeader (avatar always visible), GoBackButton (now a minimal text link),
+OrgSwitcher, ColdStartBanner, DomainVerifyPanel, DashboardCommand. Font unified
+to Geist app-wide (zero Inter/Satoshi). Keep-warm cron added for Render cold
+starts (`d2552ec`).
 
 ### 2026-07-02 — Dashboard whole-page recompose (fix "two floating boxes" feel)
 
@@ -210,19 +252,24 @@ Ordered by priority. Move to **Done** as shipped.
 - [x] ~~Zod validation on billing/org bodies + `name` length cap.~~ (done 2026-07-02)
 
 ### Product / UI
-- [ ] **NEXT SESSION — "Onyx Instrument" dashboard redesign.** Approved & paused.
-      Full spec in [PLAN-dashboard-instrument.md](PLAN-dashboard-instrument.md).
-      Direction: mission-control instrument, off-black `#0B0B0C`, mono-as-voice,
-      ONE amber accent `#FF810A` (rationed), severity on data only, the live
-      streaming feed as the hero (flash-on-insert rows, LIVE pulse, sparkline,
-      count-up tiles). Kills the teal/cyan "noob cyber" cliché the user rejected.
-      Build BOTH idle (armed ghost) + live states. Deep research done — do NOT
-      re-research; read the PLAN and build.
-- [ ] Remaining page redesigns to the brand bar: **Settings**, **InviteAccept**
-      (Dashboard / History / Report / Billing already done).
+- [x] ~~"Onyx Instrument" dashboard redesign (off-black + amber).~~ **Superseded**
+      by the 2026-07-10 light-mono conversion — the whole app, Dashboard included,
+      is now light-mono blue, not off-black/amber. `PLAN-dashboard-instrument.md`
+      is historical; do NOT build it.
+- [x] ~~Remaining page redesigns.~~ (done 2026-07-10 — every page is light-mono)
 - [x] ~~Dashboard attack stream butter-smooth (per-row enter, smooth progress,
       count-up KPIs).~~ (done 2026-07-02 — `useCountUp`, `onyx-progress-fill`,
       `onyx-row-flash`)
+
+### Backend — remaining (lower priority, none pressing)
+- [ ] Targeted job draining — `drainTestRunJobs` scans the whole BullMQ queue on
+      each abort/delete; track per-run job ids (Redis set) to target them.
+- [ ] Read-caching for hot reads (Redis is queue-only today).
+- [ ] Prisma **migrations** instead of `db push` (no migration history now).
+- [ ] Structured logging / metrics (currently `console.log` + morgan).
+- [ ] **Phase 2 findings — baseline diffing.** Send a benign control request per
+      endpoint and diff it vs the payload response to CONFIRM blind/boolean/
+      time-based issues. Deferred: doubles request volume (conflicts with "fast").
 
 ### Roadmap (bigger bets — see changelog Phase 2–5)
 - [ ] Audit logs (immutable record of sensitive actions).

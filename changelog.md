@@ -7,6 +7,42 @@
 
 ---
 
+## ⚡ Backend performance + explained findings (Jul 13, 2026)
+
+A performance-and-depth pass on the server, all backward-compatible.
+
+**Performance**
+
+- **SSRF DNS cache** — a scan fires hundreds of payloads at one host; the SSRF
+  guard now memoizes the safe/blocked verdict per hostname (60s TTL), collapsing
+  ~400 identical `dns.lookup` calls into one per run. Also fixed a pre-existing
+  bypass: bracketed IPv6 literals (`[::1]`, `[::ffff:10.0.0.1]`, incl. the
+  hex-normalized `::ffff:a00:1`) are now blocked. (`ee08ef4`)
+- **Connection pool** — raised the Prisma pg pool `max` 10 → 20 so the BullMQ
+  worker (concurrency 12) can't starve the pool it shares with the HTTP server.
+- **Per-attack hot path** — `attackLog.create` + the progress `increment` run in
+  one transaction, completion reuses the returned row (no re-read), and the
+  per-row `TEST_RUN_STATUS` broadcast is throttled to ≤1/400ms per run (each
+  `ATTACK_RESULT` still delivered). Overhead per attack: 4 DB round-trips + 2 WS
+  messages → **2 + ~1**. (`2dff371`, `dabe830`)
+- **History no longer loads every log** — each run's score is computed once when
+  it finishes and stored on the run (`TestRun.overallScore` / `scoreLabel`); the
+  history list reads it back instead of loading thousands of log rows. Falls back
+  to on-the-fly scoring for in-progress or not-yet-backfilled runs. (`8425721`)
+
+**Explained findings** (`3a8998b` server, `82d738d` client)
+
+Onyx now **explains and confirms** each result instead of just recording a status
+code. A rule-based analysis engine (microseconds each, no extra attack traffic)
+turns every result into a real finding — **category, plain-English cause, the
+concrete evidence from the response, remediation, and a confidence level** —
+confirming reflected XSS, SQL-error / stack-trace disclosure, path-traversal file
+reads, secret leaks, auth bypass, and unhandled 5xx crashes. Every row in the
+live dashboard and the report is click-to-expand to show the full explanation,
+and severity is now computed one way across the list, report, and live stream.
+
+---
+
 ## 🎨 Full Light-Mono UI Conversion (Jul 10, 2026)
 
 The entire client was migrated to the **light-mono** design system (composio /
