@@ -92,6 +92,45 @@ export function startOnyxWorker(): Worker {
 // terminal-failure handler so the logic can never diverge).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Throttled progress broadcasts
+// ---------------------------------------------------------------------------
+//
+// Previously every attack emitted a TEST_RUN_STATUS on top of its ATTACK_RESULT
+// — 2 WS messages + 2 JSON.stringify per job, and a client state update per row
+// (30+/sec during a run). The client already receives every ATTACK_RESULT, so
+// the status message only needs to refresh the completed/total denominator
+// periodically. Coalesce it to at most one per run every 400ms. The terminal
+// COMPLETED status is always sent by finalizeIfComplete, so the final state
+// never gets swallowed by the throttle.
+const PROGRESS_BROADCAST_INTERVAL_MS = 400;
+const lastProgressBroadcast = new Map<string, number>();
+
+function maybeBroadcastProgress(run: {
+    id: string;
+    status: string;
+    completedAttacks: number;
+    totalAttacks: number;
+}): void {
+    const now = Date.now();
+    if (
+        now - (lastProgressBroadcast.get(run.id) ?? 0) <
+        PROGRESS_BROADCAST_INTERVAL_MS
+    ) {
+        return;
+    }
+    lastProgressBroadcast.set(run.id, now);
+    wsManager.broadcast(run.id, {
+        type: "TEST_RUN_STATUS",
+        data: {
+            testRunId: run.id,
+            status: run.status as any,
+            completedAttacks: run.completedAttacks,
+            totalAttacks: run.totalAttacks,
+        },
+    });
+}
+
 /**
  * Atomically flip a run to COMPLETED iff all jobs are enqueued (enqueuedAt set)
  * and every attack has been accounted for. Uses updateMany with a status filter
@@ -136,6 +175,7 @@ async function finalizeIfComplete(
     });
 
     if (count > 0) {
+        lastProgressBroadcast.delete(testRunId); // stop tracking a finished run
         const completionMessage: WsServerMessage = {
             type: "TEST_RUN_STATUS",
             data: {
@@ -333,24 +373,17 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         severity: getSeverity(attackType, statusCode ?? 0, responseSnippet ?? ""),
     };
 
-    // Broadcast via WebSocket
+    // Broadcast the result for THIS payload (the client needs every one).
     const wsMessage: WsServerMessage = {
         type: "ATTACK_RESULT",
         data: attackResult,
     };
     wsManager.broadcast(testRunId, wsMessage);
 
-    // Also send progress update
-    const statusMessage: WsServerMessage = {
-        type: "TEST_RUN_STATUS",
-        data: {
-            testRunId,
-            status: testRun.status as any,
-            completedAttacks: testRun.completedAttacks,
-            totalAttacks: testRun.totalAttacks,
-        },
-    };
-    wsManager.broadcast(testRunId, statusMessage);
+    // Refresh the progress denominator — throttled to ~1 per 400ms per run so a
+    // 30/sec stream doesn't emit a redundant status message (and client render)
+    // per row. The final COMPLETED status is still sent by finalizeIfComplete.
+    maybeBroadcastProgress(testRun);
 
     // Check if all attacks are complete. Reuse the row we just wrote (fresh
     // counts + status + enqueuedAt) so we skip a redundant SELECT; the helper
