@@ -13,7 +13,7 @@ import {
 } from "../validators/schemas.js";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
-import { getSeverity } from "../utils/severity.js";
+import { analyzeFinding } from "../services/finding-analysis.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -295,7 +295,16 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 responseSnippet: "",
                 attackType: attackType as any,
                 timestamp: attackLog.createdAt.toISOString(),
-                severity: getSeverity(attackType, 0, ""),
+                severity: "INFO",
+                finding: {
+                    severity: "INFO",
+                    category: "Skipped (SSRF guard)",
+                    title: "Payload not sent — target resolved to an internal IP",
+                    cause: "Onyx's SSRF guard blocked this request because the target host resolved to a private/internal address, so the payload was never delivered.",
+                    evidence: null,
+                    remediation: "Expected safety behavior. If this is your own internal host, run Onyx from inside that network or allow-list it explicitly.",
+                    confidence: "info",
+                },
             },
         };
         wsManager.broadcast(testRunId, wsMsg);
@@ -358,6 +367,16 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         }),
     ]);
 
+    // Analyze the result into an explained finding (what / why / cause / fix).
+    const finding = analyzeFinding({
+        attackType,
+        method,
+        statusCode: statusCode ?? 0,
+        latencyMs: latencyMs ?? 0,
+        payload,
+        responseSnippet: responseSnippet ?? "",
+    });
+
     // Build attack result for WebSocket broadcast
     const attackResult: AttackResult = {
         id: attackLog.id,
@@ -370,7 +389,8 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         responseSnippet: responseSnippet ?? "",
         attackType: attackType as AttackResult["attackType"],
         timestamp: attackLog.createdAt.toISOString(),
-        severity: getSeverity(attackType, statusCode ?? 0, responseSnippet ?? ""),
+        severity: finding.severity,
+        finding,
     };
 
     // Broadcast the result for THIS payload (the client needs every one).

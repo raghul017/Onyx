@@ -33,6 +33,19 @@ export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
 export type ScoreLabel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
 
+export type FindingConfidence = "confirmed" | "firm" | "tentative" | "info";
+
+/** The explained finding for a single attack result (what / why / cause / fix). */
+export interface FindingDetail {
+    severity: SeverityLevel;
+    category: string;
+    title: string;
+    cause: string;
+    evidence: string | null;
+    remediation: string;
+    confidence: FindingConfidence;
+}
+
 export interface SeverityBreakdown {
     critical: number;
     high: number;
@@ -57,6 +70,9 @@ export interface AttackResult {
     attackType: AttackType;
     timestamp: string;
     severity: SeverityLevel;
+    /** Explained finding (category, cause, evidence, remediation). Present on
+     *  the live stream and the report; omitted from the lightweight run list. */
+    finding?: FindingDetail;
 }
 
 export interface TestRunSummary {

@@ -2,81 +2,26 @@
 // CVSS-inspired severity scoring for attack log results
 // =============================================================================
 
+import { analyzeFinding } from "../services/finding-analysis.js";
+
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
 export type ScoreLabel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
 
-const CRITICAL_ATTACK_KEYWORDS = ["injection", "sqli", "auth"];
-
-const CRITICAL_RESPONSE_KEYWORDS = [
-    "password",
-    "token",
-    "secret",
-    "database error",
-    "ora-",
-    "mysql",
-    "syntax error",
-];
-
-const INFO_LEAK_KEYWORDS = [
-    "error",
-    "exception",
-    "stack",
-    "trace",
-    "invalid",
-    "unexpected",
-];
-
+/**
+ * Severity for a single result. Thin wrapper over analyzeFinding() so severity
+ * is computed ONE way across the whole app (list, report, live stream). Callers
+ * that also want the explanation (title/cause/evidence/remediation) should call
+ * analyzeFinding directly. Reflection-based XSS detection needs the payload, so
+ * paths that don't pass it (e.g. the run list) simply won't upgrade on that
+ * single signal — every other signal still applies.
+ */
 export function getSeverity(
     attackType: string,
     statusCode: number,
     responseSnippet: string,
 ): SeverityLevel {
-    const attack = attackType.toLowerCase();
-    const snippet = (responseSnippet ?? "").toLowerCase();
-
-    // CRITICAL: 500+ with a high-risk attack type
-    if (
-        statusCode >= 500 &&
-        CRITICAL_ATTACK_KEYWORDS.some((k) => attack.includes(k))
-    ) {
-        return "CRITICAL";
-    }
-
-    // CRITICAL: response leaks sensitive data regardless of status code
-    if (CRITICAL_RESPONSE_KEYWORDS.some((k) => snippet.includes(k))) {
-        return "CRITICAL";
-    }
-
-    // HIGH: any other 500+
-    if (statusCode >= 500) {
-        return "HIGH";
-    }
-
-    // HIGH: auth-related 401 / 403
-    if (
-        (statusCode === 401 || statusCode === 403) &&
-        (attack.includes("auth") || attack.includes("bypass"))
-    ) {
-        return "HIGH";
-    }
-
-    // MEDIUM: 4xx that leaks server internals
-    if (
-        statusCode >= 400 &&
-        statusCode < 500 &&
-        INFO_LEAK_KEYWORDS.some((k) => snippet.includes(k))
-    ) {
-        return "MEDIUM";
-    }
-
-    // LOW: generic 4xx
-    if (statusCode >= 400 && statusCode < 500) {
-        return "LOW";
-    }
-
-    // INFO: 2xx, 3xx, no status
-    return "INFO";
+    return analyzeFinding({ attackType, statusCode, responseSnippet }).severity;
 }
 
 export interface ScoredLog {

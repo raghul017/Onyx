@@ -22,6 +22,7 @@ import type {
     WsServerMessage,
 } from "../types/shared.js";
 import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
+import { analyzeFinding } from "../services/finding-analysis.js";
 
 /**
  * Shared access check for a test run. Returns true when the caller owns the run
@@ -535,23 +536,30 @@ export async function getTestRun(
                 responseSnippet: string | null;
                 attackType: string;
                 createdAt: Date;
-            }) => ({
-                id: l.id,
-                testRunId: l.testRunId,
-                method: l.method as AttackResult["method"],
-                endpoint: l.path,
-                statusCode: l.statusCode ?? 0,
-                responseTime: l.latencyMs ?? 0,
-                payload: l.payload,
-                responseSnippet: l.responseSnippet ?? "",
-                attackType: l.attackType as AttackResult["attackType"],
-                timestamp: l.createdAt.toISOString(),
-                severity: getSeverity(
-                    l.attackType,
-                    l.statusCode ?? 0,
-                    l.responseSnippet ?? "",
-                ),
-            }),
+            }) => {
+                const finding = analyzeFinding({
+                    attackType: l.attackType,
+                    method: l.method,
+                    statusCode: l.statusCode ?? 0,
+                    latencyMs: l.latencyMs ?? 0,
+                    payload: l.payload,
+                    responseSnippet: l.responseSnippet ?? "",
+                });
+                return {
+                    id: l.id,
+                    testRunId: l.testRunId,
+                    method: l.method as AttackResult["method"],
+                    endpoint: l.path,
+                    statusCode: l.statusCode ?? 0,
+                    responseTime: l.latencyMs ?? 0,
+                    payload: l.payload,
+                    responseSnippet: l.responseSnippet ?? "",
+                    attackType: l.attackType as AttackResult["attackType"],
+                    timestamp: l.createdAt.toISOString(),
+                    severity: finding.severity,
+                    finding,
+                };
+            },
         );
 
         const severityBreakdown = {
@@ -621,19 +629,30 @@ export async function getTestRunLogs(
             prisma.attackLog.count({ where: { testRunId: id } }),
         ]);
 
-        const attackResults: AttackResult[] = logs.map((l) => ({
-            id: l.id,
-            testRunId: l.testRunId,
-            method: l.method as AttackResult["method"],
-            endpoint: l.path,
-            statusCode: l.statusCode ?? 0,
-            responseTime: l.latencyMs ?? 0,
-            payload: l.payload,
-            responseSnippet: l.responseSnippet ?? "",
-            attackType: l.attackType as AttackResult["attackType"],
-            timestamp: l.createdAt.toISOString(),
-            severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ""),
-        }));
+        const attackResults: AttackResult[] = logs.map((l) => {
+            const finding = analyzeFinding({
+                attackType: l.attackType,
+                method: l.method,
+                statusCode: l.statusCode ?? 0,
+                latencyMs: l.latencyMs ?? 0,
+                payload: l.payload,
+                responseSnippet: l.responseSnippet ?? "",
+            });
+            return {
+                id: l.id,
+                testRunId: l.testRunId,
+                method: l.method as AttackResult["method"],
+                endpoint: l.path,
+                statusCode: l.statusCode ?? 0,
+                responseTime: l.latencyMs ?? 0,
+                payload: l.payload,
+                responseSnippet: l.responseSnippet ?? "",
+                attackType: l.attackType as AttackResult["attackType"],
+                timestamp: l.createdAt.toISOString(),
+                severity: finding.severity,
+                finding,
+            };
+        });
 
         const response: PaginatedLogsResponse = {
             logs: attackResults,
