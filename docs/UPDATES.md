@@ -74,3 +74,20 @@ exist. Light-mono styling throughout; no backend changes beyond client bindings.
 - **Added:** `client/src/components/AuthRecipesPanel.tsx` (+ pure helpers `buildRecipeMeta` / `buildRecipeUpdatePayload`), `client/src/test/auth-recipe-form.test.ts`.
 - **Changed:** `client/src/services/api.ts` (auth-recipe types + CRUD bindings; optional `authRecipeId` on `createTestRun`), `client/src/pages/Settings.tsx` (render Credentials panel), `client/src/pages/Dashboard.tsx` (Authentication dropdown → `authRecipeId`).
 - **Skipped (noted):** per-endpoint "expects bearer" badge — `getTestRun` returns logs from `AttackLog` and doesn't expose `TargetEndpoint.authRequirements`, so surfacing it cleanly would require a backend response change (out of T7b scope).
+
+## 2026-07-28 — T8a: Dynamic auth (login-request + oauth2) + 401 refresh (backend)
+
+Two DYNAMIC credential types that obtain a token at scan time and attach it like
+a bearer/header: **oauth2ClientCredentials** (POST a token URL) and
+**loginRequest** (fire a user-defined request, substitute `{{placeholder}}`
+values from the encrypted secret, extract the token via dot-path OR `/regex/`).
+The token is resolved once per run with **single-flight** (concurrent jobs → one
+login) and, on a mid-run **401**, refreshed **exactly once** and the request
+retried once, then it gives up gracefully (no loops, no compounding with BullMQ
+retries). Every login/token request goes through the **SSRF guard + 10s timeout**;
+the secret/token are never logged or stored (scrubbed from snippets). `MISSING_AUTH`
+still fires un-authenticated; static recipes never auto-refresh.
+
+- **Added:** `server/src/services/auth-runner.ts` (dynamic token resolution, SSRF-guarded), `server/src/services/credential-resolver.ts` (single-flight cache + `executeWithAuthRefresh`), tests: `auth-runner.test.ts`, `credential-resolver.test.ts` (+ dynamic-masking cases in `auth-recipe.service.test.ts`).
+- **Changed:** `validators/schemas.ts` (extend type enum + dynamic meta fields + string|object secret union + per-type validation), `services/auth-recipe.service.ts` (`isDynamicType`, `buildRecipeStorage` `includeLast4` opt, `maskRecipe` passes through non-secret meta minus last4), `controllers/auth-recipe.controller.ts` (JSON-stringify object secrets, dynamic meta defaults, no last4 for dynamic), `queues/worker.ts` (use `CredentialResolver` + `executeWithAuthRefresh` for attack + baseline; scrub original + refreshed token).
+- **Migration:** none — `AuthRecipe.type` is a plain `String` column, so the new values need no DDL (confirmed: `prisma migrate diff` → "No difference detected").

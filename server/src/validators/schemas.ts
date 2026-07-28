@@ -184,37 +184,94 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 // Auth Recipes (T7a) — static credentials attached to a scan run.
 // ---------------------------------------------------------------------------
 
-export const authRecipeTypeEnum = z.enum(["bearer", "apiKey", "header", "cookie"]);
+// Static (T7a) + dynamic (T8a) credential types.
+export const authRecipeTypeEnum = z.enum([
+    "bearer",
+    "apiKey",
+    "header",
+    "cookie",
+    "loginRequest",
+    "oauth2ClientCredentials",
+]);
 
-/** NON-secret descriptors only — never the secret value. */
+/** NON-secret descriptors only — never a secret value. Covers static (T7a) AND
+ *  dynamic (T8a) config. Secret fields live in `secret`, encrypted separately. */
 export const authRecipeMetaSchema = z
     .object({
+        // Static
         headerName: z.string().trim().min(1).max(120).optional(),
         queryName: z.string().trim().min(1).max(120).optional(),
         location: z.enum(["header", "query"]).optional(),
         cookieName: z.string().trim().min(1).max(120).optional(),
+        // oauth2ClientCredentials (clientSecret is a SECRET → goes in `secret`)
+        tokenUrl: z.string().url().max(2000).optional(),
+        clientId: z.string().min(1).max(500).optional(),
+        scope: z.string().max(1000).optional(),
+        tokenResponseField: z.string().min(1).max(200).optional(),
+        // loginRequest
+        method: z.enum(["GET", "POST", "PUT", "PATCH"]).optional(),
+        url: z.string().url().max(2000).optional(),
+        headers: z.record(z.string().max(2000)).optional(), // non-secret headers only
+        bodyTemplate: z.string().max(8192).optional(), // JSON with {{placeholders}}
+        tokenPath: z.string().min(1).max(500).optional(), // dot-path OR /regex/
+        // shared: "bearer" | "header:<Name>"
+        injectAs: z.string().min(1).max(200).optional(),
     })
     .strict();
 
-/** Enforce the meta a given credential type needs (e.g. header type needs a name). */
+/** Secret is a string for STATIC types, or an object of fields for DYNAMIC ones
+ *  (e.g. { clientSecret } for oauth2, or {{placeholder}} values for loginRequest). */
+const secretSchema = z.union([
+    z.string().min(1).max(8192),
+    z.record(z.string().max(8192)),
+]);
+
+const DYNAMIC_TYPES = new Set(["loginRequest", "oauth2ClientCredentials"]);
+
+/** Enforce the meta + secret shape each credential type needs. */
 function requireMetaForType(
-    data: { type: z.infer<typeof authRecipeTypeEnum>; meta?: z.infer<typeof authRecipeMetaSchema> },
+    data: {
+        type: z.infer<typeof authRecipeTypeEnum>;
+        meta?: z.infer<typeof authRecipeMetaSchema>;
+        secret?: z.infer<typeof secretSchema>;
+    },
     ctx: z.RefinementCtx,
 ): void {
     const meta = data.meta ?? {};
-    if (data.type === "header" && !meta.headerName) {
-        ctx.addIssue({ code: "custom", message: "header credential requires meta.headerName", path: ["meta", "headerName"] });
+    const type = data.type;
+    const isDynamic = DYNAMIC_TYPES.has(type);
+    const secretIsObject = data.secret != null && typeof data.secret === "object";
+    const need = (path: (string | number)[], message: string) =>
+        ctx.addIssue({ code: "custom", message, path });
+
+    // Static types require a STRING secret.
+    if (!isDynamic && data.secret != null && typeof data.secret !== "string") {
+        need(["secret"], `${type} credential requires a string secret`);
     }
-    if (data.type === "cookie" && !meta.cookieName) {
-        ctx.addIssue({ code: "custom", message: "cookie credential requires meta.cookieName", path: ["meta", "cookieName"] });
-    }
-    if (data.type === "apiKey") {
+    if (type === "header" && !meta.headerName) need(["meta", "headerName"], "header credential requires meta.headerName");
+    if (type === "cookie" && !meta.cookieName) need(["meta", "cookieName"], "cookie credential requires meta.cookieName");
+    if (type === "apiKey") {
         const loc = meta.location ?? "header";
-        if (loc === "header" && !meta.headerName) {
-            ctx.addIssue({ code: "custom", message: "apiKey (header) requires meta.headerName", path: ["meta", "headerName"] });
+        if (loc === "header" && !meta.headerName) need(["meta", "headerName"], "apiKey (header) requires meta.headerName");
+        if (loc === "query" && !meta.queryName) need(["meta", "queryName"], "apiKey (query) requires meta.queryName");
+    }
+
+    // Dynamic types require an OBJECT secret + specific meta.
+    if (type === "oauth2ClientCredentials") {
+        if (!meta.tokenUrl) need(["meta", "tokenUrl"], "oauth2 requires meta.tokenUrl");
+        if (!meta.clientId) need(["meta", "clientId"], "oauth2 requires meta.clientId");
+        if (!secretIsObject || !(data.secret as Record<string, string>)?.clientSecret) {
+            need(["secret"], "oauth2 requires secret.clientSecret");
         }
-        if (loc === "query" && !meta.queryName) {
-            ctx.addIssue({ code: "custom", message: "apiKey (query) requires meta.queryName", path: ["meta", "queryName"] });
+    }
+    if (type === "loginRequest") {
+        if (!meta.url) need(["meta", "url"], "loginRequest requires meta.url");
+        if (!meta.method) need(["meta", "method"], "loginRequest requires meta.method");
+        if (!meta.bodyTemplate) need(["meta", "bodyTemplate"], "loginRequest requires meta.bodyTemplate");
+        if (!meta.tokenPath) need(["meta", "tokenPath"], "loginRequest requires meta.tokenPath");
+        if (!meta.injectAs) need(["meta", "injectAs"], "loginRequest requires meta.injectAs");
+        if (!secretIsObject || Object.keys((data.secret as Record<string, string>) ?? {}).length === 0) {
+            need(["secret"], "loginRequest requires a non-empty secret object");
         }
     }
 }
@@ -223,7 +280,7 @@ export const createAuthRecipeSchema = z
     .object({
         name: z.string().trim().min(1, "name is required").max(80),
         type: authRecipeTypeEnum,
-        secret: z.string().min(1, "secret is required").max(8192),
+        secret: secretSchema,
         meta: authRecipeMetaSchema.optional().default({}),
     })
     .superRefine(requireMetaForType);
@@ -231,7 +288,7 @@ export const createAuthRecipeSchema = z
 export const updateAuthRecipeSchema = z
     .object({
         name: z.string().trim().min(1).max(80).optional(),
-        secret: z.string().min(1).max(8192).optional(),
+        secret: secretSchema.optional(),
         meta: authRecipeMetaSchema.optional(),
     })
     .refine(
@@ -242,3 +299,4 @@ export const updateAuthRecipeSchema = z
 export type CreateAuthRecipeInput = z.infer<typeof createAuthRecipeSchema>;
 export type UpdateAuthRecipeInput = z.infer<typeof updateAuthRecipeSchema>;
 export type AuthRecipeMetaInput = z.infer<typeof authRecipeMetaSchema>;
+export type AuthRecipeSecretInput = z.infer<typeof secretSchema>;

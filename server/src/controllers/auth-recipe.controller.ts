@@ -13,7 +13,7 @@ import {
     createAuthRecipeSchema,
     updateAuthRecipeSchema,
 } from "../validators/schemas.js";
-import { buildRecipeStorage, maskRecipe } from "../services/auth-recipe.service.js";
+import { buildRecipeStorage, maskRecipe, isDynamicType } from "../services/auth-recipe.service.js";
 import { isEncryptionConfigured } from "../lib/crypto.js";
 import { logger } from "../lib/logger.js";
 
@@ -67,11 +67,26 @@ export async function createAuthRecipe(
         }
         const { name, type, secret, meta } = validation.data;
 
-        // Normalize apiKey location default so attach logic is unambiguous.
-        const normalizedMeta =
-            type === "apiKey" && !meta.location ? { ...meta, location: "header" as const } : meta;
+        // Normalize meta defaults so attach/resolve logic is unambiguous.
+        let normalizedMeta: Record<string, unknown> = { ...meta };
+        if (type === "apiKey" && !meta.location) normalizedMeta.location = "header";
+        if (type === "oauth2ClientCredentials") {
+            normalizedMeta = {
+                tokenResponseField: "access_token",
+                injectAs: "bearer",
+                ...meta,
+            };
+        }
 
-        const { secretEnc, meta: storedMeta } = buildRecipeStorage(normalizedMeta, secret);
+        // Static secret is a string; dynamic secret is an object → store as JSON.
+        // Dynamic types get NO last4 hint (their secret is a JSON blob).
+        const dynamic = isDynamicType(type);
+        const secretPlain = typeof secret === "string" ? secret : JSON.stringify(secret);
+        const { secretEnc, meta: storedMeta } = buildRecipeStorage(
+            normalizedMeta,
+            secretPlain,
+            { includeLast4: !dynamic },
+        );
 
         const created = await prisma.authRecipe.create({
             data: {
@@ -190,7 +205,12 @@ export async function updateAuthRecipe(
                 });
                 return;
             }
-            const built = buildRecipeStorage(mergedMeta as never, secret);
+            // Static secret is a string; dynamic secret is an object → JSON.
+            const dynamic = isDynamicType(existing.type);
+            const secretPlain = typeof secret === "string" ? secret : JSON.stringify(secret);
+            const built = buildRecipeStorage(mergedMeta as never, secretPlain, {
+                includeLast4: !dynamic,
+            });
             data.secretEnc = built.secretEnc;
             mergedMeta = built.meta as Record<string, unknown>;
         }

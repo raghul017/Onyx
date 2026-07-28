@@ -25,7 +25,14 @@ import {
     type AttachedCredential,
 } from "../services/request-builder.js";
 import { isRunComplete } from "../services/run-completion.js";
-import { toAttachedCredential } from "../services/auth-recipe.service.js";
+import { toAttachedCredential, isDynamicType } from "../services/auth-recipe.service.js";
+import { resolveDynamicCredential } from "../services/auth-runner.js";
+import {
+    CredentialResolver,
+    executeWithAuthRefresh,
+    type ResolvedCredential,
+} from "../services/credential-resolver.js";
+import { decryptSecret } from "../lib/crypto.js";
 import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
 import { initSentry, captureException } from "../lib/sentry.js";
@@ -87,50 +94,63 @@ async function getBaselineFor(
 }
 
 // ---------------------------------------------------------------------------
-// Auth-recipe credential cache (T7a)
+// Auth-recipe credential resolution (T7a static + T8a dynamic)
 // ---------------------------------------------------------------------------
 //
-// A run attaches ONE static credential to every request. We fetch + DECRYPT the
-// recipe once per recipeId (cached, TTL) rather than per payload. The decrypted
-// secret lives only here in worker memory — never persisted, never logged, and
-// never placed in Redis (the job carries no auth material; the recipe id comes
-// off the TestRun row we already load).
+// A run attaches ONE credential to every request. STATIC recipes decrypt to a
+// fixed value; DYNAMIC recipes (loginRequest / oauth2) obtain a token at scan
+// time via the auth-runner. The CredentialResolver caches per (run, recipe) and
+// SINGLE-FLIGHTs concurrent resolves/refreshes so a burst of jobs triggers only
+// ONE login. The decrypted secret + resolved token live only in worker memory —
+// never persisted, never logged, never placed in Redis.
 
-const CREDENTIAL_TTL_MS = 300_000; // 5 min — a run is far shorter
-const CREDENTIAL_CACHE_MAX = 500;
-
-const credentialCache = new Map<
-    string,
-    { value: AttachedCredential | null; at: number }
->();
-
-async function getCredentialFor(
-    recipeId: string,
-): Promise<AttachedCredential | null> {
-    const hit = credentialCache.get(recipeId);
-    if (hit && Date.now() - hit.at < CREDENTIAL_TTL_MS) return hit.value;
-
-    let value: AttachedCredential | null = null;
+/** Load + resolve a recipe into a credential. Never throws — on failure it fires
+ *  un-authenticated (value: null) but preserves the `dynamic` flag so a mid-run
+ *  401 can still trigger one login retry. */
+async function loadRecipeCredential(recipeId: string): Promise<ResolvedCredential> {
+    let row: { type: string; meta: unknown; secretEnc: string } | null = null;
     try {
-        const row = await prisma.authRecipe.findUnique({
+        row = await prisma.authRecipe.findUnique({
             where: { id: recipeId },
             select: { type: true, meta: true, secretEnc: true },
         });
-        if (row) value = toAttachedCredential(row);
     } catch (err) {
-        // Missing key / tampered blob / decrypt failure: fire UNauthenticated
-        // rather than crash the run. Never log the secret; log only the reason.
-        log.error({ recipeId, err }, "Failed to resolve auth recipe — firing without credential");
-        value = null;
+        log.error({ recipeId, err: safeErr(err) }, "Failed to load auth recipe");
+        return { value: null, dynamic: false };
     }
+    if (!row) return { value: null, dynamic: false };
 
-    if (credentialCache.size >= CREDENTIAL_CACHE_MAX) {
-        const oldest = credentialCache.keys().next().value;
-        if (oldest !== undefined) credentialCache.delete(oldest);
+    const dynamic = isDynamicType(row.type);
+    try {
+        if (!dynamic) {
+            return { value: toAttachedCredential(row), dynamic: false };
+        }
+        // Dynamic: decrypt the JSON secret + call the auth-runner (SSRF-guarded).
+        const secret = JSON.parse(decryptSecret(row.secretEnc)) as Record<string, string>;
+        const value = await resolveDynamicCredential({
+            type: row.type as "loginRequest" | "oauth2ClientCredentials",
+            meta: (row.meta ?? {}) as Record<string, unknown>,
+            secret,
+        });
+        log.info({ recipeId, type: row.type }, "Resolved dynamic credential");
+        return { value, dynamic: true };
+    } catch (err) {
+        // SSRF block / non-2xx / missing token / decrypt failure: fire un-authed.
+        // NEVER log the secret or token — only the safe reason.
+        log.error(
+            { recipeId, type: row.type, reason: safeErr(err) },
+            "Failed to resolve credential — firing without it",
+        );
+        return { value: null, dynamic };
     }
-    credentialCache.set(recipeId, { value, at: Date.now() });
-    return value;
 }
+
+/** A safe, secret-free error string for logging. */
+function safeErr(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
+
+const credentialResolver = new CredentialResolver(loadRecipeCredential);
 
 /** Scrub the exact credential secret from a stored/broadcast string (T7a).
  *  Runs BEFORE the generic T3 redaction so even custom header/cookie secrets
@@ -402,16 +422,18 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         throw new Error("Invalid job data");
     }
 
-    // Resolve the static credential once (decrypt in-memory, cached). null when
-    // the run has no recipe. Attached to baseline + attack requests below.
-    const credential = runState.authRecipeId
-        ? await getCredentialFor(runState.authRecipeId)
-        : null;
+    // Resolve the credential once per run (cached, single-flight). Static → fixed
+    // value; dynamic → a token obtained via the auth-runner. `resolved.dynamic`
+    // gates the mid-run 401 refresh below.
+    const resolved: ResolvedCredential = runState.authRecipeId
+        ? await credentialResolver.resolve(validation.data.testRunId, runState.authRecipeId)
+        : { value: null, dynamic: false };
+    const credential = resolved.value;
 
     // Branch on job kind (T5). Baseline jobs fire ONE benign control request and
     // store a BaselineResponse — no AttackLog, no finding, no attack analysis.
     if (validation.data.kind === "baseline") {
-        await processBaselineJob(validation.data, credential);
+        await processBaselineJob(validation.data, resolved, runState.authRecipeId);
         return;
     }
 
@@ -509,9 +531,39 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         return;
     }
 
+    // A dynamic credential may expire mid-run: on a 401 we refresh ONCE and retry
+    // the same request ONCE. MISSING_AUTH must NOT refresh (its 401 is the desired
+    // "auth enforced" result), and static credentials never auto-refresh.
+    const isMissingAuth = attackType === "MISSING_AUTH";
+    const canRefresh = resolved.dynamic && !isMissingAuth && !!runState.authRecipeId;
+    let usedCredential = credential;
     try {
-        // Execute the HTTP request built above (method/url/headers/body).
-        const result = await executeAttack(request);
+        const { result, credentialUsed } = await executeWithAuthRefresh({
+            credential,
+            canRefresh,
+            // Reuse the pre-built request for the first fire; rebuild on refresh
+            // (only headers change — dynamic creds resolve to bearer/header).
+            execute: (cred) =>
+                executeAttack(
+                    cred === credential
+                        ? request
+                        : buildAttackRequest({
+                              method,
+                              path,
+                              baseUrl,
+                              payload,
+                              attackType,
+                              parameters,
+                              requestBodySchema,
+                              credential: cred,
+                          }),
+                ),
+            refresh: async () =>
+                (await credentialResolver.resolve(testRunId, runState.authRecipeId!, {
+                    forceRefresh: true,
+                })).value,
+        });
+        usedCredential = credentialUsed;
         statusCode = result.statusCode;
         latencyMs = result.latencyMs;
         responseSnippet = result.responseSnippet;
@@ -552,16 +604,16 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // key names survive redaction, so classification stays identical.
     // Scrub the exact credential secret FIRST (T7a — catches custom header/cookie
     // secrets the generic patterns miss), then run the generic T3 redaction.
+    // Scrub BOTH the original and any refreshed token so neither can leak.
+    const scrub = (t: string | null) =>
+        scrubCredential(scrubCredential(t, credential), usedCredential);
     const storedSnippet =
         responseSnippet != null
-            ? redactSecrets(scrubCredential(responseSnippet, credential)!).replace(/\0/g, "\\u0000")
+            ? redactSecrets(scrub(responseSnippet)!).replace(/\0/g, "\\u0000")
             : null;
     const safeFinding = {
         ...finding,
-        evidence:
-            finding.evidence != null
-                ? redactSecrets(scrubCredential(finding.evidence, credential)!)
-                : null,
+        evidence: finding.evidence != null ? redactSecrets(scrub(finding.evidence)!) : null,
     };
 
     // Persist the result + advance progress in a single round-trip. This runs
@@ -724,19 +776,23 @@ const BASELINE_FIRES = 3;
  */
 async function processBaselineJob(
     data: AttackJobData,
-    credential: AttachedCredential | null,
+    resolved: ResolvedCredential,
+    recipeId: string | null,
 ): Promise<void> {
     const { testRunId, endpointId, method, path, baseUrl, parameters, requestBodySchema } = data;
 
-    const request = buildBenignRequest({
-        method,
-        path,
-        baseUrl,
-        parameters,
-        requestBodySchema,
-        // T7a: baselines are authenticated like real traffic.
-        credential,
-    });
+    let cred = resolved.value;
+    const buildReq = (c: AttachedCredential | null) =>
+        buildBenignRequest({
+            method,
+            path,
+            baseUrl,
+            parameters,
+            requestBodySchema,
+            // T7a: baselines are authenticated like real traffic.
+            credential: c,
+        });
+    let request = buildReq(cred);
 
     // SSRF guard on the resolved URL. If blocked, still count the baseline as
     // done (so the run can complete) but store no BaselineResponse.
@@ -749,13 +805,26 @@ async function processBaselineJob(
 
     // Fire 2-3 times; take the MEDIAN latency to reduce noise. Use the last
     // observed response for status/body; tolerate per-fire network failures.
+    // A dynamic credential that 401s triggers ONE refresh + retry (once total).
     const latencies: number[] = [];
     let lastStatus: number | null = null;
     let lastSnippet = "";
     let lastBodyLength = 0;
+    let refreshed = false;
     for (let i = 0; i < BASELINE_FIRES; i++) {
         try {
-            const r = await executeAttack(request);
+            let r = await executeAttack(request);
+            if (r.statusCode === 401 && resolved.dynamic && recipeId && !refreshed) {
+                refreshed = true;
+                const fresh = (
+                    await credentialResolver.resolve(testRunId, recipeId, { forceRefresh: true })
+                ).value;
+                if (fresh) {
+                    cred = fresh;
+                    request = buildReq(cred);
+                    r = await executeAttack(request);
+                }
+            }
             latencies.push(r.latencyMs);
             lastStatus = r.statusCode;
             lastSnippet = r.responseSnippet;
@@ -766,9 +835,9 @@ async function processBaselineJob(
     }
 
     const medianLatency = latencies.length > 0 ? median(latencies) : null;
-    // Scrub the credential (T7a) then redact (T3) before persisting; cap length.
+    // Scrub BOTH the initial and refreshed token (T7a/T8a) then redact (T3).
     const bodySnippet = lastSnippet
-        ? redactSecrets(scrubCredential(lastSnippet, credential)!)
+        ? redactSecrets(scrubCredential(scrubCredential(lastSnippet, resolved.value), cred)!)
               .replace(/\0/g, "\\u0000")
               .slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
         : null;

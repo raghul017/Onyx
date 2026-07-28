@@ -10,11 +10,23 @@ import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import type { AttachedCredential } from "./request-builder.js";
 import type { AuthRecipeMetaInput } from "../validators/schemas.js";
 
-export type AuthRecipeType = "bearer" | "apiKey" | "header" | "cookie";
+export type AuthRecipeType =
+    | "bearer"
+    | "apiKey"
+    | "header"
+    | "cookie"
+    | "loginRequest"
+    | "oauth2ClientCredentials";
+
+/** Dynamic types obtain a token at scan time (T8a) rather than storing a static value. */
+const DYNAMIC_TYPES = new Set<string>(["loginRequest", "oauth2ClientCredentials"]);
+export function isDynamicType(type: string): boolean {
+    return DYNAMIC_TYPES.has(type);
+}
 
 /** Non-secret descriptors persisted in AuthRecipe.meta (plus a masking hint). */
 export interface AuthRecipeMeta extends AuthRecipeMetaInput {
-    /** Last 4 chars of the secret, kept for masked display only. */
+    /** Last 4 chars of the secret, kept for masked display only (static types only). */
     last4?: string;
 }
 
@@ -38,7 +50,8 @@ export interface MaskedAuthRecipe {
     orgId: string | null;
     name: string;
     type: string;
-    meta: { headerName?: string; queryName?: string; location?: "header" | "query"; cookieName?: string };
+    /** All NON-secret meta descriptors (static + dynamic), minus the last4 hint. */
+    meta: Record<string, unknown>;
     secretMasked: string;
     createdAt: Date;
     updatedAt: Date;
@@ -51,35 +64,37 @@ function last4(secret: string): string {
 
 /**
  * Build the persisted fields for a recipe: the encrypted secret + a meta object
- * carrying only non-secret descriptors and a last4 masking hint. Throws (via
- * encryptSecret) if the encryption key is not configured.
+ * carrying only non-secret descriptors. For STATIC types we add a last4 hint for
+ * masked display; DYNAMIC types (whose secret is a JSON blob) get NO last4, so
+ * no fragment of a secret value leaks. Throws (via encryptSecret) if the key is
+ * not configured.
  */
 export function buildRecipeStorage(
     meta: AuthRecipeMetaInput,
-    secret: string,
+    secretPlain: string,
+    opts: { includeLast4?: boolean } = {},
 ): { secretEnc: string; meta: AuthRecipeMeta } {
+    const includeLast4 = opts.includeLast4 ?? true;
     return {
-        secretEnc: encryptSecret(secret),
-        meta: { ...meta, last4: last4(secret) },
+        secretEnc: encryptSecret(secretPlain),
+        meta: includeLast4 ? { ...meta, last4: last4(secretPlain) } : { ...meta },
     };
 }
 
 /** Convert a row into the masked public view. Does NOT decrypt. */
 export function maskRecipe(row: AuthRecipeRow): MaskedAuthRecipe {
     const meta = (row.meta ?? {}) as AuthRecipeMeta;
+    // Return every meta field EXCEPT the last4 hint. meta is non-secret by
+    // contract (secrets live only in secretEnc), so this is safe to expose.
+    const { last4: _last4, ...publicMeta } = meta;
     return {
         id: row.id,
         userId: row.userId,
         orgId: row.orgId,
         name: row.name,
         type: row.type,
-        meta: {
-            headerName: meta.headerName,
-            queryName: meta.queryName,
-            location: meta.location,
-            cookieName: meta.cookieName,
-        },
-        secretMasked: `••••${meta.last4 ?? ""}`,
+        meta: publicMeta as Record<string, unknown>,
+        secretMasked: meta.last4 ? `••••${meta.last4}` : "••••••",
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -97,7 +112,8 @@ export function toAttachedCredential(row: {
 }): AttachedCredential {
     const meta = (row.meta ?? {}) as AuthRecipeMeta;
     return {
-        type: row.type as AuthRecipeType,
+        // Static types only — dynamic types resolve via auth-runner.
+        type: row.type as AttachedCredential["type"],
         secret: decryptSecret(row.secretEnc),
         headerName: meta.headerName,
         queryName: meta.queryName,

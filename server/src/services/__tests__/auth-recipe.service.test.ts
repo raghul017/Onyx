@@ -9,6 +9,7 @@ import {
     buildRecipeStorage,
     maskRecipe,
     toAttachedCredential,
+    isDynamicType,
     type AuthRecipeRow,
 } from "../auth-recipe.service.js";
 
@@ -81,5 +82,38 @@ describe("toAttachedCredential — decrypts for in-memory attachment", () => {
         expect(cred.type).toBe("cookie");
         expect(cred.secret).toBe(secret); // decrypted in-memory
         expect(cred.cookieName).toBe("sid");
+    });
+});
+
+describe("dynamic recipes (T8a) — masking never leaks the secret", () => {
+    it("stores an encrypted JSON secret with NO last4, masks generically", () => {
+        const secretObj = { clientSecret: "super-secret-value-9999" };
+        const { secretEnc, meta } = buildRecipeStorage(
+            { tokenUrl: "https://idp/token", clientId: "public-client-id" },
+            JSON.stringify(secretObj),
+            { includeLast4: false },
+        );
+        // No last4 → no fragment of the secret in meta.
+        expect(meta.last4).toBeUndefined();
+        expect(secretEnc).not.toContain("super-secret");
+
+        const masked = maskRecipe({
+            id: "r", userId: "u", orgId: null, name: "oauth", type: "oauth2ClientCredentials",
+            meta, secretEnc, createdAt: new Date(), updatedAt: new Date(),
+        });
+        const serialized = JSON.stringify(masked);
+        expect(serialized).not.toContain("super-secret");
+        expect(masked.secretMasked).toBe("••••••"); // generic, no last4
+        // Non-secret config passes through for the UI (T8b).
+        expect(masked.meta.tokenUrl).toBe("https://idp/token");
+        expect(masked.meta.clientId).toBe("public-client-id");
+    });
+});
+
+describe("isDynamicType", () => {
+    it("classifies types correctly", () => {
+        expect(isDynamicType("bearer")).toBe(false);
+        expect(isDynamicType("loginRequest")).toBe(true);
+        expect(isDynamicType("oauth2ClientCredentials")).toBe(true);
     });
 });
