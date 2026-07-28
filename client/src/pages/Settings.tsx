@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { Building2, Users, Copy, Check, Trash2, Plus, Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import AuthRecipesPanel from "@/components/AuthRecipesPanel";
 import {
     getCurrentUser,
     getOrgMembers,
@@ -156,6 +157,13 @@ export default function Settings() {
                         <h1 className="text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-normal tracking-tight mb-8">
                             Settings
                         </h1>
+
+                {/* Credentials — static auth recipes for authenticated scans (T7).
+                    Scoped to the active org when one is selected (x-org-id header),
+                    otherwise to the user. */}
+                <div className="mb-8">
+                    <AuthRecipesPanel />
+                </div>
 
                 {/* No org — create one */}
                 {!activeOrg && (

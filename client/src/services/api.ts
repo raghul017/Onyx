@@ -166,12 +166,16 @@ export async function getAllTestRuns(): Promise<GetAllTestRunsResponse> {
 }
 
 /**
- * Create a new test run by submitting an OpenAPI spec URL.
+ * Create a new test run by submitting an OpenAPI spec URL. Optionally attach a
+ * static credential (auth recipe) so every request in the run carries it (T7).
  */
 export async function createTestRun(
     specUrl: string,
+    authRecipeId?: string,
 ): Promise<CreateTestRunResponse> {
-    const res = await api.post("/test-runs", { specUrl });
+    const body: { specUrl: string; authRecipeId?: string } = { specUrl };
+    if (authRecipeId) body.authRecipeId = authRecipeId;
+    const res = await api.post("/test-runs", body);
     return res.data;
 }
 
@@ -372,6 +376,79 @@ export async function checkVerification(
 export async function getVerifiedTargets(): Promise<{ targets: VerifiedTarget[] }> {
     const res = await api.get("/verify-target");
     return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Auth Recipes (T7) — static credentials attached to a scan.
+//
+// Secrets are WRITE-ONLY: the API returns them masked as "••••<last4>", never in
+// full. Mirrors the server Zod shapes (auth-recipe.service / validators).
+// ---------------------------------------------------------------------------
+
+export type AuthRecipeType = "bearer" | "apiKey" | "header" | "cookie";
+
+/** Non-secret descriptors for where the credential goes. */
+export interface AuthRecipeMeta {
+    headerName?: string;
+    queryName?: string;
+    location?: "header" | "query";
+    cookieName?: string;
+}
+
+/** Masked recipe as returned by the API — never contains the plaintext secret. */
+export interface AuthRecipe {
+    id: string;
+    userId: string | null;
+    orgId: string | null;
+    name: string;
+    type: AuthRecipeType;
+    meta: AuthRecipeMeta;
+    secretMasked: string; // e.g. "••••1234"
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateAuthRecipeInput {
+    name: string;
+    type: AuthRecipeType;
+    secret: string;
+    meta?: AuthRecipeMeta;
+}
+
+/** Update: omit `secret` to KEEP the current one (we never fetch it back). */
+export interface UpdateAuthRecipeInput {
+    name?: string;
+    secret?: string;
+    meta?: AuthRecipeMeta;
+}
+
+export async function listAuthRecipes(): Promise<{ recipes: AuthRecipe[] }> {
+    const res = await api.get("/auth-recipes");
+    return res.data;
+}
+
+export async function getAuthRecipe(id: string): Promise<AuthRecipe> {
+    const res = await api.get(`/auth-recipes/${id}`);
+    return res.data;
+}
+
+export async function createAuthRecipe(
+    input: CreateAuthRecipeInput,
+): Promise<AuthRecipe> {
+    const res = await api.post("/auth-recipes", input);
+    return res.data;
+}
+
+export async function updateAuthRecipe(
+    id: string,
+    input: UpdateAuthRecipeInput,
+): Promise<AuthRecipe> {
+    const res = await api.patch(`/auth-recipes/${id}`, input);
+    return res.data;
+}
+
+export async function deleteAuthRecipe(id: string): Promise<void> {
+    await api.delete(`/auth-recipes/${id}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -59,3 +59,18 @@ in-memory in the worker (cached). UI is deferred to T7b.
 - **Changed:** `openapi-parser.ts` (extract `securitySchemes`/`security` → `authRequirements`), `request-builder.ts` (`AttachedCredential` + `applyCredential`; MISSING_AUTH strips it; baselines authed), `queues/worker.ts` (resolve+decrypt recipe from the run, cached; attach to attack+baseline; scrub the exact secret from stored/broadcast snippets), `controllers/test-run.controller.ts` (accept + ownership-check `authRecipeId`, persist `authRequirements`), `validators/schemas.ts` (recipe + `authRecipeId` schemas), `routes/index.ts` (register), `.env.server.example` (`CREDENTIAL_ENC_KEY`).
 - **Env:** `CREDENTIAL_ENC_KEY` (32-byte base64/hex) — required to create/use recipes; missing key fails loudly.
 - **Migration:** `20260728144528_auth_recipes` (additive: `auth_recipes` table, `test_runs.authRecipeId`, `target_endpoints.authRequirements`; applied via `migrate deploy`, status clean).
+
+## 2026-07-28 — T7b: Auth recipe management UI + scan attach (client)
+
+The client half of authenticated scanning. A **Credentials** section in Settings
+lists/creates/edits/deletes auth recipes (bearer / apiKey / header / cookie) with
+type-specific fields, using TanStack Query. Secrets are **write-only**: shown only
+as `••••last4`, and on edit the secret field is blank ("leave blank to keep
+current secret") so the plaintext never round-trips back. The **new-scan launch
+bar** gains an optional **Authentication** dropdown to attach a recipe
+(`authRecipeId` sent with the run), or an "Add auth" link to Settings when none
+exist. Light-mono styling throughout; no backend changes beyond client bindings.
+
+- **Added:** `client/src/components/AuthRecipesPanel.tsx` (+ pure helpers `buildRecipeMeta` / `buildRecipeUpdatePayload`), `client/src/test/auth-recipe-form.test.ts`.
+- **Changed:** `client/src/services/api.ts` (auth-recipe types + CRUD bindings; optional `authRecipeId` on `createTestRun`), `client/src/pages/Settings.tsx` (render Credentials panel), `client/src/pages/Dashboard.tsx` (Authentication dropdown → `authRecipeId`).
+- **Skipped (noted):** per-endpoint "expects bearer" badge — `getTestRun` returns logs from `AttackLog` and doesn't expose `TargetEndpoint.authRequirements`, so surfacing it cleanly would require a backend response change (out of T7b scope).

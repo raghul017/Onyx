@@ -6,10 +6,18 @@
 // =============================================================================
 
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { Terminal, Play, Square } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Terminal, Play, Square, KeyRound } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
-import { createTestRun, abortTestRun, getCurrentUser, getVerifiedTargets, CurrentUser } from "@/services/api";
+import {
+    createTestRun,
+    abortTestRun,
+    getCurrentUser,
+    getVerifiedTargets,
+    listAuthRecipes,
+    CurrentUser,
+    type AuthRecipe,
+} from "@/services/api";
 import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
 import AppHeader from "@/components/AppHeader";
@@ -21,6 +29,7 @@ import DashboardCommand from "@/components/DashboardCommand";
 
 const Dashboard = () => {
     const location = useLocation();
+    const navigate = useNavigate();
 
     // The URL may come from the landing page via router state,
     // or from sessionStorage when the user was redirected through sign-up/sign-in
@@ -45,6 +54,9 @@ const Dashboard = () => {
     const skipDomainVerify = import.meta.env.VITE_SKIP_DOMAIN_VERIFY === "true";
     const [domainVerified, setDomainVerified] = useState(skipDomainVerify);
     const [lastVerifiedDomain, setLastVerifiedDomain] = useState<string | null>(null);
+    // T7: optional static credential attached to the run.
+    const [authRecipes, setAuthRecipes] = useState<AuthRecipe[]>([]);
+    const [authRecipeId, setAuthRecipeId] = useState<string>("");
 
     const {
         logs,
@@ -63,6 +75,7 @@ const Dashboard = () => {
     // -- Fetch User + pre-check verified domains ----------------------------
     useEffect(() => {
         getCurrentUser().then(setUser).catch(() => {});
+        listAuthRecipes().then(({ recipes }) => setAuthRecipes(recipes)).catch(() => {});
         if (initialUrl) {
             try {
                 const domain = new URL(initialUrl).hostname.toLowerCase();
@@ -112,7 +125,7 @@ const Dashboard = () => {
         setActiveTestRunId(null);
 
         try {
-            const res = await createTestRun(targetUrl);
+            const res = await createTestRun(targetUrl, authRecipeId || undefined);
             setActiveTestRunId(res.testRunId);
             connectWebSocket(res.testRunId);
         } catch (err) {
@@ -223,6 +236,37 @@ const Dashboard = () => {
                                     specUrl={inputUrl}
                                     onVerified={handleDomainVerified}
                                 />
+                            )}
+                            {/* T7: optional authentication for the run */}
+                            {authRecipes.length > 0 ? (
+                                <div
+                                    className="flex items-center gap-1.5 bg-white px-2.5 border border-[#e6e6e6] focus-within:border-[#3b82f6] transition-colors shrink-0"
+                                    title="Attach a credential so every request is authenticated"
+                                >
+                                    <KeyRound size={13} className="shrink-0 text-[#999]" />
+                                    <select
+                                        value={authRecipeId}
+                                        onChange={(e) => setAuthRecipeId(e.target.value)}
+                                        disabled={launching || isAttacking}
+                                        className="bg-transparent text-[#333] font-mono text-[12px] py-2.5 outline-none disabled:opacity-50 max-w-[150px]"
+                                    >
+                                        <option value="">No auth</option>
+                                        {authRecipes.map((r) => (
+                                            <option key={r.id} value={r.id}>
+                                                {r.name} · {r.type}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/settings")}
+                                    title="Create a credential to run authenticated scans"
+                                    className="flex items-center gap-1.5 bg-white px-3 border border-[#e6e6e6] text-[#666] hover:border-black hover:text-black text-[12px] font-mono transition-colors shrink-0 h-10"
+                                >
+                                    <KeyRound size={13} /> Add auth
+                                </button>
                             )}
                             <div className="flex items-center gap-2">
                                 <button
