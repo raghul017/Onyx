@@ -60,3 +60,148 @@ describe("buildRecipeMeta — per-type descriptors", () => {
         ).toEqual({ location: "query", queryName: "api_key" });
     });
 });
+
+// =============================================================================
+// T8b — dynamic types (loginRequest + oauth2ClientCredentials): object secrets,
+// meta assembly, edit-keep-blank, and JSON/placeholder helpers.
+// =============================================================================
+
+import {
+    buildRecipeSecret,
+    isSecretBlank,
+    isValidJson,
+    extractPlaceholders,
+    validateMetaForType,
+    EMPTY_FIELDS,
+    type RecipeFormFields,
+} from "@/components/AuthRecipesPanel";
+
+const f = (over: Partial<RecipeFormFields>): RecipeFormFields => ({ ...EMPTY_FIELDS, ...over });
+
+describe("buildRecipeSecret — object secret for dynamic, string for static", () => {
+    it("oauth2 → { clientSecret }", () => {
+        expect(buildRecipeSecret("oauth2ClientCredentials", f({ clientSecret: "csec" }))).toEqual({
+            clientSecret: "csec",
+        });
+    });
+
+    it("loginRequest → placeholder map derived from the body template", () => {
+        const fields = f({
+            bodyTemplate: '{"u":"{{user}}","p":"{{password}}"}',
+            secretValues: { user: "alice", password: "pw123" },
+        });
+        expect(buildRecipeSecret("loginRequest", fields)).toEqual({ user: "alice", password: "pw123" });
+    });
+
+    it("loginRequest — only template placeholders are included (stray values ignored)", () => {
+        const fields = f({
+            bodyTemplate: '{"p":"{{password}}"}',
+            secretValues: { password: "pw", leftover: "x" },
+        });
+        expect(buildRecipeSecret("loginRequest", fields)).toEqual({ password: "pw" });
+    });
+
+    it("static types → the string secret verbatim", () => {
+        expect(buildRecipeSecret("bearer", f({ secret: "tok" }))).toBe("tok");
+        expect(buildRecipeSecret("header", f({ secret: "hv" }))).toBe("hv");
+    });
+});
+
+describe("buildRecipeMeta — dynamic meta matches server field names", () => {
+    it("oauth2 carries tokenUrl/clientId/injectAs (+ optional scope/tokenResponseField)", () => {
+        const meta = buildRecipeMeta(
+            "oauth2ClientCredentials",
+            f({ tokenUrl: "https://idp/token", clientId: "cid", scope: "read", tokenResponseField: "jwt" }),
+        );
+        expect(meta).toEqual({
+            tokenUrl: "https://idp/token",
+            clientId: "cid",
+            injectAs: "bearer",
+            scope: "read",
+            tokenResponseField: "jwt",
+        });
+    });
+
+    it("oauth2 omits empty optionals", () => {
+        const meta = buildRecipeMeta("oauth2ClientCredentials", f({ tokenUrl: "https://idp/token", clientId: "cid" }));
+        expect(meta).toEqual({ tokenUrl: "https://idp/token", clientId: "cid", injectAs: "bearer" });
+    });
+
+    it("loginRequest carries method/url/bodyTemplate/tokenPath/injectAs + headers", () => {
+        const meta = buildRecipeMeta(
+            "loginRequest",
+            f({
+                method: "POST",
+                url: "https://api/login",
+                bodyTemplate: '{"p":"{{pw}}"}',
+                tokenPath: "data.token",
+                injectMode: "header",
+                injectHeaderName: "X-Auth",
+                headerPairs: [{ key: "X-Tenant", value: "acme" }],
+            }),
+        );
+        expect(meta).toEqual({
+            method: "POST",
+            url: "https://api/login",
+            bodyTemplate: '{"p":"{{pw}}"}',
+            tokenPath: "data.token",
+            injectAs: "header:X-Auth",
+            headers: { "X-Tenant": "acme" },
+        });
+    });
+});
+
+describe("isSecretBlank / edit keeps secret when blank (object-aware)", () => {
+    it("blank string is blank", () => {
+        expect(isSecretBlank("")).toBe(true);
+        expect(isSecretBlank("   ")).toBe(true);
+    });
+    it("object with all-empty values is blank", () => {
+        expect(isSecretBlank({ clientSecret: "" })).toBe(true);
+        expect(isSecretBlank({ user: "", pass: "  " })).toBe(true);
+        expect(isSecretBlank({})).toBe(true);
+    });
+    it("object with any value is NOT blank", () => {
+        expect(isSecretBlank({ clientSecret: "x" })).toBe(false);
+    });
+
+    it("buildRecipeUpdatePayload omits an all-blank object secret (keep current)", () => {
+        const payload = buildRecipeUpdatePayload({
+            name: "oauth",
+            meta: { tokenUrl: "https://idp/token", clientId: "cid" },
+            secret: { clientSecret: "" },
+        });
+        expect("secret" in payload).toBe(false);
+        expect(payload.meta).toEqual({ tokenUrl: "https://idp/token", clientId: "cid" });
+    });
+
+    it("buildRecipeUpdatePayload includes a filled object secret (rotate)", () => {
+        const payload = buildRecipeUpdatePayload({
+            name: "oauth",
+            meta: {},
+            secret: { clientSecret: "new" },
+        });
+        expect(payload.secret).toEqual({ clientSecret: "new" });
+    });
+});
+
+describe("JSON + placeholder helpers", () => {
+    it("isValidJson", () => {
+        expect(isValidJson('{"a":1}')).toBe(true);
+        expect(isValidJson("{bad}")).toBe(false);
+    });
+    it("extractPlaceholders finds unique {{names}}", () => {
+        expect(extractPlaceholders('{"a":"{{x}}","b":"{{y}}","c":"{{x}}"}')).toEqual(["x", "y"]);
+        expect(extractPlaceholders("{}")).toEqual([]);
+    });
+    it("validateMetaForType flags invalid loginRequest JSON / missing placeholder", () => {
+        expect(validateMetaForType("loginRequest", f({ url: "https://a", bodyTemplate: "{bad}", tokenPath: "t" }))).toMatch(/valid JSON/);
+        expect(validateMetaForType("loginRequest", f({ url: "https://a", bodyTemplate: "{}", tokenPath: "t" }))).toMatch(/placeholder/);
+        expect(validateMetaForType("loginRequest", f({ url: "https://a", bodyTemplate: '{"p":"{{pw}}"}', tokenPath: "data.token" }))).toBeNull();
+    });
+    it("validateMetaForType flags missing oauth2 fields", () => {
+        expect(validateMetaForType("oauth2ClientCredentials", f({ clientId: "cid" }))).toMatch(/Token URL/);
+        expect(validateMetaForType("oauth2ClientCredentials", f({ tokenUrl: "https://idp" }))).toMatch(/Client ID/);
+        expect(validateMetaForType("oauth2ClientCredentials", f({ tokenUrl: "https://idp", clientId: "cid" }))).toBeNull();
+    });
+});

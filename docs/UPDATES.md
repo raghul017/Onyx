@@ -91,3 +91,21 @@ still fires un-authenticated; static recipes never auto-refresh.
 - **Added:** `server/src/services/auth-runner.ts` (dynamic token resolution, SSRF-guarded), `server/src/services/credential-resolver.ts` (single-flight cache + `executeWithAuthRefresh`), tests: `auth-runner.test.ts`, `credential-resolver.test.ts` (+ dynamic-masking cases in `auth-recipe.service.test.ts`).
 - **Changed:** `validators/schemas.ts` (extend type enum + dynamic meta fields + string|object secret union + per-type validation), `services/auth-recipe.service.ts` (`isDynamicType`, `buildRecipeStorage` `includeLast4` opt, `maskRecipe` passes through non-secret meta minus last4), `controllers/auth-recipe.controller.ts` (JSON-stringify object secrets, dynamic meta defaults, no last4 for dynamic), `queues/worker.ts` (use `CredentialResolver` + `executeWithAuthRefresh` for attack + baseline; scrub original + refreshed token).
 - **Migration:** none — `AuthRecipe.type` is a plain `String` column, so the new values need no DDL (confirmed: `prisma migrate diff` → "No difference detected").
+
+## 2026-07-28 — T8b: Dynamic auth recipe UI (login-request + oauth2) (client)
+
+The client form for the two DYNAMIC credential types from T8a. The Credentials
+form now offers **Login request** and **OAuth2 client credentials** in the type
+selector with type-specific fields — oauth2: tokenUrl / clientId / scope? /
+tokenResponseField? / injectAs / clientSecret; loginRequest: method / url /
+optional headers / bodyTemplate (JSON with `{{placeholder}}` helper) / tokenPath
+(dot-path or /regex/) / injectAs / per-placeholder secret values (derived live
+from the template). Dynamic secrets are sent as an **object** (`{ clientSecret }`
+or the placeholder map); static stay strings. Secrets are write-only — on edit
+the fields are blank and omitted unless re-entered (object-aware). Field names
+match the server Zod exactly; light validation (required fields, valid-JSON body,
+non-empty tokenPath) before submit. The list shows the new types with a masked
+secret + a non-secret meta summary (tokenUrl / method+url). No backend changes.
+
+- **Changed:** `client/src/services/api.ts` (extend type union + `AuthRecipeMeta` dynamic fields + `AuthRecipeSecretInput` string|object secret), `client/src/components/AuthRecipesPanel.tsx` (unified fields state; oauth2 + loginRequest forms; pure helpers `buildRecipeSecret` / object-aware `buildRecipeUpdatePayload` / `isSecretBlank` / `extractPlaceholders` / `isValidJson` / `validateMetaForType`), `client/src/test/auth-recipe-form.test.ts` (dynamic object-secret, edit-keep-blank, JSON/placeholder cases).
+- **Migration:** none.

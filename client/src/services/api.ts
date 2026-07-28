@@ -385,15 +385,38 @@ export async function getVerifiedTargets(): Promise<{ targets: VerifiedTarget[] 
 // full. Mirrors the server Zod shapes (auth-recipe.service / validators).
 // ---------------------------------------------------------------------------
 
-export type AuthRecipeType = "bearer" | "apiKey" | "header" | "cookie";
+export type AuthRecipeType =
+    | "bearer"
+    | "apiKey"
+    | "header"
+    | "cookie"
+    | "loginRequest" // T8a dynamic
+    | "oauth2ClientCredentials"; // T8a dynamic
 
-/** Non-secret descriptors for where the credential goes. */
+/** Non-secret descriptors — static (T7a) + dynamic (T8a). Secrets live in `secret`. */
 export interface AuthRecipeMeta {
+    // static
     headerName?: string;
     queryName?: string;
     location?: "header" | "query";
     cookieName?: string;
+    // oauth2ClientCredentials
+    tokenUrl?: string;
+    clientId?: string;
+    scope?: string;
+    tokenResponseField?: string;
+    // loginRequest
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    bodyTemplate?: string;
+    tokenPath?: string;
+    // shared dynamic: "bearer" | "header:<Name>"
+    injectAs?: string;
 }
+
+/** The secret payload: a STRING for static types, an OBJECT for dynamic ones. */
+export type AuthRecipeSecretInput = string | Record<string, string>;
 
 /** Masked recipe as returned by the API — never contains the plaintext secret. */
 export interface AuthRecipe {
@@ -403,7 +426,7 @@ export interface AuthRecipe {
     name: string;
     type: AuthRecipeType;
     meta: AuthRecipeMeta;
-    secretMasked: string; // e.g. "••••1234"
+    secretMasked: string; // e.g. "••••1234" (static) or "••••••" (dynamic)
     createdAt: string;
     updatedAt: string;
 }
@@ -411,14 +434,14 @@ export interface AuthRecipe {
 export interface CreateAuthRecipeInput {
     name: string;
     type: AuthRecipeType;
-    secret: string;
+    secret: AuthRecipeSecretInput;
     meta?: AuthRecipeMeta;
 }
 
 /** Update: omit `secret` to KEEP the current one (we never fetch it back). */
 export interface UpdateAuthRecipeInput {
     name?: string;
-    secret?: string;
+    secret?: AuthRecipeSecretInput;
     meta?: AuthRecipeMeta;
 }
 
