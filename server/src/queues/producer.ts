@@ -63,10 +63,10 @@ export async function enqueueAttackJobs(
         opts: {
             // Stable, unique job id so re-enqueues are idempotent per (run, endpoint, payload).
             jobId: `${testRunId}:${endpointId}:${index}`,
-            // NOTE: pacing is handled solely by the worker (concurrency + limiter).
-            // The previous per-run `group` throttle was a second, redundant rate
-            // limit that made firing bursty ("10 then a gap"). Removed for a
-            // smooth continuous stream.
+            // Lower-priority than baseline jobs (priority 1) so an endpoint's
+            // baseline tends to run before its attacks. Pacing is still handled
+            // solely by the worker (concurrency + limiter).
+            priority: ATTACK_PRIORITY,
         },
     }));
 
@@ -77,6 +77,63 @@ export async function enqueueAttackJobs(
         { testRunId, endpointId, method, path, jobCount: jobs.length },
         "Enqueued attack jobs",
     );
+
+    return jobs.length;
+}
+
+// ---------------------------------------------------------------------------
+// Baseline jobs (T5) — one benign control request per endpoint.
+// ---------------------------------------------------------------------------
+
+// BullMQ priority: 1 = highest. Baselines outrank attacks so each endpoint's
+// control request tends to fire before its attack payloads. (Priority only — not
+// a hard barrier; T6 falls back gracefully when a baseline is missing.)
+const BASELINE_PRIORITY = 1;
+const ATTACK_PRIORITY = 2;
+
+interface BaselineEndpoint {
+    endpointId: string;
+    method: string;
+    path: string;
+    parameters?: ParsedParameterInput[];
+    requestBodySchema?: Record<string, unknown> | null;
+}
+
+/**
+ * Enqueue ONE baseline (kind: "baseline") job per endpoint. Higher priority than
+ * attack jobs so baselines run first. Returns the number of baseline jobs.
+ */
+export async function enqueueBaselineJobs(
+    testRunId: string,
+    baseUrl: string,
+    endpoints: BaselineEndpoint[],
+): Promise<number> {
+    if (endpoints.length === 0) return 0;
+
+    const jobs = endpoints.map((ep) => ({
+        name: `baseline-${testRunId}`,
+        data: {
+            testRunId,
+            endpointId: ep.endpointId,
+            method: ep.method,
+            path: ep.path,
+            baseUrl,
+            payload: "", // baseline carries no attack payload
+            attackType: "UNKNOWN", // ignored on the baseline branch
+            parameters: ep.parameters ?? [],
+            requestBodySchema: ep.requestBodySchema ?? null,
+            kind: "baseline",
+        },
+        opts: {
+            // One baseline per (run, endpoint) — idempotent re-enqueue.
+            jobId: `${testRunId}:${ep.endpointId}:baseline`,
+            priority: BASELINE_PRIORITY,
+        },
+    }));
+
+    await chaosQueue.addBulk(jobs);
+
+    log.info({ testRunId, count: jobs.length }, "Enqueued baseline jobs");
 
     return jobs.length;
 }

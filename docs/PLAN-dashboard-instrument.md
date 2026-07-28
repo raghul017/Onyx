@@ -4,7 +4,7 @@
 > off-black + amber "instrument" direction. It was **abandoned**: the whole app,
 > Dashboard included, was migrated to the **light-mono** design system (light
 > `#fafafa` surface, single blue `#3b82f6` accent, Geist + JetBrains Mono — see
-> [AGENTS.md](AGENTS.md) → Design system). Kept only as historical record; do not
+> [AGENTS.md](../AGENTS.md) → Design system). Kept only as historical record; do not
 > reintroduce off-black/amber. The Dashboard rebuild that shipped is light-mono.
 
 > Status (historical): **APPROVED, paused to build next session.** Accent decision

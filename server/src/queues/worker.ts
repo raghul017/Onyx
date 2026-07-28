@@ -17,8 +17,10 @@ import { analyzeFinding } from "../services/finding-analysis.js";
 import { scoreAndPersistRun } from "../services/run-score.js";
 import {
     buildAttackRequest,
+    buildBenignRequest,
     type BuiltAttackRequest,
 } from "../services/request-builder.js";
+import { isRunComplete } from "../services/run-completion.js";
 import { redactSecrets } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
 import { initSentry, captureException } from "../lib/sentry.js";
@@ -90,14 +92,18 @@ export function startOnyxWorker(): Worker {
 
         if (typeof testRunId !== "string") return;
 
-        // Fire-and-forget: record the failed attack as completed and finalize
-        // the run if this was the last outstanding job.
-        void recordFailedAttempt(testRunId).catch((e) => {
+        // Fire-and-forget: record the failed job (attack OR baseline) as done and
+        // finalize the run if this was the last outstanding job. Route to the
+        // right counter so attack/baseline progress stay independent.
+        const kind = job.data?.kind === "baseline" ? "baseline" : "attack";
+        const recordFailure =
+            kind === "baseline" ? recordFailedBaseline : recordFailedAttempt;
+        void recordFailure(testRunId).catch((e) => {
             log.error(
-                { testRunId, err: e },
+                { testRunId, kind, err: e },
                 "Failed to record terminal failure",
             );
-            captureException(e, { testRunId, phase: "recordFailedAttempt" });
+            captureException(e, { testRunId, kind, phase: "recordFailedJob" });
         });
     });
 
@@ -169,6 +175,8 @@ async function finalizeIfComplete(
         enqueuedAt: Date | null;
         completedAttacks: number;
         totalAttacks: number;
+        totalBaselines: number;
+        completedBaselines: number;
         status: string;
     },
 ): Promise<void> {
@@ -180,14 +188,15 @@ async function finalizeIfComplete(
                 enqueuedAt: true,
                 completedAttacks: true,
                 totalAttacks: true,
+                totalBaselines: true,
+                completedBaselines: true,
                 status: true,
             },
         }));
     if (!run) return;
-    // Don't resurrect a run the user aborted / that already failed.
-    if (run.status === "FAILED" || run.status === "COMPLETED") return;
-    if (run.enqueuedAt === null) return;
-    if (run.completedAttacks < run.totalAttacks) return;
+    // Complete only once BOTH attacks and baselines are done (and all enqueued,
+    // and the run is still in flight). Single source of truth: isRunComplete.
+    if (!isRunComplete(run)) return;
 
     // Only ATTACKING runs may transition to COMPLETED. This also closes the
     // race where a run is aborted (→ FAILED) between the read above and here:
@@ -237,6 +246,27 @@ async function recordFailedAttempt(testRunId: string): Promise<void> {
     await finalizeIfComplete(testRunId);
 }
 
+/**
+ * Baseline counterpart of recordFailedAttempt: count a permanently-failed
+ * baseline job so the completion gate (which now also waits on baselines) can
+ * still be satisfied. Never creates a BaselineResponse for the failure.
+ */
+async function recordFailedBaseline(testRunId: string): Promise<void> {
+    const run = await prisma.testRun.findUnique({
+        where: { id: testRunId },
+        select: { status: true, completedBaselines: true, totalBaselines: true },
+    });
+    if (!run) return;
+    if (run.status === "FAILED" || run.status === "COMPLETED") return;
+    if (run.completedBaselines >= run.totalBaselines && run.totalBaselines > 0) return;
+
+    await prisma.testRun.update({
+        where: { id: testRunId },
+        data: { completedBaselines: { increment: 1 } },
+    });
+    await finalizeIfComplete(testRunId);
+}
+
 // ---------------------------------------------------------------------------
 // Job Processor
 // ---------------------------------------------------------------------------
@@ -260,6 +290,13 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
             "Invalid job data",
         );
         throw new Error("Invalid job data");
+    }
+
+    // Branch on job kind (T5). Baseline jobs fire ONE benign control request and
+    // store a BaselineResponse — no AttackLog, no finding, no attack analysis.
+    if (validation.data.kind === "baseline") {
+        await processBaselineJob(validation.data);
+        return;
     }
 
     const {
@@ -360,21 +397,10 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         latencyMs = result.latencyMs;
         responseSnippet = result.responseSnippet;
     } catch (err) {
-        error = err instanceof Error ? err.message : String(err);
         latencyMs = 0;
-
-        if (error.includes("AbortError") || error.includes("timeout")) {
-            statusCode = 408;
-            error = `Request timed out after ${REQUEST_TIMEOUT_MS}ms`;
-        } else if (error.includes("ECONNREFUSED")) {
-            statusCode = 503;
-            error = "Connection refused — target API is unreachable";
-        } else if (error.includes("ENOTFOUND")) {
-            statusCode = 502;
-            error = "DNS resolution failed — target host not found";
-        } else {
-            statusCode = 0;
-        }
+        const classified = classifyNetworkError(err);
+        statusCode = classified.statusCode;
+        error = classified.error;
     }
 
     // Analyze the RAW response FIRST — detection must see the unredacted bytes
@@ -475,6 +501,7 @@ interface AttackExecutionResult {
     statusCode: number;
     latencyMs: number;
     responseSnippet: string;
+    bodyLength: number;
 }
 
 async function executeAttack(
@@ -513,8 +540,125 @@ async function executeAttack(
             statusCode: response.status,
             latencyMs,
             responseSnippet,
+            bodyLength: responseText.length,
         };
     } finally {
         clearTimeout(timeout);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Map a fetch/network error to the status code + message the app records.
+ *  Shared by the attack path and baseline fires so both classify identically. */
+function classifyNetworkError(err: unknown): { statusCode: number; error: string } {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (raw.includes("AbortError") || raw.includes("timeout")) {
+        return { statusCode: 408, error: `Request timed out after ${REQUEST_TIMEOUT_MS}ms` };
+    }
+    if (raw.includes("ECONNREFUSED")) {
+        return { statusCode: 503, error: "Connection refused — target API is unreachable" };
+    }
+    if (raw.includes("ENOTFOUND")) {
+        return { statusCode: 502, error: "DNS resolution failed — target host not found" };
+    }
+    return { statusCode: 0, error: raw };
+}
+
+/** Median of a non-empty number list (even length → rounded mean of the two middles). */
+function median(nums: number[]): number {
+    const sorted = [...nums].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0
+        ? sorted[mid]!
+        : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+}
+
+// ---------------------------------------------------------------------------
+// Baseline job processor (T5)
+// ---------------------------------------------------------------------------
+
+const BASELINE_FIRES = 3;
+
+/**
+ * Fire ONE benign control request per endpoint (2-3 times for a median latency)
+ * and upsert a BaselineResponse. No AttackLog, no finding, no attack analysis —
+ * this only records the "normal" response so T6 can diff attacks against it.
+ * Respects the SSRF guard, 10s timeout, and T3 redaction.
+ */
+async function processBaselineJob(data: AttackJobData): Promise<void> {
+    const { testRunId, endpointId, method, path, baseUrl, parameters, requestBodySchema } = data;
+
+    const request = buildBenignRequest({
+        method,
+        path,
+        baseUrl,
+        parameters,
+        requestBodySchema,
+    });
+
+    // SSRF guard on the resolved URL. If blocked, still count the baseline as
+    // done (so the run can complete) but store no BaselineResponse.
+    try {
+        await assertNotSSRF(request.url);
+    } catch {
+        await incrementCompletedBaseline(testRunId);
+        return;
+    }
+
+    // Fire 2-3 times; take the MEDIAN latency to reduce noise. Use the last
+    // observed response for status/body; tolerate per-fire network failures.
+    const latencies: number[] = [];
+    let lastStatus: number | null = null;
+    let lastSnippet = "";
+    let lastBodyLength = 0;
+    for (let i = 0; i < BASELINE_FIRES; i++) {
+        try {
+            const r = await executeAttack(request);
+            latencies.push(r.latencyMs);
+            lastStatus = r.statusCode;
+            lastSnippet = r.responseSnippet;
+            lastBodyLength = r.bodyLength;
+        } catch (err) {
+            lastStatus = classifyNetworkError(err).statusCode;
+        }
+    }
+
+    const medianLatency = latencies.length > 0 ? median(latencies) : null;
+    // Redact before persisting (T3) and cap at the snippet length.
+    const bodySnippet = lastSnippet
+        ? redactSecrets(lastSnippet).replace(/\0/g, "\\u0000").slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
+        : null;
+
+    // Upsert so a retry can't duplicate the row (unique testRunId+endpointId).
+    await prisma.baselineResponse.upsert({
+        where: { testRunId_endpointId: { testRunId, endpointId } },
+        create: {
+            testRunId,
+            endpointId,
+            status: lastStatus,
+            latencyMs: medianLatency,
+            bodyLength: lastBodyLength || null,
+            bodySnippet,
+        },
+        update: {
+            status: lastStatus,
+            latencyMs: medianLatency,
+            bodyLength: lastBodyLength || null,
+            bodySnippet,
+        },
+    });
+
+    await incrementCompletedBaseline(testRunId);
+}
+
+/** Advance the baseline counter and check run completion. */
+async function incrementCompletedBaseline(testRunId: string): Promise<void> {
+    const testRun = await prisma.testRun.update({
+        where: { id: testRunId },
+        data: { completedBaselines: { increment: 1 } },
+    });
+    await finalizeIfComplete(testRunId, testRun);
 }

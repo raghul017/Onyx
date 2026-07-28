@@ -9,7 +9,7 @@ A complete architectural breakdown of how every piece of this project works — 
 > on the run at completion (History no longer reloads every log), and several
 > attack-pipeline performance trims (SSRF DNS cache, single-transaction per-attack
 > writes, throttled progress broadcasts). The UI is now the **light-mono** design
-> system (light surface, blue accent) — see [AGENTS.md](AGENTS.md). Details in
+> system (light surface, blue accent) — see [AGENTS.md](../AGENTS.md). Details in
 > [changelog.md](changelog.md).
 
 ---

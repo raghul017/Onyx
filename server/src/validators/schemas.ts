@@ -98,6 +98,10 @@ export const attackJobDataSchema = z.object({
     // validate and behave like a bare request (path resolved, no param injection).
     parameters: z.array(parsedParameterSchema).optional().default([]),
     requestBodySchema: z.record(z.unknown()).nullable().optional().default(null),
+    // Job kind (T5). "attack" fires a payload; "baseline" fires ONE benign
+    // control request and stores a BaselineResponse. Defaults to "attack" so all
+    // pre-T5 jobs (which have no `kind`) keep their exact behavior.
+    kind: z.enum(["attack", "baseline"]).optional().default("attack"),
 });
 
 export type AttackJobData = z.infer<typeof attackJobDataSchema>;

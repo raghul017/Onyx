@@ -29,7 +29,7 @@
   teal theme to a light, monospace-accented system (`#fafafa` surface, white
   hairline cards, sharp corners, single blue `#3b82f6` accent, Geist + JetBrains
   Mono). Every page + the shared shell; a new **Profile** page; Billing was also
-  flaw-fixed; the Dashboard was fully rebuilt. See [AGENTS.md](AGENTS.md) and
+  flaw-fixed; the Dashboard was fully rebuilt. See [AGENTS.md](../AGENTS.md) and
   [changelog.md](changelog.md).
 - **Explained findings (Jul 13)** — a rule-based analysis engine
   (`server/src/services/finding-analysis.ts`) turns each result into a real

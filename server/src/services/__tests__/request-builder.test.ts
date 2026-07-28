@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { describe, it, expect } from "vitest";
-import { buildAttackRequest } from "../request-builder.js";
+import { buildAttackRequest, buildBenignRequest } from "../request-builder.js";
 import type { ParsedParameterInput } from "../../validators/schemas.js";
 
 const BASE = "https://api.example.com";
@@ -241,5 +241,79 @@ describe("buildAttackRequest — OVERSIZED/RATE_LIMIT routing", () => {
         expect(req.body).toBeUndefined();
         expect(req.url).toContain("data=");
         expect(decodeURIComponent(req.url)).toContain(payload);
+    });
+});
+
+// =============================================================================
+// buildBenignRequest (T5 baseline) — schema-valid dummies, NEVER an attack payload
+// =============================================================================
+
+describe("buildBenignRequest — clean control request", () => {
+    it("fills path + required query with dummies and a schema-shaped body; no payload", () => {
+        const req = buildBenignRequest({
+            method: "POST",
+            path: "/users/{id}/orders",
+            baseUrl: BASE,
+            parameters: [
+                param("id", "path", { required: true, schema: { type: "integer" } }),
+                param("limit", "query", { required: true, schema: { type: "integer" } }),
+                param("verbose", "query", { required: false }), // optional → omitted
+            ],
+            requestBodySchema: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    count: { type: "integer" },
+                    active: { type: "boolean" },
+                },
+            },
+        });
+        // Path placeholder resolved to a dummy, no literal braces.
+        expect(req.url).not.toContain("{");
+        expect(req.url).not.toContain("}");
+        expect(req.url).toContain("/users/1/orders");
+        // Required query present with a dummy; optional one omitted.
+        expect(req.url).toContain("limit=1");
+        expect(req.url).not.toContain("verbose=");
+        // Body is a schema-shaped dummy object — valid JSON, benign values.
+        expect(req.headers["Content-Type"]).toBe("application/json");
+        const body = JSON.parse(req.body!);
+        expect(body).toEqual({ name: "test", count: 1, active: true });
+        expect(req.headers["User-Agent"]).toBe("Onyx/1.0 (Security Testing)");
+    });
+
+    it("GET with only a path param resolves the placeholder, sends no body", () => {
+        const req = buildBenignRequest({
+            method: "GET",
+            path: "/files/{fileId}",
+            baseUrl: BASE,
+            parameters: [param("fileId", "path", { required: true })],
+        });
+        expect(req.method).toBe("GET");
+        expect(req.body).toBeUndefined();
+        expect(req.url).toBe(`${BASE}/files/1`);
+    });
+
+    it("does NOT contain any injection-looking payload for a param-less GET", () => {
+        const req = buildBenignRequest({
+            method: "GET",
+            path: "/health",
+            baseUrl: BASE,
+            parameters: [],
+        });
+        // Unlike the attack builder, no synthetic `data=` payload is appended.
+        expect(req.url).toBe(`${BASE}/health`);
+        expect(req.body).toBeUndefined();
+    });
+
+    it("uses an empty JSON object body when a body method has no schema", () => {
+        const req = buildBenignRequest({
+            method: "PUT",
+            path: "/config",
+            baseUrl: BASE,
+            parameters: [],
+            requestBodySchema: null,
+        });
+        expect(req.body).toBe("{}");
     });
 });

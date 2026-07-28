@@ -10,9 +10,11 @@ import {
     OpenApiParserError,
 } from "../services/openapi-parser.js";
 import { generatePayloadsForEndpoint } from "../services/ai-payload.js";
-import { enqueueAttackJobs } from "../queues/producer.js";
+import { enqueueAttackJobs, enqueueBaselineJobs } from "../queues/producer.js";
 import { wsManager } from "../websockets/ws-manager.js";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
+import { getEffectivePlan } from "../services/org.service.js";
+import { isRunComplete } from "../services/run-completion.js";
 import type {
     CreateTestRunResponse,
     GetTestRunResponse,
@@ -287,6 +289,12 @@ export async function createTestRun(
 
         log.info({ testRunId: testRun.id, specUrl }, "Created test run");
 
+        // Plan-gate baseline capture (T5): paid plans capture a benign baseline
+        // per endpoint; FREE plans skip it so free scans incur no extra request
+        // volume. Decided here, where the caller's plan is known.
+        const plan = await getEffectivePlan(req.user!.id, req.orgId ?? null);
+        const captureBaseline = plan !== "FREE";
+
         // Return immediately so the client can subscribe via WebSocket
         const response: CreateTestRunResponse = {
             testRunId: testRun.id,
@@ -297,7 +305,7 @@ export async function createTestRun(
         res.status(201).json(response);
 
         // Process asynchronously (non-blocking)
-        processTestRunAsync(testRun.id, specUrl).catch((err: unknown) => {
+        processTestRunAsync(testRun.id, specUrl, captureBaseline).catch((err: unknown) => {
             log.error({ testRunId: testRun.id, err }, "Async processing failed");
             captureException(err, { testRunId: testRun.id, phase: "processTestRunAsync" });
         });
@@ -313,6 +321,7 @@ export async function createTestRun(
 async function processTestRunAsync(
     testRunId: string,
     specUrl: string,
+    captureBaseline: boolean,
 ): Promise<void> {
     const runLog = log.child({ testRunId });
     try {
@@ -426,6 +435,32 @@ async function processTestRunAsync(
             },
         });
 
+        // --- Baseline capture (T5): enqueue ONE benign control request per
+        // endpoint FIRST (paid plans only), at higher priority so it tends to
+        // run before that endpoint's attacks. Counted separately (totalBaselines)
+        // so the run only completes once baselines AND attacks finish, while the
+        // UI-facing attack progress numbers stay attack-only.
+        if (captureBaseline) {
+            const baselineCount = await enqueueBaselineJobs(
+                testRunId,
+                baseUrl,
+                cappedSavedEndpoints.map((se, i) => ({
+                    endpointId: se.id,
+                    method: cappedEndpoints[i]!.method,
+                    path: cappedEndpoints[i]!.path,
+                    parameters: cappedEndpoints[i]!.parameters,
+                    requestBodySchema: cappedEndpoints[i]!.requestBodySchema,
+                })),
+            );
+            if (baselineCount > 0) {
+                await prisma.testRun.update({
+                    where: { id: testRunId },
+                    data: { totalBaselines: baselineCount },
+                });
+            }
+            runLog.info({ baselineCount }, "Baseline jobs enqueued");
+        }
+
         // Generate payloads for all endpoints CONCURRENTLY. Each endpoint is an
         // independent Gemini call (with a static fallback), so there's no reason
         // to serialize them. As each one resolves, its jobs are enqueued right
@@ -474,9 +509,10 @@ async function processTestRunAsync(
             data: { enqueuedAt: new Date() },
         });
 
-        // If every job already finished before enqueuing wrapped up (tiny runs),
-        // finalize here so the run doesn't hang in ATTACKING.
-        if (totalJobs > 0 && finalRun.completedAttacks >= totalJobs) {
+        // If every job (attacks + baselines) already finished before enqueuing
+        // wrapped up (tiny runs), finalize here so the run doesn't hang in
+        // ATTACKING. isRunComplete accounts for both populations.
+        if (isRunComplete(finalRun)) {
             // Only an ATTACKING run may complete — never overwrite a run the
             // user aborted (FAILED) mid-enqueue.
             const { count } = await prisma.testRun.updateMany({

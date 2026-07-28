@@ -68,7 +68,7 @@ Next focus: **backend performance + architecture** (analysis in progress).
 
 A full backend audit (auth, attack pipeline, billing, orgs, data) closed every
 confirmed CRITICAL and HIGH defect in one pass. See
-[AGENTS.md](AGENTS.md) for the running work-log.
+[AGENTS.md](../AGENTS.md) for the running work-log.
 
 **Critical**
 

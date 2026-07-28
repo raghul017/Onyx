@@ -178,3 +178,85 @@ export function buildAttackRequest(
 
     return { url, method, headers, body };
 }
+
+// =============================================================================
+// Benign (baseline) request — a clean control request with NO attack payload.
+//
+// Used by T5 baseline capture: fills path placeholders and required query params
+// with schema-valid dummy values and, for body methods, sends a schema-shaped
+// dummy JSON body. Reuses the same dummy-value logic as the attack path so the
+// two stay consistent. Never contains an attack payload.
+// =============================================================================
+
+export interface BuildBenignRequestInput {
+    method: string;
+    path: string;
+    baseUrl: string;
+    parameters?: ParsedParameterInput[];
+    requestBodySchema?: Record<string, unknown> | null;
+}
+
+/** Build a schema-shaped dummy JSON body from an object requestBodySchema. */
+function buildDummyBody(
+    schema: Record<string, unknown> | null | undefined,
+): string {
+    if (schema && schema.type === "object" && schema.properties) {
+        const props = schema.properties as Record<string, Record<string, unknown>>;
+        const obj: Record<string, unknown> = {};
+        for (const [key, propSchema] of Object.entries(props)) {
+            const type = propSchema?.type;
+            if (type === "integer" || type === "number") obj[key] = 1;
+            else if (type === "boolean") obj[key] = true;
+            else if (type === "array") obj[key] = [];
+            else if (type === "object") obj[key] = {};
+            else obj[key] = "test";
+        }
+        return JSON.stringify(obj);
+    }
+    // No usable schema — an empty JSON object is a safe, valid control body.
+    return "{}";
+}
+
+export function buildBenignRequest(
+    input: BuildBenignRequestInput,
+): BuiltAttackRequest {
+    const method = (input.method || "GET").toUpperCase();
+    const parameters = input.parameters ?? [];
+    const hasBody = BODY_METHODS.has(method);
+
+    const pathParams = parameters.filter((p) => p.in === "path");
+    const queryParams = parameters.filter((p) => p.in === "query");
+
+    // Resolve every {placeholder} with a benign dummy — never a payload.
+    const resolvedPath = input.path.replace(/\{([^}]+)\}/g, (_m, rawName) => {
+        const name = String(rawName).trim();
+        const def = pathParams.find((p) => p.name === name);
+        return encodeURIComponent(dummyForSchema(def?.schema));
+    });
+
+    // Include required query params (dummy values) so the control request is
+    // valid; omit optional ones to keep it minimal.
+    const queryPairs: Array<[string, string]> = [];
+    for (const p of queryParams) {
+        if (p.required) queryPairs.push([p.name, dummyForSchema(p.schema)]);
+    }
+
+    const headers: Record<string, string> = { "User-Agent": USER_AGENT };
+    let body: string | undefined;
+    if (hasBody) {
+        headers["Content-Type"] = "application/json";
+        body = buildDummyBody(input.requestBodySchema);
+    }
+
+    const base = input.baseUrl.replace(/\/+$/, "");
+    const p = resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`;
+    let url = `${base}${p}`;
+    if (queryPairs.length > 0) {
+        const qs = queryPairs
+            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+            .join("&");
+        url += (url.includes("?") ? "&" : "?") + qs;
+    }
+
+    return { url, method, headers, body };
+}

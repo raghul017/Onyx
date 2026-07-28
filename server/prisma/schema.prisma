@@ -112,6 +112,11 @@ model TestRun {
   totalEndpoints  Int       @default(0)
   totalAttacks    Int       @default(0)
   completedAttacks Int      @default(0)
+  // Baseline (control-request) job accounting, tracked separately so the
+  // UI-facing attack counts above always mean ONLY attacks. The run completes
+  // once both attacks AND baselines are done (see isRunComplete).
+  totalBaselines     Int    @default(0)
+  completedBaselines Int    @default(0)
   enqueuedAt      DateTime? // set once ALL attack jobs are enqueued; guards premature completion
   // Denormalized score, computed once when the run reaches a terminal state so
   // the history list doesn't have to load every log to re-derive it. Nullable:
@@ -130,6 +135,7 @@ model TestRun {
 
   endpoints TargetEndpoint[]
   logs      AttackLog[]
+  baselines BaselineResponse[]
 
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
@@ -161,9 +167,32 @@ model TargetEndpoint {
 
   testRun TestRun     @relation(fields: [testRunId], references: [id], onDelete: Cascade)
   logs    AttackLog[]
+  baselines BaselineResponse[]
 
   @@index([testRunId])
   @@map("target_endpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Baseline Response — a benign control request per endpoint (T5). Attack
+// responses are diffed against this in T6 to confirm/deny findings.
+// ---------------------------------------------------------------------------
+model BaselineResponse {
+  id          String   @id @default(uuid())
+  testRunId   String
+  endpointId  String
+  status      Int?
+  latencyMs   Int?     // median of 2-3 fires to reduce noise
+  bodyLength  Int?
+  bodySnippet String?  @db.Text // redacted, capped ~500 chars
+  createdAt   DateTime @default(now())
+
+  testRun  TestRun        @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  endpoint TargetEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([testRunId, endpointId])
+  @@index([testRunId])
+  @@map("baseline_responses")
 }
 
 // ---------------------------------------------------------------------------
