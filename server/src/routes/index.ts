@@ -23,6 +23,7 @@ import {
 import authRouter from "./auth.js";
 import billingRouter from "./billing.routes.js";
 import orgRouter from "./org.routes.js";
+import authRecipeRouter from "./auth-recipe.routes.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
 import { injectOrgContext } from "../middleware/org.middleware.js";
@@ -67,6 +68,11 @@ router.use("/billing", billingRouter);
 // Org Routes
 // ---------------------------------------------------------------------------
 router.use("/", orgRouter);
+
+// ---------------------------------------------------------------------------
+// Auth Recipe Routes (T7a) — static credentials for authenticated scans
+// ---------------------------------------------------------------------------
+router.use("/", authRecipeRouter);
 
 // ---------------------------------------------------------------------------
 // Rate limiter for LLM-triggering endpoints (Gemini API credit protection)

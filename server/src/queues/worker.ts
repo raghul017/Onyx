@@ -22,9 +22,11 @@ import {
     buildAttackRequest,
     buildBenignRequest,
     type BuiltAttackRequest,
+    type AttachedCredential,
 } from "../services/request-builder.js";
 import { isRunComplete } from "../services/run-completion.js";
-import { redactSecrets } from "../lib/redact.js";
+import { toAttachedCredential } from "../services/auth-recipe.service.js";
+import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
 import { initSentry, captureException } from "../lib/sentry.js";
 
@@ -82,6 +84,63 @@ async function getBaselineFor(
     }
     baselineCache.set(key, { value, at: Date.now() });
     return value;
+}
+
+// ---------------------------------------------------------------------------
+// Auth-recipe credential cache (T7a)
+// ---------------------------------------------------------------------------
+//
+// A run attaches ONE static credential to every request. We fetch + DECRYPT the
+// recipe once per recipeId (cached, TTL) rather than per payload. The decrypted
+// secret lives only here in worker memory — never persisted, never logged, and
+// never placed in Redis (the job carries no auth material; the recipe id comes
+// off the TestRun row we already load).
+
+const CREDENTIAL_TTL_MS = 300_000; // 5 min — a run is far shorter
+const CREDENTIAL_CACHE_MAX = 500;
+
+const credentialCache = new Map<
+    string,
+    { value: AttachedCredential | null; at: number }
+>();
+
+async function getCredentialFor(
+    recipeId: string,
+): Promise<AttachedCredential | null> {
+    const hit = credentialCache.get(recipeId);
+    if (hit && Date.now() - hit.at < CREDENTIAL_TTL_MS) return hit.value;
+
+    let value: AttachedCredential | null = null;
+    try {
+        const row = await prisma.authRecipe.findUnique({
+            where: { id: recipeId },
+            select: { type: true, meta: true, secretEnc: true },
+        });
+        if (row) value = toAttachedCredential(row);
+    } catch (err) {
+        // Missing key / tampered blob / decrypt failure: fire UNauthenticated
+        // rather than crash the run. Never log the secret; log only the reason.
+        log.error({ recipeId, err }, "Failed to resolve auth recipe — firing without credential");
+        value = null;
+    }
+
+    if (credentialCache.size >= CREDENTIAL_CACHE_MAX) {
+        const oldest = credentialCache.keys().next().value;
+        if (oldest !== undefined) credentialCache.delete(oldest);
+    }
+    credentialCache.set(recipeId, { value, at: Date.now() });
+    return value;
+}
+
+/** Scrub the exact credential secret from a stored/broadcast string (T7a).
+ *  Runs BEFORE the generic T3 redaction so even custom header/cookie secrets
+ *  (which the generic patterns wouldn't catch) never persist if echoed back. */
+function scrubCredential(
+    text: string | null,
+    cred: AttachedCredential | null,
+): string | null {
+    if (text == null || !cred?.secret) return text;
+    return text.split(cred.secret).join(REDACTED);
 }
 
 // ---------------------------------------------------------------------------
@@ -323,9 +382,11 @@ async function recordFailedBaseline(testRunId: string): Promise<void> {
 async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // Short-circuit any job whose run was aborted/deleted while it waited in the
     // queue: don't attack the target, don't write logs, don't resurrect state.
+    // Also read authRecipeId here (T7a) — the recipe id rides on the run row, so
+    // NO auth material ever touches Redis job data.
     const runState = await prisma.testRun.findUnique({
         where: { id: job.data?.testRunId },
-        select: { status: true },
+        select: { status: true, authRecipeId: true },
     });
     if (!runState || runState.status === "FAILED" || runState.status === "COMPLETED") {
         return; // run is gone or terminal — silently drop this job
@@ -341,10 +402,16 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         throw new Error("Invalid job data");
     }
 
+    // Resolve the static credential once (decrypt in-memory, cached). null when
+    // the run has no recipe. Attached to baseline + attack requests below.
+    const credential = runState.authRecipeId
+        ? await getCredentialFor(runState.authRecipeId)
+        : null;
+
     // Branch on job kind (T5). Baseline jobs fire ONE benign control request and
     // store a BaselineResponse — no AttackLog, no finding, no attack analysis.
     if (validation.data.kind === "baseline") {
-        await processBaselineJob(validation.data);
+        await processBaselineJob(validation.data, credential);
         return;
     }
 
@@ -377,6 +444,8 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         attackType,
         parameters,
         requestBodySchema,
+        // T7a: attach the static credential (stripped for MISSING_AUTH probes).
+        credential,
     });
 
     // SSRF guard — vet the FINAL resolved URL's host before firing.
@@ -481,13 +550,18 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // redacted copy so no secret/PII from the target reaches storage or the
     // browser. On read, re-detection runs on the stored (redacted) snippet — the
     // key names survive redaction, so classification stays identical.
+    // Scrub the exact credential secret FIRST (T7a — catches custom header/cookie
+    // secrets the generic patterns miss), then run the generic T3 redaction.
     const storedSnippet =
         responseSnippet != null
-            ? redactSecrets(responseSnippet).replace(/\0/g, "\\u0000")
+            ? redactSecrets(scrubCredential(responseSnippet, credential)!).replace(/\0/g, "\\u0000")
             : null;
     const safeFinding = {
         ...finding,
-        evidence: finding.evidence != null ? redactSecrets(finding.evidence) : null,
+        evidence:
+            finding.evidence != null
+                ? redactSecrets(scrubCredential(finding.evidence, credential)!)
+                : null,
     };
 
     // Persist the result + advance progress in a single round-trip. This runs
@@ -648,7 +722,10 @@ const BASELINE_FIRES = 3;
  * this only records the "normal" response so T6 can diff attacks against it.
  * Respects the SSRF guard, 10s timeout, and T3 redaction.
  */
-async function processBaselineJob(data: AttackJobData): Promise<void> {
+async function processBaselineJob(
+    data: AttackJobData,
+    credential: AttachedCredential | null,
+): Promise<void> {
     const { testRunId, endpointId, method, path, baseUrl, parameters, requestBodySchema } = data;
 
     const request = buildBenignRequest({
@@ -657,6 +734,8 @@ async function processBaselineJob(data: AttackJobData): Promise<void> {
         baseUrl,
         parameters,
         requestBodySchema,
+        // T7a: baselines are authenticated like real traffic.
+        credential,
     });
 
     // SSRF guard on the resolved URL. If blocked, still count the baseline as
@@ -687,9 +766,11 @@ async function processBaselineJob(data: AttackJobData): Promise<void> {
     }
 
     const medianLatency = latencies.length > 0 ? median(latencies) : null;
-    // Redact before persisting (T3) and cap at the snippet length.
+    // Scrub the credential (T7a) then redact (T3) before persisting; cap length.
     const bodySnippet = lastSnippet
-        ? redactSecrets(lastSnippet).replace(/\0/g, "\\u0000").slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
+        ? redactSecrets(scrubCredential(lastSnippet, credential)!)
+              .replace(/\0/g, "\\u0000")
+              .slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
         : null;
 
     // Upsert so a retry can't duplicate the row (unique testRunId+endpointId).

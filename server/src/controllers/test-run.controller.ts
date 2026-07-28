@@ -221,7 +221,26 @@ export async function createTestRun(
             return;
         }
 
-        const { specUrl } = validation.data;
+        const { specUrl, authRecipeId } = validation.data;
+
+        // ── Auth recipe (T7a): validate ownership before attaching to the run ──
+        if (authRecipeId) {
+            const recipe = await prisma.authRecipe.findUnique({
+                where: { id: authRecipeId },
+                select: { id: true, userId: true, orgId: true },
+            });
+            const canUse =
+                recipe != null &&
+                ((recipe.userId != null && recipe.userId === req.user?.id) ||
+                    (recipe.orgId != null && req.orgId != null && recipe.orgId === req.orgId));
+            if (!canUse) {
+                res.status(403).json({
+                    error: "AUTH_RECIPE_FORBIDDEN",
+                    message: "The specified authRecipeId does not exist or is not yours.",
+                });
+                return;
+            }
+        }
 
         // ── Per-user concurrency cap ──
         const activeRuns = await prisma.testRun.count({
@@ -284,6 +303,7 @@ export async function createTestRun(
                 status: "PARSING",
                 userId: req.user?.id,
                 orgId: req.orgId ?? null,
+                authRecipeId: authRecipeId ?? null,
             },
         });
 
@@ -384,6 +404,11 @@ async function processTestRunAsync(
                         operationId: ep.operationId ?? null,
                         requestBodySchema:
                             (ep.requestBodySchema as any) ?? undefined,
+                        // T7a: persist what auth each endpoint expects (display-only).
+                        authRequirements:
+                            ep.authRequirements && ep.authRequirements.length > 0
+                                ? (ep.authRequirements as any)
+                                : undefined,
                     },
                 }),
             ),

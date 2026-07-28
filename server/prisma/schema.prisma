@@ -39,6 +39,7 @@ model User {
   testRuns        TestRun[]
   verifiedTargets VerifiedTarget[]
   orgMemberships  OrgMember[]
+  authRecipes     AuthRecipe[]
 
   @@map("users")
 }
@@ -59,6 +60,7 @@ model Organization {
   members  OrgMember[]
   invites  OrgInvite[]
   testRuns TestRun[]
+  authRecipes AuthRecipe[]
 
   @@map("organizations")
 }
@@ -133,6 +135,10 @@ model TestRun {
   orgId           String?
   org             Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
+  // Optional static credential (T7a) attached to every request in this run.
+  authRecipeId    String?
+  authRecipe      AuthRecipe?   @relation(fields: [authRecipeId], references: [id], onDelete: SetNull)
+
   endpoints TargetEndpoint[]
   logs      AttackLog[]
   baselines BaselineResponse[]
@@ -164,6 +170,7 @@ model TargetEndpoint {
   path              String
   operationId       String?
   requestBodySchema Json?   // raw JSON schema for the request body
+  authRequirements  Json?   // T7a: compact auth descriptors this endpoint expects (display-only)
 
   testRun TestRun     @relation(fields: [testRunId], references: [id], onDelete: Cascade)
   logs    AttackLog[]
@@ -171,6 +178,32 @@ model TargetEndpoint {
 
   @@index([testRunId])
   @@map("target_endpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Auth Recipe — a static credential (bearer / apiKey / header / cookie) that a
+// user (or org) can attach to a run so every request carries it (T7a). The
+// secret is stored ENCRYPTED (AES-256-GCM, see lib/crypto.ts); `meta` holds
+// only non-secret descriptors (header/query/cookie name, location, last4).
+// ---------------------------------------------------------------------------
+model AuthRecipe {
+  id        String   @id @default(uuid())
+  userId    String?
+  orgId     String?
+  name      String
+  type      String   // "bearer" | "apiKey" | "header" | "cookie"
+  meta      Json     // non-secret descriptors: headerName, queryName, location, cookieName, last4
+  secretEnc String   @db.Text // encrypted secret value (never returned in full)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  testRuns TestRun[]
+
+  @@index([userId])
+  @@index([orgId])
+  @@map("auth_recipes")
 }
 
 // ---------------------------------------------------------------------------

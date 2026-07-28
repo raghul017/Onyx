@@ -15,6 +15,24 @@
 
 import type { ParsedParameterInput } from "../validators/schemas.js";
 
+/**
+ * A resolved, in-memory credential to attach to every request (T7a). The
+ * `secret` is the DECRYPTED value — it exists only in worker memory at request
+ * time and is never persisted or logged.
+ */
+export interface AttachedCredential {
+    type: "bearer" | "apiKey" | "header" | "cookie";
+    secret: string;
+    /** header/apiKey(header): the header name. */
+    headerName?: string;
+    /** apiKey(query): the query param name. */
+    queryName?: string;
+    /** apiKey: where the key goes. */
+    location?: "header" | "query";
+    /** cookie: the cookie name. */
+    cookieName?: string;
+}
+
 export interface BuildAttackRequestInput {
     method: string;
     path: string;
@@ -23,6 +41,8 @@ export interface BuildAttackRequestInput {
     attackType: string;
     parameters?: ParsedParameterInput[];
     requestBodySchema?: Record<string, unknown> | null;
+    /** Static credential to attach (T7a). Stripped for MISSING_AUTH attacks. */
+    credential?: AttachedCredential | null;
 }
 
 export interface BuiltAttackRequest {
@@ -69,6 +89,42 @@ function isJsonLike(str: string): boolean {
         (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
         (trimmed.startsWith("[") && trimmed.endsWith("]"))
     );
+}
+
+/**
+ * Attach a static credential to a request in place (T7a). Mutates `headers`
+ * and/or `queryPairs` (for apiKey-in-query). Applied AFTER payload injection so
+ * the credential wins over any injected header of the same name.
+ */
+function applyCredential(
+    headers: Record<string, string>,
+    queryPairs: Array<[string, string]>,
+    cred: AttachedCredential,
+): void {
+    switch (cred.type) {
+        case "bearer":
+            headers["Authorization"] = `Bearer ${cred.secret}`;
+            break;
+        case "header":
+            if (cred.headerName) headers[cred.headerName] = cred.secret;
+            break;
+        case "apiKey":
+            if (cred.location === "query") {
+                if (cred.queryName) queryPairs.push([cred.queryName, cred.secret]);
+            } else if (cred.headerName) {
+                headers[cred.headerName] = cred.secret;
+            }
+            break;
+        case "cookie": {
+            const pair = cred.cookieName
+                ? `${cred.cookieName}=${cred.secret}`
+                : cred.secret;
+            headers["Cookie"] = headers["Cookie"]
+                ? `${headers["Cookie"]}; ${pair}`
+                : pair;
+            break;
+        }
+    }
 }
 
 /** A benign, valid-ish placeholder value for a non-injected param, by schema type. */
@@ -162,6 +218,13 @@ export function buildAttackRequest(
         injectedSomewhere = true;
     }
 
+    // --- Attach the static credential (T7a) to EVERY request EXCEPT MISSING_AUTH.
+    //     MISSING_AUTH is the un-authed probe: it must fire WITHOUT credentials so
+    //     a 2xx genuinely means the route doesn't enforce auth.
+    if (input.credential && attackType !== "MISSING_AUTH") {
+        applyCredential(headers, queryPairs, input.credential);
+    }
+
     // --- Assemble URL
     const base = input.baseUrl.replace(/\/+$/, "");
     const p = resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`;
@@ -194,6 +257,8 @@ export interface BuildBenignRequestInput {
     baseUrl: string;
     parameters?: ParsedParameterInput[];
     requestBodySchema?: Record<string, unknown> | null;
+    /** Static credential to attach (T7a) — baselines ARE authed like real traffic. */
+    credential?: AttachedCredential | null;
 }
 
 /** Build a schema-shaped dummy JSON body from an object requestBodySchema. */
@@ -246,6 +311,12 @@ export function buildBenignRequest(
     if (hasBody) {
         headers["Content-Type"] = "application/json";
         body = buildDummyBody(input.requestBodySchema);
+    }
+
+    // Baselines are authenticated like real traffic so the control response is
+    // representative (T7a).
+    if (input.credential) {
+        applyCredential(headers, queryPairs, input.credential);
     }
 
     const base = input.baseUrl.replace(/\/+$/, "");

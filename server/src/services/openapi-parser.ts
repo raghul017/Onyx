@@ -16,6 +16,10 @@ export interface ParsedEndpoint {
     operationId: string | undefined;
     requestBodySchema: Record<string, unknown> | null;
     parameters: ParsedParameter[];
+    /** Auth this endpoint expects, per the spec's security + securitySchemes.
+     *  Display-only (T7a): lets us show "this endpoint expects a bearer token".
+     *  Empty when the spec declares no security for the operation. */
+    authRequirements: AuthRequirement[];
 }
 
 export interface ParsedParameter {
@@ -23,6 +27,20 @@ export interface ParsedParameter {
     in: "query" | "header" | "path" | "cookie";
     required: boolean;
     schema: Record<string, unknown> | null;
+}
+
+/** A compact, non-secret descriptor of one auth scheme an endpoint requires. */
+export interface AuthRequirement {
+    /** The scheme name as referenced in the spec's `security` (e.g. "bearerAuth"). */
+    scheme: string;
+    /** Normalized type: "http" | "apiKey" | "oauth2" | "openIdConnect" | "unknown". */
+    type: string;
+    /** For http schemes: "bearer" | "basic" | etc. */
+    httpScheme?: string;
+    /** For apiKey schemes: "header" | "query" | "cookie". */
+    in?: string;
+    /** For apiKey schemes: the header/query/cookie name carrying the key. */
+    name?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +127,11 @@ export async function parseOpenApiSpec(
     const endpoints: ParsedEndpoint[] = [];
     const paths = api.paths || {};
 
+    // Build the scheme lookup once (OpenAPI 3 components.securitySchemes OR
+    // Swagger 2 securityDefinitions), then resolve per-operation requirements.
+    const schemesMap = buildSecuritySchemes(api);
+    const globalSecurity = Array.isArray(api.security) ? api.security : [];
+
     for (const [path, pathItem] of Object.entries(paths)) {
         if (!pathItem || typeof pathItem !== "object") continue;
 
@@ -122,6 +145,11 @@ export async function parseOpenApiSpec(
                 operationId: operation.operationId,
                 requestBodySchema: extractRequestBodySchema(operation, api),
                 parameters: extractParameters(operation, pathItem as any),
+                authRequirements: extractAuthRequirements(
+                    operation,
+                    globalSecurity,
+                    schemesMap,
+                ),
             };
 
             endpoints.push(endpoint);
@@ -189,6 +217,75 @@ function extractParameters(
     }
 
     return params;
+}
+
+/**
+ * Build a name → AuthRequirement map from the spec's declared schemes.
+ * Handles OpenAPI 3 (`components.securitySchemes`) and Swagger 2
+ * (`securityDefinitions`). Never throws — unknown shapes degrade gracefully.
+ */
+function buildSecuritySchemes(api: any): Record<string, AuthRequirement> {
+    const out: Record<string, AuthRequirement> = {};
+    const schemes =
+        api?.components?.securitySchemes ?? api?.securityDefinitions ?? {};
+    if (!schemes || typeof schemes !== "object") return out;
+
+    for (const [name, raw] of Object.entries(schemes)) {
+        if (!raw || typeof raw !== "object") continue;
+        const d = raw as Record<string, any>;
+        const rawType = String(d.type ?? "unknown").toLowerCase();
+        const req: AuthRequirement = { scheme: name, type: "unknown" };
+
+        if (rawType === "http") {
+            req.type = "http";
+            if (d.scheme) req.httpScheme = String(d.scheme).toLowerCase();
+        } else if (rawType === "basic") {
+            // Swagger 2 spells HTTP Basic as its own type.
+            req.type = "http";
+            req.httpScheme = "basic";
+        } else if (rawType === "apikey") {
+            req.type = "apiKey";
+            if (d.name) req.name = String(d.name);
+            if (d.in) req.in = String(d.in);
+        } else if (rawType === "oauth2") {
+            req.type = "oauth2";
+        } else if (rawType === "openidconnect") {
+            req.type = "openIdConnect";
+        } else {
+            req.type = rawType;
+        }
+        out[name] = req;
+    }
+    return out;
+}
+
+/**
+ * Resolve the auth requirements for one operation. Per-operation `security`
+ * overrides the global `security` (an explicit empty array means "no auth").
+ * Returns a flattened, de-duplicated list of the referenced scheme descriptors.
+ */
+function extractAuthRequirements(
+    operation: Record<string, any>,
+    globalSecurity: any[],
+    schemesMap: Record<string, AuthRequirement>,
+): AuthRequirement[] {
+    const security = Array.isArray(operation.security)
+        ? operation.security
+        : globalSecurity;
+    if (!Array.isArray(security) || security.length === 0) return [];
+
+    const names = new Set<string>();
+    for (const alt of security) {
+        if (alt && typeof alt === "object") {
+            for (const key of Object.keys(alt)) names.add(key);
+        }
+    }
+
+    const reqs: AuthRequirement[] = [];
+    for (const n of names) {
+        reqs.push(schemesMap[n] ?? { scheme: n, type: "unknown" });
+    }
+    return reqs;
 }
 
 // ---------------------------------------------------------------------------

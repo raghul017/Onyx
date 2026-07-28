@@ -317,3 +317,91 @@ describe("buildBenignRequest — clean control request", () => {
         expect(req.body).toBe("{}");
     });
 });
+
+// =============================================================================
+// T7a — static credential attachment (bearer / header / apiKey / cookie) +
+// MISSING_AUTH stripping.
+// =============================================================================
+
+describe("buildAttackRequest — credential attachment", () => {
+    it("bearer => Authorization: Bearer <secret>", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "SQL_INJECTION", parameters: [],
+            credential: { type: "bearer", secret: "tok_abc123" },
+        });
+        expect(req.headers["Authorization"]).toBe("Bearer tok_abc123");
+    });
+
+    it("header => sets the configured header name/value", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "XSS", parameters: [],
+            credential: { type: "header", secret: "sekret", headerName: "X-Api-Key" },
+        });
+        expect(req.headers["X-Api-Key"]).toBe("sekret");
+    });
+
+    it("apiKey (header) => sets the header", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "XSS", parameters: [],
+            credential: { type: "apiKey", secret: "k123", location: "header", headerName: "apikey" },
+        });
+        expect(req.headers["apikey"]).toBe("k123");
+    });
+
+    it("apiKey (query) => appends the query param", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "XSS", parameters: [],
+            credential: { type: "apiKey", secret: "k456", location: "query", queryName: "api_key" },
+        });
+        expect(req.url).toContain("api_key=k456");
+    });
+
+    it("cookie => sets/append the Cookie header", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "XSS", parameters: [],
+            credential: { type: "cookie", secret: "sessval", cookieName: "session" },
+        });
+        expect(req.headers["Cookie"]).toBe("session=sessval");
+    });
+
+    it("MISSING_AUTH strips the credential (fires un-authed)", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/admin", baseUrl: BASE, payload: "[no auth]",
+            attackType: "MISSING_AUTH", parameters: [],
+            credential: { type: "bearer", secret: "tok_should_be_stripped" },
+        });
+        expect(req.headers["Authorization"]).toBeUndefined();
+        expect(req.url).not.toContain("tok_should_be_stripped");
+    });
+
+    it("no credential => no Authorization header (unchanged behavior)", () => {
+        const req = buildAttackRequest({
+            method: "GET", path: "/x", baseUrl: BASE, payload: "p",
+            attackType: "SQL_INJECTION", parameters: [],
+        });
+        expect(req.headers["Authorization"]).toBeUndefined();
+    });
+});
+
+describe("buildBenignRequest — credential attachment (baselines are authed)", () => {
+    it("attaches a bearer credential to the baseline request", () => {
+        const req = buildBenignRequest({
+            method: "GET", path: "/x", baseUrl: BASE, parameters: [],
+            credential: { type: "bearer", secret: "tok_baseline" },
+        });
+        expect(req.headers["Authorization"]).toBe("Bearer tok_baseline");
+    });
+
+    it("attaches an apiKey-in-query credential to the baseline", () => {
+        const req = buildBenignRequest({
+            method: "GET", path: "/x", baseUrl: BASE, parameters: [],
+            credential: { type: "apiKey", secret: "qk", location: "query", queryName: "token" },
+        });
+        expect(req.url).toContain("token=qk");
+    });
+});

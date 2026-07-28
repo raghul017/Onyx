@@ -16,6 +16,8 @@ export const createTestRunSchema = z.object({
             (url) => url.startsWith("http://") || url.startsWith("https://"),
             "URL must use http:// or https:// protocol",
         ),
+    // Optional static credential to attach to every request in this run (T7a).
+    authRecipeId: z.string().uuid("authRecipeId must be a UUID").optional(),
 });
 
 export type CreateTestRunInput = z.infer<typeof createTestRunSchema>;
@@ -177,3 +179,66 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+// ---------------------------------------------------------------------------
+// Auth Recipes (T7a) — static credentials attached to a scan run.
+// ---------------------------------------------------------------------------
+
+export const authRecipeTypeEnum = z.enum(["bearer", "apiKey", "header", "cookie"]);
+
+/** NON-secret descriptors only — never the secret value. */
+export const authRecipeMetaSchema = z
+    .object({
+        headerName: z.string().trim().min(1).max(120).optional(),
+        queryName: z.string().trim().min(1).max(120).optional(),
+        location: z.enum(["header", "query"]).optional(),
+        cookieName: z.string().trim().min(1).max(120).optional(),
+    })
+    .strict();
+
+/** Enforce the meta a given credential type needs (e.g. header type needs a name). */
+function requireMetaForType(
+    data: { type: z.infer<typeof authRecipeTypeEnum>; meta?: z.infer<typeof authRecipeMetaSchema> },
+    ctx: z.RefinementCtx,
+): void {
+    const meta = data.meta ?? {};
+    if (data.type === "header" && !meta.headerName) {
+        ctx.addIssue({ code: "custom", message: "header credential requires meta.headerName", path: ["meta", "headerName"] });
+    }
+    if (data.type === "cookie" && !meta.cookieName) {
+        ctx.addIssue({ code: "custom", message: "cookie credential requires meta.cookieName", path: ["meta", "cookieName"] });
+    }
+    if (data.type === "apiKey") {
+        const loc = meta.location ?? "header";
+        if (loc === "header" && !meta.headerName) {
+            ctx.addIssue({ code: "custom", message: "apiKey (header) requires meta.headerName", path: ["meta", "headerName"] });
+        }
+        if (loc === "query" && !meta.queryName) {
+            ctx.addIssue({ code: "custom", message: "apiKey (query) requires meta.queryName", path: ["meta", "queryName"] });
+        }
+    }
+}
+
+export const createAuthRecipeSchema = z
+    .object({
+        name: z.string().trim().min(1, "name is required").max(80),
+        type: authRecipeTypeEnum,
+        secret: z.string().min(1, "secret is required").max(8192),
+        meta: authRecipeMetaSchema.optional().default({}),
+    })
+    .superRefine(requireMetaForType);
+
+export const updateAuthRecipeSchema = z
+    .object({
+        name: z.string().trim().min(1).max(80).optional(),
+        secret: z.string().min(1).max(8192).optional(),
+        meta: authRecipeMetaSchema.optional(),
+    })
+    .refine(
+        (d) => d.name !== undefined || d.secret !== undefined || d.meta !== undefined,
+        "At least one of name, secret, or meta must be provided",
+    );
+
+export type CreateAuthRecipeInput = z.infer<typeof createAuthRecipeSchema>;
+export type UpdateAuthRecipeInput = z.infer<typeof updateAuthRecipeSchema>;
+export type AuthRecipeMetaInput = z.infer<typeof authRecipeMetaSchema>;
