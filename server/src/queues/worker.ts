@@ -13,7 +13,10 @@ import {
 } from "../validators/schemas.js";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import type { AttackResult, WsServerMessage } from "../types/shared.js";
-import { analyzeFinding } from "../services/finding-analysis.js";
+import {
+    analyzeFinding,
+    type BaselineComparison,
+} from "../services/finding-analysis.js";
 import { scoreAndPersistRun } from "../services/run-score.js";
 import {
     buildAttackRequest,
@@ -34,6 +37,52 @@ const log = logger.child({ component: "worker" });
 
 const REQUEST_TIMEOUT_MS = 10_000; // 10 seconds
 const RESPONSE_SNIPPET_MAX_LENGTH = 500;
+
+// ---------------------------------------------------------------------------
+// Baseline lookup cache (T6)
+// ---------------------------------------------------------------------------
+//
+// A run fires ~20 payloads per endpoint; each attack diffs against that
+// endpoint's benign baseline (T5). Rather than a DB read per payload, memoize
+// the per-(run,endpoint) baseline. Positive results are cached for the run;
+// a MISS (baseline not captured, or hasn't landed yet due to the priority race)
+// is cached only briefly so a late-arriving baseline is still picked up, while
+// FREE-plan runs (no baselines) don't re-query on every single payload.
+
+const BASELINE_NEG_TTL_MS = 3000; // re-check a missing baseline after 3s
+const BASELINE_CACHE_MAX = 5000; // bound memory across many runs
+
+const baselineCache = new Map<
+    string,
+    { value: BaselineComparison | null; at: number }
+>();
+
+async function getBaselineFor(
+    testRunId: string,
+    endpointId: string,
+): Promise<BaselineComparison | null> {
+    const key = `${testRunId}:${endpointId}`;
+    const hit = baselineCache.get(key);
+    if (hit) {
+        // Positive verdicts are stable for the run; negatives expire so a
+        // baseline that lands slightly after the first attack is still used.
+        if (hit.value !== null) return hit.value;
+        if (Date.now() - hit.at < BASELINE_NEG_TTL_MS) return null;
+    }
+
+    const row = await prisma.baselineResponse.findUnique({
+        where: { testRunId_endpointId: { testRunId, endpointId } },
+        select: { status: true, latencyMs: true, bodyLength: true, bodySnippet: true },
+    });
+    const value: BaselineComparison | null = row ?? null;
+
+    if (baselineCache.size >= BASELINE_CACHE_MAX) {
+        const oldest = baselineCache.keys().next().value;
+        if (oldest !== undefined) baselineCache.delete(oldest);
+    }
+    baselineCache.set(key, { value, at: Date.now() });
+    return value;
+}
 
 // ---------------------------------------------------------------------------
 // Worker
@@ -314,6 +363,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     let statusCode: number | null = null;
     let latencyMs: number | null = null;
     let responseSnippet: string | null = null;
+    let attackBodyLength = 0; // full response body length, for baseline diffing
     let error: string | null = null;
 
     // Build the concrete request: resolve path placeholders and inject the
@@ -396,6 +446,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         statusCode = result.statusCode;
         latencyMs = result.latencyMs;
         responseSnippet = result.responseSnippet;
+        attackBodyLength = result.bodyLength;
     } catch (err) {
         latencyMs = 0;
         const classified = classifyNetworkError(err);
@@ -403,18 +454,27 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         error = classified.error;
     }
 
+    // Baseline diffing (T6): look up this endpoint's benign baseline (cached).
+    // null when none exists (FREE plan, or the baseline hasn't landed yet) — in
+    // which case analyzeFinding falls back to the pre-T6 single-request rules.
+    const baseline = await getBaselineFor(testRunId, endpointId);
+
     // Analyze the RAW response FIRST — detection must see the unredacted bytes
     // so SECRET_LEAK / FILE_LEAK / SQL_ERROR / XSS / STACK_TRACE fire exactly as
     // before. This is pure + microsecond-cheap, so running it before the DB
     // write costs nothing and lets us redact based on the classified finding.
-    const finding = analyzeFinding({
-        attackType,
-        method,
-        statusCode: statusCode ?? 0,
-        latencyMs: latencyMs ?? 0,
-        payload,
-        responseSnippet: responseSnippet ?? "", // RAW — never persisted as-is
-    });
+    const finding = analyzeFinding(
+        {
+            attackType,
+            method,
+            statusCode: statusCode ?? 0,
+            latencyMs: latencyMs ?? 0,
+            payload,
+            responseSnippet: responseSnippet ?? "", // RAW — never persisted as-is
+            bodyLength: attackBodyLength,
+        },
+        baseline,
+    );
 
     // Redact ONLY what leaves the process (DB row + WS payload). The in-memory
     // `finding` above (severity/category/confidence) is untouched; we build a

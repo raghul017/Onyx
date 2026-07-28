@@ -36,6 +36,20 @@ export interface FindingInput {
     latencyMs?: number;
     payload?: string;
     responseSnippet?: string;
+    /** Full response body length (bytes) — used for baseline length-delta diffing. */
+    bodyLength?: number;
+}
+
+/**
+ * The endpoint's benign baseline (T5), passed in to enable evidence-based
+ * diffing (T6). All fields nullable — a null/undefined baseline means "no
+ * control captured", and analyzeFinding then behaves EXACTLY as pre-T6.
+ */
+export interface BaselineComparison {
+    status: number | null;
+    latencyMs: number | null;
+    bodyLength: number | null;
+    bodySnippet: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,10 +99,12 @@ function isReflected(payload: string, resp: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// analyzeFinding — the ordered rule set (strongest evidence first)
+// analyzeBase — the ordered rule set (strongest evidence first). This is the
+// PRE-T6 behavior verbatim: no baseline is consulted here, so the no-baseline
+// path stays byte-identical. Baseline diffing (T6) wraps this in analyzeFinding.
 // ---------------------------------------------------------------------------
 
-export function analyzeFinding(input: FindingInput): FindingDetail {
+function analyzeBase(input: FindingInput): FindingDetail {
     const at = (input.attackType || "").toUpperCase();
     const statusCode = input.statusCode ?? 0;
     const latencyMs = input.latencyMs ?? 0;
@@ -258,4 +274,187 @@ export function analyzeFinding(input: FindingInput): FindingDetail {
         cause: "The endpoint processed the payload and returned a normal response, with no error or data leak in the captured body.",
         remediation: "No action from this check. Absence of an error isn't proof of safety for blind or stored issues.",
     };
+}
+
+// ---------------------------------------------------------------------------
+// Baseline diffing (T6) — additive enhancement layer.
+//
+// analyzeFinding runs analyzeBase first (the 11 rules), then — ONLY when a
+// benign baseline exists — diffs the attack response against it to: confirm
+// time-based/blind injection, normalize baseline-noisy 5xx, and suppress
+// reflected-XSS false positives. With no baseline it returns analyzeBase()
+// unchanged, so the pre-T6 behavior is preserved byte-for-byte.
+// ---------------------------------------------------------------------------
+
+// Time-based confirmation: attack must exceed the baseline by this delta AND be
+// slow in absolute terms, so normal jitter can't trip it.
+const TIME_BASED_DELTA_MS = 4000;
+const TIME_BASED_MIN_ABSOLUTE_MS = 4000;
+
+// Blind/boolean: a body-length change this large (relative) vs baseline is
+// "material"; the absolute floor avoids tiny-response noise (e.g. 2→4 bytes).
+const BLIND_LEN_DELTA_RATIO = 0.5;
+const BLIND_MIN_ABSOLUTE_BYTES = 64;
+
+// A 5xx status range check.
+const isServerError = (s: number | null | undefined): boolean =>
+    typeof s === "number" && s >= 500;
+const is2xx = (s: number | null | undefined): boolean =>
+    typeof s === "number" && s >= 200 && s < 300;
+
+// Payloads that induce a server-side delay (time-based / blind injection).
+const TIME_INJECTION_PAYLOAD =
+    /(SLEEP\s*\(|WAITFOR\s+DELAY|PG_SLEEP\s*\(|BENCHMARK\s*\(|DBMS_LOCK\.SLEEP|DBMS_PIPE\.RECEIVE_MESSAGE|DELAY\s*['"]?\d)/i;
+
+// Base categories that are already CONFIRMED via a body signature — baseline
+// diffing must never weaken these (a leaked file / secret / SQL error is proof
+// regardless of the control response).
+const CONFIRMED_DISCLOSURE = new Set([
+    "Path Traversal",
+    "Sensitive Data Exposure",
+    "SQL Injection",
+]);
+
+/** Append a comparison note to an evidence string (or start one). */
+function withEvidence(base: string | null, note: string): string {
+    return base ? `${base} — ${note}` : note;
+}
+
+/**
+ * Public entry point. Runs the base rules, then (if a baseline is provided)
+ * applies the T6 diff layer. `baseline` null/undefined ⇒ identical to pre-T6.
+ */
+export function analyzeFinding(
+    input: FindingInput,
+    baseline?: BaselineComparison | null,
+): FindingDetail {
+    const base = analyzeBase(input);
+    if (!baseline) return base;
+    return applyBaselineDiff(base, input, baseline);
+}
+
+function applyBaselineDiff(
+    base: FindingDetail,
+    input: FindingInput,
+    baseline: BaselineComparison,
+): FindingDetail {
+    const at = (input.attackType || "").toUpperCase();
+    const payload = input.payload ?? "";
+    const attackLatency = input.latencyMs ?? 0;
+    const attackLen = input.bodyLength;
+
+    // --- Reflected-XSS false-positive reduction --------------------------------
+    // If the endpoint already echoes this value for the benign baseline, the
+    // reflection isn't caused by OUR input → suppress to LOW/info. Otherwise,
+    // strengthen the evidence (genuinely reflected because of our payload).
+    if (base.category === "Reflected XSS") {
+        const marker = payload.trim();
+        const baselineEchoes =
+            marker.length >= 6 &&
+            !!baseline.bodySnippet &&
+            baseline.bodySnippet.includes(marker);
+        if (baselineEchoes) {
+            return {
+                ...base,
+                severity: "LOW",
+                confidence: "info",
+                title: "Reflected value also present in the baseline response",
+                cause: "The endpoint returns this value even for a benign baseline request, so the reflection is not attributable to our injected input — most likely not exploitable reflected XSS.",
+                evidence: withEvidence(
+                    base.evidence,
+                    "the same marker appears in the baseline response, so the echo is not caused by our input",
+                ),
+            };
+        }
+        return {
+            ...base,
+            evidence: withEvidence(
+                base.evidence,
+                "marker is NOT present in the baseline response, so the reflection is caused by our input",
+            ),
+        };
+    }
+
+    // --- Time-based / blind injection (CONFIRMED) ------------------------------
+    // A sleep-style payload that made the response markedly slower than the
+    // baseline is strong, confirmable evidence. Skip when the base is already a
+    // confirmed disclosure (that verdict is more specific and must not be lost).
+    const baselineLatency = baseline.latencyMs ?? 0;
+    const latencyDelta = attackLatency - baselineLatency;
+    const timeBased =
+        TIME_INJECTION_PAYLOAD.test(payload) &&
+        latencyDelta >= TIME_BASED_DELTA_MS &&
+        attackLatency >= TIME_BASED_MIN_ABSOLUTE_MS;
+    if (timeBased && !CONFIRMED_DISCLOSURE.has(base.category)) {
+        const injectionType = /INJECTION|SQLI/.test(at);
+        return {
+            severity: injectionType ? "CRITICAL" : "HIGH",
+            category: "Blind/Time-Based Injection",
+            title: "Time-based injection confirmed (payload delayed the response)",
+            confidence: "confirmed",
+            evidence: `A delay payload made the endpoint respond far slower than its baseline: baseline ${baselineLatency}ms → attack ${attackLatency}ms.`,
+            cause: "A time-injection payload (e.g. SLEEP/WAITFOR/pg_sleep) measurably delayed the response versus the benign baseline, proving attacker input reaches a query/interpreter that executes it — a working blind injection point.",
+            remediation: "Use parameterized queries / prepared statements and reject untrusted input in query construction. Add query timeouts and monitor for anomalous latency.",
+        };
+    }
+
+    // --- 5xx normalization -----------------------------------------------------
+    if (base.category === "Unhandled Server Error") {
+        if (isServerError(baseline.status)) {
+            // The endpoint 5xxes even for a benign request → not attributable.
+            return {
+                ...base,
+                severity: "LOW",
+                confidence: "tentative",
+                title: "Server error, but the baseline also errors on valid input",
+                cause: "The endpoint returned a 5xx, but its benign baseline request ALSO returned a 5xx, so this error is not attributable to our attack (the endpoint appears broken on normal input).",
+                evidence: withEvidence(
+                    base.evidence,
+                    `baseline also errored (status ${baseline.status}), so the 5xx is not attack-attributable`,
+                ),
+            };
+        }
+        if (is2xx(baseline.status)) {
+            // Baseline was healthy → our input caused the crash. Strengthen.
+            return {
+                ...base,
+                confidence: "confirmed",
+                evidence: withEvidence(
+                    base.evidence,
+                    `baseline responded ${baseline.status} but our payload triggered ${input.statusCode} — the crash is attributable to our input`,
+                ),
+            };
+        }
+        return base;
+    }
+
+    // --- Blind/boolean via body-length delta (conservative: firm MEDIUM) --------
+    // Only for injection-type attacks that returned a clean 2xx (base "Handled")
+    // with no error signature, where the body size differs materially from the
+    // baseline. Never over-claims CRITICAL on length alone.
+    if (base.category === "Handled" && /INJECTION|SQLI/.test(at)) {
+        if (
+            is2xx(input.statusCode) &&
+            typeof attackLen === "number" &&
+            typeof baseline.bodyLength === "number"
+        ) {
+            const baseLen = baseline.bodyLength;
+            const absDelta = Math.abs(attackLen - baseLen);
+            const ratio = absDelta / Math.max(baseLen, 1);
+            if (ratio >= BLIND_LEN_DELTA_RATIO && absDelta >= BLIND_MIN_ABSOLUTE_BYTES) {
+                return {
+                    severity: "MEDIUM",
+                    category: "Likely Blind Injection",
+                    title: "Response differs materially from baseline (possible blind injection)",
+                    confidence: "firm",
+                    evidence: `Injected payload produced a 2xx whose body size differs materially from the baseline: baseline ${baseLen} bytes → attack ${attackLen} bytes (${Math.round(ratio * 100)}% change).`,
+                    cause: "The endpoint returned success but a materially different response size than the benign baseline for an injection payload, which can indicate a boolean/blind injection altering query results. No error was disclosed, so this is not conclusive on its own.",
+                    remediation: "Confirm with paired true/false injection probes. Use parameterized queries and validate input types/lengths at the boundary.",
+                };
+            }
+        }
+        return base;
+    }
+
+    return base;
 }

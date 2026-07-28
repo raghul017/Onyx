@@ -282,3 +282,222 @@ describe("analyzeFinding — 5xx stack-trace evidence", () => {
         expect(out.evidence).toContain("TypeError");
     });
 });
+
+// =============================================================================
+// T6 — baseline diffing. analyzeFinding(input, baseline) enriches the verdict
+// when a benign baseline exists. With no baseline the result is byte-identical
+// to the base rules (covered by every case above, which pass no baseline).
+// =============================================================================
+
+import type { BaselineComparison } from "../finding-analysis.js";
+
+const baseline = (over: Partial<BaselineComparison> = {}): BaselineComparison => ({
+    status: 200,
+    latencyMs: 120,
+    bodyLength: 1000,
+    bodySnippet: "OK",
+    ...over,
+});
+
+describe("T6 baseline diffing — time-based injection", () => {
+    it("confirms time-based injection: sleep payload + 5140ms vs baseline 120ms", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                latencyMs: 5140,
+                payload: "1' AND SLEEP(5)-- -",
+                responseSnippet: "{}",
+            },
+            baseline({ latencyMs: 120 }),
+        );
+        expect(out.category).toBe("Blind/Time-Based Injection");
+        expect(out.severity).toBe("CRITICAL");
+        expect(out.confidence).toBe("confirmed");
+        expect(out.evidence).toContain("baseline 120ms → attack 5140ms");
+    });
+
+    it("does NOT trigger when the latency delta is small", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                latencyMs: 300,
+                payload: "1' AND SLEEP(5)-- -",
+                responseSnippet: "{}",
+            },
+            baseline({ latencyMs: 120 }),
+        );
+        expect(out.category).toBe("Handled"); // falls back to base verdict
+    });
+
+    it("does NOT trigger when the payload isn't a time pattern (even if slow)", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                latencyMs: 9000,
+                payload: "' OR 1=1 -- -",
+                responseSnippet: "{}",
+            },
+            baseline({ latencyMs: 120, bodyLength: 1000 }),
+        );
+        // Not a sleep payload → not time-based. (Length is equal here, so no blind either.)
+        expect(out.category).not.toBe("Blind/Time-Based Injection");
+    });
+
+    it("does NOT override a confirmed SQL-error disclosure with time-based", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                latencyMs: 5140,
+                payload: "1' AND SLEEP(5)-- -",
+                responseSnippet: "You have an error in your SQL syntax near '1'",
+            },
+            baseline({ latencyMs: 120 }),
+        );
+        expect(out.category).toBe("SQL Injection"); // stronger, specific verdict kept
+        expect(out.severity).toBe("CRITICAL");
+    });
+});
+
+describe("T6 baseline diffing — blind/boolean via length delta", () => {
+    it("raises a firm MEDIUM when a 2xx body differs >=50% from baseline", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                latencyMs: 100,
+                payload: "1 OR 1=1",
+                responseSnippet: "{...}",
+                bodyLength: 5000,
+            },
+            baseline({ bodyLength: 1000 }),
+        );
+        expect(out.category).toBe("Likely Blind Injection");
+        expect(out.severity).toBe("MEDIUM");
+        expect(out.confidence).toBe("firm");
+        expect(out.evidence).toContain("baseline 1000 bytes → attack 5000 bytes");
+    });
+
+    it("does NOT trigger when lengths are similar", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                payload: "1 OR 1=1",
+                responseSnippet: "{}",
+                bodyLength: 1050,
+            },
+            baseline({ bodyLength: 1000 }),
+        );
+        expect(out.category).toBe("Handled");
+    });
+
+    it("does NOT trigger on a large ratio but tiny absolute delta (noise floor)", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                payload: "1 OR 1=1",
+                responseSnippet: "ok",
+                bodyLength: 20, // 100% bigger than 10 bytes, but only +10 bytes
+            },
+            baseline({ bodyLength: 10 }),
+        );
+        expect(out.category).toBe("Handled");
+    });
+
+    it("never escalates to CRITICAL on length alone", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 200,
+                payload: "1 OR 1=1",
+                responseSnippet: "{...}",
+                bodyLength: 100000,
+            },
+            baseline({ bodyLength: 1000 }),
+        );
+        expect(out.severity).toBe("MEDIUM");
+    });
+});
+
+describe("T6 baseline diffing — reflected-XSS false-positive reduction", () => {
+    const xssInput = {
+        attackType: "XSS",
+        statusCode: 200,
+        payload: "<script>alert(1)</script>",
+        responseSnippet: "<div><script>alert(1)</script></div>",
+    };
+
+    it("suppresses to LOW/info when the baseline body ALSO echoes the marker", () => {
+        const out = analyzeFinding(
+            xssInput,
+            baseline({ bodySnippet: "<div><script>alert(1)</script></div>" }),
+        );
+        expect(out.severity).toBe("LOW");
+        expect(out.confidence).toBe("info");
+        expect(out.evidence).toContain("baseline");
+    });
+
+    it("stays confirmed HIGH when the baseline does NOT contain the marker", () => {
+        const out = analyzeFinding(
+            xssInput,
+            baseline({ bodySnippet: "<div>nothing reflected here</div>" }),
+        );
+        expect(out.category).toBe("Reflected XSS");
+        expect(out.severity).toBe("HIGH");
+        expect(out.confidence).toBe("confirmed");
+    });
+});
+
+describe("T6 baseline diffing — 5xx normalization", () => {
+    it("downgrades a 5xx when the baseline ALSO 5xx'd (endpoint broken on valid input)", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 500,
+                payload: "boundary",
+                responseSnippet: "",
+            },
+            baseline({ status: 500, latencyMs: 80 }),
+        );
+        expect(out.severity).toBe("LOW");
+        expect(out.confidence).toBe("tentative");
+        expect(out.evidence).toContain("baseline also errored");
+    });
+
+    it("strengthens a 5xx to confirmed when the baseline was healthy 2xx", () => {
+        const out = analyzeFinding(
+            {
+                attackType: "SQL_INJECTION",
+                statusCode: 500,
+                payload: "boundary",
+                responseSnippet: "",
+            },
+            baseline({ status: 200 }),
+        );
+        expect(out.category).toBe("Unhandled Server Error");
+        expect(out.severity).toBe("CRITICAL"); // unchanged from base (injection type)
+        expect(out.confidence).toBe("confirmed");
+    });
+});
+
+describe("T6 baseline diffing — backward compatibility", () => {
+    it("a null baseline yields the exact same finding as no baseline at all", () => {
+        const input = {
+            attackType: "SQL_INJECTION" as const,
+            statusCode: 200,
+            latencyMs: 5140,
+            payload: "1' AND SLEEP(5)-- -",
+            responseSnippet: "{}",
+            bodyLength: 5000,
+        };
+        const noBaseline = analyzeFinding(input);
+        const nullBaseline = analyzeFinding(input, null);
+        expect(nullBaseline).toEqual(noBaseline);
+        expect(nullBaseline.category).toBe("Handled"); // no diffing without a baseline
+    });
+});
