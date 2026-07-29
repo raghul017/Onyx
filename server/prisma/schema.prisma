@@ -260,6 +260,7 @@ model AttackLog {
   latencyMs       Int?
   responseSnippet String?  @db.Text
   attackType      String   @default("UNKNOWN")
+  owaspCategory   String?  // T9: OWASP API Top 10 (2023) code, or null = Unmapped
   error           String?
   createdAt       DateTime @default(now())
 

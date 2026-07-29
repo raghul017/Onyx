@@ -1,6 +1,8 @@
 import PDFDocument from 'pdfkit';
 import { prisma } from '../lib/prisma.js';
 import { getSeverity, getOverallScore, getScoreLabel, type SeverityLevel } from '../utils/severity.js';
+import { analyzeFinding } from './finding-analysis.js';
+import { OWASP_API_CATEGORIES, OWASP_LABELS } from './owasp-mapping.js';
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -147,6 +149,24 @@ export async function generateTestRunPDF(testRunId: string, userId: string): Pro
             severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ''),
         }))
         .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+
+    // OWASP API Top 10 coverage (T9): count each analyzed result by its mapped
+    // category. Computed via analyzeFinding so it's correct even for older logs
+    // written before the owaspCategory column existed.
+    const owaspCounts: Record<string, number> = {};
+    for (const code of OWASP_API_CATEGORIES) owaspCounts[code] = 0;
+    let owaspUnmapped = 0;
+    for (const l of logs) {
+        const code = analyzeFinding({
+            attackType: l.attackType,
+            statusCode: l.statusCode ?? 0,
+            responseSnippet: l.responseSnippet ?? '',
+            payload: l.payload ?? '',
+            latencyMs: l.latencyMs ?? 0,
+        }).owaspCategory;
+        if (code) owaspCounts[code] += 1;
+        else owaspUnmapped += 1;
+    }
 
     const generatedAt = new Date();
 
@@ -322,7 +342,57 @@ export async function generateTestRunPDF(testRunId: string, userId: string): Pro
     }
 
     // ================================================================
-    // 4. FOOTER (every page)
+    // 4. COVERAGE BY OWASP API TOP 10 (2023)
+    // ================================================================
+    // Start a fresh block; a full 10-row table + header needs ~200pt.
+    if (doc.y + 210 > doc.page.height - 80) {
+        doc.addPage();
+        doc.y = PAGE_MARGIN;
+    } else {
+        doc.y += 14;
+    }
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(COLOR.black)
+        .text('COVERAGE BY OWASP API TOP 10 (2023)', PAGE_MARGIN, doc.y, { characterSpacing: 1 });
+    doc.moveDown(0.4);
+    drawHRule(doc, doc.y);
+    doc.moveDown(0.5);
+
+    doc.font('Helvetica').fontSize(7.5).fillColor(COLOR.muted)
+        .text('Findings mapped to each OWASP API Security Top 10 category. 0 indicates no result mapped there.', PAGE_MARGIN, doc.y, { width: USABLE_WIDTH });
+    doc.moveDown(0.6);
+
+    // Table header
+    const owaspHeaderY = doc.y;
+    doc.rect(PAGE_MARGIN, owaspHeaderY, USABLE_WIDTH, 18).fill(COLOR.headerBg);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(COLOR.white)
+        .text('CATEGORY', PAGE_MARGIN + 6, owaspHeaderY + 5, { width: USABLE_WIDTH - 80, characterSpacing: 0.4 });
+    doc.text('FINDINGS', PAGE_MARGIN + USABLE_WIDTH - 66, owaspHeaderY + 5, { width: 60, align: 'right', characterSpacing: 0.4 });
+    doc.y = owaspHeaderY + 18;
+
+    const OWASP_ROW_H = 15;
+    // All 10 categories (0 where none) + an Unmapped row when applicable.
+    const rows: [string, number][] = OWASP_API_CATEGORIES.map((code) => [OWASP_LABELS[code].label, owaspCounts[code]]);
+    if (owaspUnmapped > 0) rows.push(['Unmapped (no clear OWASP fit)', owaspUnmapped]);
+
+    rows.forEach(([label, count], i) => {
+        if (doc.y + OWASP_ROW_H > doc.page.height - 80) {
+            doc.addPage();
+            doc.y = PAGE_MARGIN;
+        }
+        const rowY = doc.y;
+        if (i % 2 === 1) doc.rect(PAGE_MARGIN, rowY, USABLE_WIDTH, OWASP_ROW_H).fill(COLOR.rowAlt);
+        doc.font('Helvetica').fontSize(7.5).fillColor(count > 0 ? COLOR.black : COLOR.muted)
+            .text(label, PAGE_MARGIN + 6, rowY + 4, { width: USABLE_WIDTH - 80, lineBreak: false });
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(count > 0 ? COLOR.blue : COLOR.muted)
+            .text(String(count), PAGE_MARGIN + USABLE_WIDTH - 66, rowY + 4, { width: 60, align: 'right' });
+        doc.moveTo(PAGE_MARGIN, rowY + OWASP_ROW_H).lineTo(PAGE_MARGIN + USABLE_WIDTH, rowY + OWASP_ROW_H)
+            .strokeColor(COLOR.border).lineWidth(0.3).stroke();
+        doc.y = rowY + OWASP_ROW_H;
+    });
+
+    // ================================================================
+    // 5. FOOTER (every page)
     // ================================================================
     const totalPages = doc.bufferedPageRange().count;
     for (let p = 0; p < totalPages; p++) {

@@ -109,3 +109,25 @@ secret + a non-secret meta summary (tokenUrl / method+url). No backend changes.
 
 - **Changed:** `client/src/services/api.ts` (extend type union + `AuthRecipeMeta` dynamic fields + `AuthRecipeSecretInput` string|object secret), `client/src/components/AuthRecipesPanel.tsx` (unified fields state; oauth2 + loginRequest forms; pure helpers `buildRecipeSecret` / object-aware `buildRecipeUpdatePayload` / `isSecretBlank` / `extractPlaceholders` / `isValidJson` / `validateMetaForType`), `client/src/test/auth-recipe-form.test.ts` (dynamic object-secret, edit-keep-blank, JSON/placeholder cases).
 - **Migration:** none.
+
+## 2026-07-29 — T9a: OWASP API Top 10 mapping + persist + PDF coverage (backend)
+
+Every finding now carries an OWASP API Security Top 10 (2023) code as ADDITIVE
+context — the specific finding name (category/title/severity) is unchanged. The
+2023 taxonomy has no standalone injection category, so SQLi/XSS/traversal fold
+under API8. A single documented mapping module is the source of truth; the code
+is persisted on `AttackLog` and included in the live broadcast; the PDF gains a
+"Coverage by OWASP API Top 10" section counting findings per category.
+
+Resolved mapping table (finding category / attack type → code):
+- Sensitive Data Exposure → **API3**
+- Broken Authentication / Access Control, and any MISSING_AUTH/*BYPASS* probe → **API2**
+- OVERSIZED_PAYLOAD / RATE_LIMIT (any result, incl. 5xx/handled) → **API4**
+- Path Traversal, SQL Injection, Reflected XSS, Blind/Time-Based Injection, Likely Blind Injection, Unhandled Server Error, Verbose Error / Info Disclosure → **API8**
+- SQL_INJECTION / XSS / PATH_TRAVERSAL / TYPE_CONFUSION / BOUNDARY probe with a benign result → **API8**
+- Request Error (transport failure); Handled / Access Control Enforced / Input Rejected with UNKNOWN attack type → **null (Unmapped)**
+- Reserved (no current finding): BOLA→API1, BFLA→API5, mass-assignment→API3/API6, SSRF→API7, API9/API10.
+
+- **Added:** `server/src/services/owasp-mapping.ts` (single source of truth: `mapFindingToOwasp` + `OWASP_API_CATEGORIES` + `OWASP_LABELS`), `server/src/services/__tests__/owasp-mapping.test.ts`.
+- **Changed:** `types/shared.ts` (`OwaspApiCategory` type + `owaspCategory?` on `FindingDetail`), `validators/schemas.ts` (`owaspApiCategoryEnum`), `services/finding-analysis.ts` (set `owaspCategory` in `analyzeFinding`, additive), `queues/worker.ts` (persist + broadcast `owaspCategory`), `services/pdf.service.ts` (new "Coverage by OWASP API Top 10" section), `services/__tests__/finding-analysis.test.ts` (owaspCategory assertions).
+- **Migration:** `20260729043328_owasp_category` (additive: `attack_logs.owaspCategory TEXT`; applied via `migrate deploy`, status clean).

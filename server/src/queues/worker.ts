@@ -632,6 +632,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 latencyMs,
                 responseSnippet: storedSnippet,
                 attackType,
+                owaspCategory: finding.owaspCategory ?? null, // T9
                 error: error?.replace(/\0/g, "\\u0000") ?? null,
             },
         }),

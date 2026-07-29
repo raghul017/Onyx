@@ -501,3 +501,44 @@ describe("T6 baseline diffing — backward compatibility", () => {
         expect(nullBaseline.category).toBe("Handled"); // no diffing without a baseline
     });
 });
+
+// =============================================================================
+// T9 — analyzeFinding tags each finding with an OWASP API Top 10 category.
+// Additive: severity/category/confidence assertions above are unchanged.
+// =============================================================================
+
+describe("analyzeFinding — owaspCategory (T9, additive)", () => {
+    it("SQL error disclosure => API8 (folds under misconfig)", () => {
+        const out = analyzeFinding({
+            attackType: "SQL_INJECTION",
+            statusCode: 200,
+            responseSnippet: "You have an error in your SQL syntax near '1'",
+        });
+        expect(out.category).toBe("SQL Injection"); // unchanged specific name
+        expect(out.owaspCategory).toBe("API8_SECURITY_MISCONFIGURATION");
+    });
+
+    it("auth-bypass 2xx => API2", () => {
+        const out = analyzeFinding({ attackType: "MISSING_AUTH", statusCode: 200, responseSnippet: '{"data":"ok"}' });
+        expect(out.owaspCategory).toBe("API2_BROKEN_AUTHENTICATION");
+    });
+
+    it("secret leak => API3", () => {
+        const out = analyzeFinding({
+            attackType: "BOUNDARY",
+            statusCode: 200,
+            responseSnippet: '{"api_key":"sk_live_abcdef123456"}',
+        });
+        expect(out.owaspCategory).toBe("API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION");
+    });
+
+    it("oversized-payload 5xx => API4", () => {
+        const out = analyzeFinding({ attackType: "OVERSIZED_PAYLOAD", statusCode: 500, responseSnippet: "" });
+        expect(out.owaspCategory).toBe("API4_UNRESTRICTED_RESOURCE_CONSUMPTION");
+    });
+
+    it("transport failure / clean-handled UNKNOWN => null (Unmapped)", () => {
+        expect(analyzeFinding({ attackType: "SQL_INJECTION", statusCode: 0, responseSnippet: "" }).owaspCategory).toBeNull();
+        expect(analyzeFinding({ attackType: "UNKNOWN", statusCode: 200, responseSnippet: "{}" }).owaspCategory).toBeNull();
+    });
+});

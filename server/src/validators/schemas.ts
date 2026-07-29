@@ -300,3 +300,20 @@ export type CreateAuthRecipeInput = z.infer<typeof createAuthRecipeSchema>;
 export type UpdateAuthRecipeInput = z.infer<typeof updateAuthRecipeSchema>;
 export type AuthRecipeMetaInput = z.infer<typeof authRecipeMetaSchema>;
 export type AuthRecipeSecretInput = z.infer<typeof secretSchema>;
+
+// ---------------------------------------------------------------------------
+// OWASP API Security Top 10 (2023) — category codes (T9)
+// ---------------------------------------------------------------------------
+
+export const owaspApiCategoryEnum = z.enum([
+    "API1_BOLA",
+    "API2_BROKEN_AUTHENTICATION",
+    "API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION",
+    "API4_UNRESTRICTED_RESOURCE_CONSUMPTION",
+    "API5_BFLA",
+    "API6_UNRESTRICTED_ACCESS_TO_SENSITIVE_BUSINESS_FLOWS",
+    "API7_SSRF",
+    "API8_SECURITY_MISCONFIGURATION",
+    "API9_IMPROPER_INVENTORY_MANAGEMENT",
+    "API10_UNSAFE_CONSUMPTION_OF_APIS",
+]);

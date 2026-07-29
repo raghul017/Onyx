@@ -11,6 +11,8 @@
 // =============================================================================
 
 import type { SeverityLevel } from "../utils/severity.js";
+import type { OwaspApiCategory } from "../types/shared.js";
+import { mapFindingToOwasp } from "./owasp-mapping.js";
 
 export type Confidence = "confirmed" | "firm" | "tentative" | "info";
 
@@ -27,6 +29,9 @@ export interface FindingDetail {
     /** How to fix this class of issue. */
     remediation: string;
     confidence: Confidence;
+    /** OWASP API Top 10 (2023) code (T9) — additive context; null = Unmapped.
+     *  Set by analyzeFinding; the internal rule set (analyzeBase) omits it. */
+    owaspCategory?: OwaspApiCategory | null;
 }
 
 export interface FindingInput {
@@ -329,8 +334,10 @@ export function analyzeFinding(
     baseline?: BaselineComparison | null,
 ): FindingDetail {
     const base = analyzeBase(input);
-    if (!baseline) return base;
-    return applyBaselineDiff(base, input, baseline);
+    const finding = baseline ? applyBaselineDiff(base, input, baseline) : base;
+    // Additive (T9): tag the OWASP API Top 10 category from the FINAL finding's
+    // category + attack type. Never mutates severity/category/confidence.
+    return { ...finding, owaspCategory: mapFindingToOwasp(finding, input.attackType) };
 }
 
 function applyBaselineDiff(

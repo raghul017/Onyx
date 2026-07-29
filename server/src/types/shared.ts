@@ -35,6 +35,20 @@ export type ScoreLabel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
 
 export type FindingConfidence = "confirmed" | "firm" | "tentative" | "info";
 
+/** OWASP API Security Top 10 (2023) category codes (T9). Note: the 2023 taxonomy
+ *  has NO standalone injection category — SQLi/XSS/traversal fold under API8. */
+export type OwaspApiCategory =
+    | "API1_BOLA"
+    | "API2_BROKEN_AUTHENTICATION"
+    | "API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION"
+    | "API4_UNRESTRICTED_RESOURCE_CONSUMPTION"
+    | "API5_BFLA"
+    | "API6_UNRESTRICTED_ACCESS_TO_SENSITIVE_BUSINESS_FLOWS"
+    | "API7_SSRF"
+    | "API8_SECURITY_MISCONFIGURATION"
+    | "API9_IMPROPER_INVENTORY_MANAGEMENT"
+    | "API10_UNSAFE_CONSUMPTION_OF_APIS";
+
 /** The explained finding for a single attack result (what / why / cause / fix). */
 export interface FindingDetail {
     severity: SeverityLevel;
@@ -44,6 +58,8 @@ export interface FindingDetail {
     evidence: string | null;
     remediation: string;
     confidence: FindingConfidence;
+    /** OWASP API Top 10 (2023) code (T9) — additive context; null when Unmapped. */
+    owaspCategory?: OwaspApiCategory | null;
 }
 
 export interface SeverityBreakdown {
