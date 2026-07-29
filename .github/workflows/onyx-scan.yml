@@ -1,0 +1,33 @@
+# Example: run the Onyx API security scan on every PR (and on demand).
+#
+# Setup (once, in the repo settings):
+#   - Add a repository secret ONYX_TOKEN  (Settings → Secrets and variables → Actions).
+#   - If self-hosting Onyx, add a repository variable ONYX_API_URL with your API base.
+#   - Point `spec` at your PUBLIC OpenAPI/Swagger URL below.
+name: Onyx API Security Scan
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# The action needs these to publish SARIF and post the PR comment.
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  onyx-scan:
+    name: API security scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Onyx scan
+        uses: ./ # the composite action lives at the repo root (action.yml)
+        with:
+          spec: https://api.example.com/openapi.json
+          api-token: ${{ secrets.ONYX_TOKEN }}
+          api-url: ${{ vars.ONYX_API_URL }} # optional; omit to use the default
+          fail-on: high

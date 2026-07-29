@@ -189,3 +189,32 @@ probes are counted but excluded from findings/results.
 - **Changed:** docs/UPDATES.md.
 - **Server/client:** untouched (the CLI is standalone; it mirrors the API types).
 - **Migration:** none.
+
+## 2026-07-29 — T11: GitHub Action + PR checks (wraps the T10b CLI)
+
+A **composite** GitHub Action (`action.yml` at the repo root, referenced in-repo as
+`uses: ./`) that runs an Onyx scan in CI, uploads SARIF to the **Security** tab,
+posts/updates a **PR comment** with the finding summary, and fails the check per
+`fail-on` — reporting **before** the failing exit. The scan runs **once** and emits
+both reports via a new CLI flag `--sarif-out` (`--format json --out onyx.json
+--sarif-out onyx.sarif`), so json (for the comment) and SARIF (for the Security tab)
+come from a single scan — no double-charging. Steps: `setup-node@v4` (Node 20) →
+build the CLI from `github.action_path/cli` (`npm ci && npm run build`, because the
+CLI isn't on npm yet) → run the scan capturing the exit code (`set +e; node …; CODE=$?`)
+without aborting → `codeql-action/upload-sarif@v3` (guarded by `hashFiles`,
+`continue-on-error`) → `github-script@v7` PR comment on `pull_request` only, using a
+hidden `<!-- onyx-scan -->` marker to find-and-update (no spam) → final step re-exits
+with the captured code. Token passed via the `ONYX_TOKEN` env var + `::add-mask::`
+(never on the command line or in logs). Optional `api-url`/`org`/`auth-recipe` flags
+are added only when non-empty (an empty `--api-url` would break normalization).
+
+Inputs: `spec` (req), `api-token` (req), `api-url`, `auth-recipe`, `org`, `fail-on`
+(default `high`), `working-directory` (default `.`), `github-token` (default
+`${{ github.token }}`). Required job permissions: `contents: read`,
+`security-events: write`, `pull-requests: write`.
+
+- **Added:** `action.yml` (repo root composite action); `action/onyx-comment.cjs` (pure `MARKER` + `findMarkerComment` + `buildCommentBody`, dep-free CommonJS for `github-script` `require()`); `action/test/onyx-comment.test.cjs` (`node:test`, mocked octokit list — 6 tests); `action/README.md` (inputs table, permissions, secrets, exit-code behavior, external-distribution follow-up); `.github/workflows/onyx-scan.yml` (example: `pull_request` + `workflow_dispatch`, permissions block, `uses: ./`).
+- **Changed:** `cli/src/args.ts` (`--sarif-out` flag + `ScanOptions.sarifOut`), `cli/src/scan.ts` (write SARIF when `sarifOut` set, any `--format`), `cli/test/scan.test.ts` (dual-output single-scan test — 25 tests), `cli/README.md` (`--sarif-out` row + CI/CD integration pointer to the action); docs/UPDATES.md.
+- **External distribution:** documented follow-up (npm-publish the CLI, or a dedicated `onyx-action` repo with versioned tags) — not in this ticket's scope.
+- **Verification:** CI-only — GitHub Actions can't run locally. YAML parse validated; comment-logic + CLI tests green; CLI build confirmed. See the commit body / SUMMARY for manual PR-verification steps.
+- **Migration:** none.

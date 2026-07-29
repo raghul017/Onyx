@@ -107,6 +107,25 @@ describe("runScan — happy path", () => {
         expect(JSON.parse(files["onyx.sarif"]!).runs[0].results.length).toBe(1);
         expect(out.join("\n")).toContain("Onyx scan"); // table summary on stdout
     });
+
+    it("--sarif-out writes json + sarif from a single scan (for CI)", async () => {
+        const api: OnyxApi = {
+            createRun: vi.fn().mockResolvedValue({ testRunId: "run-1", status: "PARSING", message: "" }),
+            getRun: vi.fn().mockResolvedValue(runResp("COMPLETED", [log("HIGH")])),
+        };
+        const { io, files } = mockIO();
+        const code = await runScan(
+            { ...baseOpts, format: "json", out: "onyx.json", sarifOut: "onyx.sarif" },
+            api,
+            io,
+        );
+        expect(code).toBe(1);
+        expect(api.getRun).toHaveBeenCalledTimes(1); // ONE scan
+        // JSON report present + parseable.
+        expect(JSON.parse(files["onyx.json"]!).findingCount).toBe(1);
+        // SARIF report present + valid 2.1.0.
+        expect(JSON.parse(files["onyx.sarif"]!).version).toBe("2.1.0");
+    });
 });
 
 describe("runScan — failure paths (exit 2)", () => {

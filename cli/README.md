@@ -46,6 +46,7 @@ onyx scan --spec <public-openapi-url> [options]
 | `--fail-on <level>` | — | `high` | `critical` \| `high` \| `medium` \| `low`. |
 | `--format <fmt>` | — | `table` | `table` \| `json` \| `sarif`. |
 | `--out <file>` | — | stdout | Write the `json`/`sarif` report to a file. |
+| `--sarif-out <file>` | — | — | **Also** write SARIF here, regardless of `--format`. Lets CI produce JSON + SARIF from **one** scan. |
 | `--org <id>` | `ONYX_ORG` | — | Organization context (`x-org-id`). |
 | `--timeout <secs>` | — | `300` | Max time to wait for the run to finish. |
 
@@ -78,36 +79,29 @@ onyx scan --spec https://api.example.com/openapi.json --auth-recipe <recipe-id>
 onyx scan --spec https://api.example.com/openapi.json --format json --out onyx.json
 ```
 
-## CI snippet (GitHub Actions)
+## CI/CD integration (GitHub Actions)
+
+The repo ships a **composite GitHub Action** (`action.yml` at the repo root) that
+builds this CLI, runs a scan, uploads SARIF to the **Security** tab, posts/updates
+a **PR comment** with the finding summary, and fails the check on the threshold —
+all from a **single** scan. See [the action README](../action/README.md) and the
+example workflow at [.github/workflows/onyx-scan.yml](../.github/workflows/onyx-scan.yml).
+
+Minimal usage:
 
 ```yaml
-jobs:
-  onyx-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - name: Build Onyx CLI
-        run: cd cli && npm ci && npm run build
-      - name: API security scan
-        env:
-          ONYX_TOKEN: ${{ secrets.ONYX_TOKEN }}
-          ONYX_API_URL: ${{ vars.ONYX_API_URL }}
-        run: |
-          node cli/dist/index.js scan \
-            --spec https://api.example.com/openapi.json \
-            --fail-on high \
-            --format sarif --out onyx.sarif
-      # Optional — surface findings in the Security tab:
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with: { sarif_file: onyx.sarif }
+- uses: actions/checkout@v4
+- uses: ./                     # the Onyx action (repo root action.yml)
+  with:
+    spec: https://api.example.com/openapi.json
+    api-token: ${{ secrets.ONYX_TOKEN }}
+    fail-on: high
 ```
 
-The job **fails** (exit 1) when a finding meets `--fail-on`; use `if: always()`
-on the SARIF upload so results are published even on failure.
+If you'd rather call the CLI directly, run one scan and emit both reports with
+`--format json --out onyx.json --sarif-out onyx.sarif`, then upload `onyx.sarif`
+via `github/codeql-action/upload-sarif@v3` (use `if: always()` so results publish
+even when the job fails).
 
 ## Output formats
 

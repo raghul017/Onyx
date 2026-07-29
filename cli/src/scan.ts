@@ -77,6 +77,13 @@ export async function runScan(
             io.log(rendered);
         }
 
+        // Optionally also emit SARIF (any --format) — lets CI produce json + sarif
+        // from a SINGLE scan (no double-charging).
+        if (opts.sarifOut) {
+            await io.writeFile(opts.sarifOut, renderSarif(report) + "\n");
+            io.progress(`[onyx] wrote sarif report to ${opts.sarifOut}`);
+        }
+
         const code = computeExitCode(report.findings, opts.failOn);
         io.progress(
             `[onyx] fail-on=${opts.failOn} → exit ${code} (${report.findings.length} finding(s))`,

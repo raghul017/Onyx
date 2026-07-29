@@ -14,6 +14,8 @@ export interface ScanOptions {
     failOn: FailOn;
     format: OutputFormat;
     out?: string;
+    /** Also write a SARIF report to this file, regardless of --format (CI). */
+    sarifOut?: string;
     apiUrl: string;
     apiToken: string;
     orgId?: string;
@@ -59,6 +61,7 @@ OPTIONS
                           Exit 1 if any finding is at/above this severity.
   --format <fmt>          table | json | sarif             (default: table)
   --out <file>            Write json/sarif output to a file (else stdout).
+  --sarif-out <file>      Also write a SARIF report here (any --format) — for CI.
   --api-url <url>         Onyx API base URL (or ONYX_API_URL).
                           (default: ${DEFAULT_API_URL}; "/api" is appended if missing)
   --org <id>              Organization context (or ONYX_ORG) — x-org-id header.
@@ -115,6 +118,7 @@ export function parseScanArgs(
     const failOn = (str("fail-on") ?? "high").toLowerCase() as FailOn;
     const format = (str("format") ?? "table").toLowerCase() as OutputFormat;
     const out = str("out");
+    const sarifOut = str("sarif-out");
     const authRecipe = str("auth-recipe");
     const timeoutStr = str("timeout");
 
@@ -137,7 +141,7 @@ export function parseScanArgs(
     const apiUrl = normalizeApiUrl(apiUrlRaw);
 
     return {
-        options: { spec, authRecipe, failOn, format, out, apiUrl, apiToken, orgId, timeoutSeconds },
+        options: { spec, authRecipe, failOn, format, out, sarifOut, apiUrl, apiToken, orgId, timeoutSeconds },
         help: false,
     };
 }

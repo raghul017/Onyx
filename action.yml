@@ -1,0 +1,158 @@
+# =============================================================================
+# Onyx API Security Scan — composite GitHub Action (T11).
+#
+# Builds the Onyx CLI from THIS repo (cli/ is not published to npm yet), runs one
+# scan, uploads SARIF to the Security tab, posts/updates a PR comment, and finally
+# fails the check per --fail-on. The scan runs ONCE and emits both JSON (for the
+# PR comment) and SARIF (for the Security tab) via the CLI's --sarif-out flag.
+#
+# Required job permissions (set in the calling workflow):
+#   permissions:
+#     contents: read
+#     security-events: write   # upload-sarif → Security tab
+#     pull-requests: write     # post/update the PR comment
+#
+# External distribution (npm package / dedicated action repo with a build step and
+# a versioned tag) is a documented FOLLOW-UP — see action/README.md.
+# =============================================================================
+name: "Onyx API Security Scan"
+description: "Run an Onyx API security scan in CI — SARIF to the Security tab, a PR comment summary, and a fail-on gate."
+author: "Onyx"
+
+inputs:
+  spec:
+    description: "Public OpenAPI/Swagger URL to scan."
+    required: true
+  api-token:
+    description: "Onyx API token (onyx_…). Pass via secrets — never hardcode. Read as an env var, never placed on the command line."
+    required: true
+  api-url:
+    description: "Onyx API base URL (e.g. https://onyx.your-host.com). Defaults to the CLI default when empty."
+    required: false
+    default: ""
+  auth-recipe:
+    description: "Optional auth-recipe id to attach to the run."
+    required: false
+    default: ""
+  org:
+    description: "Optional organization id (x-org-id)."
+    required: false
+    default: ""
+  fail-on:
+    description: "Severity threshold that fails the check: critical | high | medium | low."
+    required: false
+    default: "high"
+  working-directory:
+    description: "Directory to run the scan from (reports are written here)."
+    required: false
+    default: "."
+  github-token:
+    description: "Token used to post the PR comment (needs pull-requests: write)."
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Build Onyx CLI
+      shell: bash
+      working-directory: ${{ github.action_path }}/cli
+      run: |
+        npm ci
+        npm run build
+
+    - name: Run Onyx scan
+      id: scan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        # The CLI reads the token from ONYX_TOKEN — it never lands on the command
+        # line or in the process list. Mask it so it can't surface in logs.
+        ONYX_TOKEN: ${{ inputs.api-token }}
+      run: |
+        echo "::add-mask::$ONYX_TOKEN"
+
+        CLI="${{ github.action_path }}/cli/dist/index.js"
+
+        # Build argv. Optional flags are added ONLY when non-empty — an empty
+        # --api-url/--org/--auth-recipe would be worse than omitting them.
+        args=(scan
+          --spec "${{ inputs.spec }}"
+          --fail-on "${{ inputs.fail-on }}"
+          --format json --out onyx.json --sarif-out onyx.sarif)
+
+        if [ -n "${{ inputs.api-url }}" ]; then args+=(--api-url "${{ inputs.api-url }}"); fi
+        if [ -n "${{ inputs.auth-recipe }}" ]; then args+=(--auth-recipe "${{ inputs.auth-recipe }}"); fi
+        if [ -n "${{ inputs.org }}" ]; then args+=(--org "${{ inputs.org }}"); fi
+
+        # Capture the CLI exit code WITHOUT aborting the job — we still want to
+        # report (SARIF + PR comment) before failing the check.
+        set +e
+        node "$CLI" "${args[@]}"
+        CODE=$?
+        set -e
+
+        echo "exit-code=$CODE" >> "$GITHUB_OUTPUT"
+        echo "json-path=${{ inputs.working-directory }}/onyx.json" >> "$GITHUB_OUTPUT"
+        echo "sarif-path=${{ inputs.working-directory }}/onyx.sarif" >> "$GITHUB_OUTPUT"
+        echo "onyx scan exited with code $CODE"
+
+    - name: Upload SARIF to the Security tab
+      if: ${{ hashFiles(steps.scan.outputs.sarif-path) != '' }}
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-path }}
+        category: onyx
+
+    - name: Comment on the PR
+      if: ${{ github.event_name == 'pull_request' }}
+      continue-on-error: true
+      uses: actions/github-script@v7
+      env:
+        ONYX_JSON_PATH: ${{ steps.scan.outputs.json-path }}
+        ONYX_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+        ONYX_FAIL_ON: ${{ inputs.fail-on }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const { MARKER, findMarkerComment, buildCommentBody } =
+            require('${{ github.action_path }}/action/onyx-comment.cjs');
+
+          let report = null;
+          try {
+            report = JSON.parse(fs.readFileSync(process.env.ONYX_JSON_PATH, 'utf8'));
+          } catch (e) {
+            core.info(`No JSON report to read (${e.message}) — posting an operational-failure comment.`);
+          }
+
+          const body = buildCommentBody(report, {
+            exitCode: Number(process.env.ONYX_EXIT_CODE),
+            failOn: process.env.ONYX_FAIL_ON,
+          });
+
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const existing = findMarkerComment(
+            await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            core.info(`Updated Onyx PR comment #${existing.id}.`);
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            core.info('Created Onyx PR comment.');
+          }
+
+    - name: Enforce fail-on threshold
+      shell: bash
+      run: |
+        # Report happened above; NOW fail the check with the captured CLI code.
+        exit "${{ steps.scan.outputs.exit-code }}"
