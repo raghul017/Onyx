@@ -14,6 +14,14 @@ import { useServerStatus } from "./store/useServerStatus";
 // ---------------------------------------------------------------------------
 const Landing = lazy(() => import("./pages/Landing"));
 const Docs = lazy(() => import("./pages/Docs"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const Security = lazy(() => import("./pages/Security"));
+const Changelog = lazy(() => import("./pages/Changelog"));
+const Privacy = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Terms })));
+const ResponsibleDisclosure = lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.ResponsibleDisclosure })),
+);
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
 const Report = lazy(() => import("./pages/Report"));
@@ -58,6 +66,15 @@ const App = () => {
                         <Routes>
                             <Route path="/" element={<Landing />} />
                             <Route path="/docs" element={<Docs />} />
+                            <Route path="/pricing" element={<Pricing />} />
+                            <Route path="/security" element={<Security />} />
+                            <Route path="/changelog" element={<Changelog />} />
+                            <Route path="/privacy" element={<Privacy />} />
+                            <Route path="/terms" element={<Terms />} />
+                            <Route
+                                path="/responsible-disclosure"
+                                element={<ResponsibleDisclosure />}
+                            />
                             <Route path="/signin" element={<SignIn />} />
                             <Route path="/signup" element={<SignUp />} />
                             <Route path="/auth/callback" element={<OAuthCallback />} />

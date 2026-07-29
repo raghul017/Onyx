@@ -21,7 +21,8 @@ const COLUMNS: { title: string; links: { label: string; href: string; ext?: bool
         links: [
             { label: "Features", href: "#features" },
             { label: "How it Works", href: "#how-it-works" },
-            { label: "Pricing", href: "#pricing" },
+            { label: "Pricing", href: "/pricing" },
+            { label: "Security", href: "/security" },
             { label: "Dashboard", href: "/dashboard" },
         ],
     },
@@ -29,6 +30,7 @@ const COLUMNS: { title: string; links: { label: string; href: string; ext?: bool
         title: "Resources",
         links: [
             { label: "Documentation", href: "/docs" },
+            { label: "Changelog", href: "/changelog" },
             { label: "GitHub", href: "https://github.com/raghul017/Onyx", ext: true },
             { label: "Billing", href: "/billing" },
         ],

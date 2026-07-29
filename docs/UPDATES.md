@@ -218,3 +218,33 @@ Inputs: `spec` (req), `api-token` (req), `api-url`, `auth-recipe`, `org`, `fail-
 - **External distribution:** documented follow-up (npm-publish the CLI, or a dedicated `onyx-action` repo with versioned tags) — not in this ticket's scope.
 - **Verification:** CI-only — GitHub Actions can't run locally. YAML parse validated; comment-logic + CLI tests green; CLI build confirmed. See the commit body / SUMMARY for manual PR-verification steps.
 - **Migration:** none.
+
+## 2026-07-29 — T21a: Navbar mega-menu + route stubs + mobile menu
+
+First landing-redesign ticket (see docs/Onyx-Landing-Redesign.md). CLIENT-ONLY.
+Rebuilt the marketing navbar's logged-out variant into a dropdown mega-menu —
+**Product / Solutions / Resources** — while **preserving the exact bar styling**
+(same height, `#fafafa`/85 blur, `#e6e6e6` hairline, logo, uppercase links, and
+the black `mono-btn` "Start free scan" + "Sign In"). The only visual additions
+are caret indicators on the three triggers and the dropdown panels themselves.
+Dropdowns open on **hover and click/focus**, are keyboard-accessible (Esc closes
+and restores focus, `focus-visible` rings, `aria-haspopup`/`aria-expanded`),
+close on outside-click/tab-out, and are light-mono styled (white panel, hairline,
+sharp corners, blue `#3b82f6` hover) with a short description under each item. The
+**logged-in variant** (Dashboard/Billing/profile/sign-out + plan pill) is intact.
+
+Every dropdown link resolves — no 404s. Homepage anchors use `/#anchor`; a new
+`useHashScroll` hook scrolls to the target after arriving (incl. from another
+route, which navigates home first). Forward anchors (`#authenticated`/`#owasp`/
+`#cicd`/`#demo`) are wired now and simply no-op until their sections ship in
+T21b/T21c. Added presentable lazy **route stubs** so nav links land somewhere
+real: `/pricing` (reuses the extracted, real `PricingSection`), `/security`,
+`/changelog`, `/privacy`, `/terms`, `/responsible-disclosure` — all on a shared
+`MarketingPage` shell (Navbar + framed column + Footer). The homepage `#pricing`
+anchor still works (same component); the nav Pricing now points at `/pricing`.
+
+- **Added:** `client/src/components/nav-config.ts` (nav IA data), `client/src/hooks/useHashScroll.ts`, `client/src/components/MarketingPage.tsx`, `client/src/components/PricingSection.tsx` (extracted from Landing), `client/src/pages/Pricing.tsx`, `client/src/pages/Security.tsx`, `client/src/pages/Changelog.tsx`, `client/src/pages/Legal.tsx` (Privacy/Terms/ResponsibleDisclosure), `client/src/test/nav-config.test.ts`, `docs/Onyx-Landing-Redesign.md`.
+- **Changed:** `client/src/components/Navbar.tsx` (mega-menu + collapsible mobile groups; bar styling preserved), `client/src/pages/Landing.tsx` (import extracted PricingSection; wire useHashScroll; removed the inline pricing block), `client/src/App.tsx` (6 new lazy public routes), `client/src/components/Footer.tsx` (Pricing → /pricing; added Security + Changelog); docs/UPDATES.md.
+- **Tests:** `nav-config.test.ts` (3 tests) asserts every internal href is a known route or homepage anchor (no 404) — client suite 35/35 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** forward anchor sections (T21b/T21c); full Pricing page (T21d), Security page (T21e), Changelog from UPDATES.md (T21f), legal content (T21g). Footer route links are still plain `<a>` (full-reload) — full footer refresh is a later ticket.
