@@ -394,3 +394,42 @@ for existing importers (no visual change). Currency display logic unchanged.
 - **Tests:** `plans.test.ts` (6 tests) asserts tiers = Free/Pro/Team, prices, Pro highlighted, comparison quotas == server PLAN_LIMITS, PDF/baseline paid-only gates, 3 cells/row — client suite 48/48 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** per-page SEO/meta for `/pricing` lands in T21h; refund/cancellation copy points to Terms (T21g) rather than inventing policy.
+
+## 2026-07-29 — T21e: Full Security / Trust page
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Turned the
+T21a `/security` stub into a full light-mono page: intro → How we test safely →
+How we protect your data → Account security → Infrastructure → Compliance →
+Responsible disclosure. ACCURACY GUARDRAIL honored — every claim maps to a real
+control read from the server code; no certification is claimed.
+
+Controls described + source (all verified in code):
+- **Domain-ownership verification** (file `/.well-known/onyx-verify.txt` OR DNS TXT
+  `_onyx-verify.<domain>`) — `server/src/services/domain-verify.service.ts`.
+- **SSRF guard** (DNS-resolves host; blocks loopback/private/link-local/CGNAT/
+  cloud-metadata 169.254.169.254/IPv4-mapped IPv6/ULA/multicast; short-TTL re-vet
+  for DNS rebinding) — `server/src/lib/ssrf-guard.ts`.
+- **10s request timeout** (AbortController) — `server/src/queues/worker.ts`
+  (`REQUEST_TIMEOUT_MS`).
+- **Paced concurrency + rate limits + quotas** (worker concurrency 12, limiter
+  3/100ms ≈ 30 req/s; auth 5/min/IP, test-runs 5/hr/IP; per-plan monthly quotas) —
+  `queues/worker.ts`, `routes/auth.ts`, `routes/index.ts`, `middleware/quota.middleware.ts`.
+- **AES-256-GCM** auth-recipe secret encryption at rest — `server/src/lib/crypto.ts`.
+- **SHA-256 API-token hashing** (plaintext never stored; revocable) —
+  `server/src/services/api-token.service.ts`, `controllers/api-token.controller.ts`.
+- **Response redaction** (bearer/api-key/password → ***REDACTED*** before persist/
+  broadcast) — `server/src/lib/redact.ts`.
+- **JWT HS256** (algorithm pinned) — `server/src/middleware/auth.ts`; **bcrypt**
+  (cost 12) + **Google/GitHub OAuth** — `server/src/controllers/auth.controller.ts`.
+- **Infrastructure**: described at a truthful, non-sensitive level (managed
+  PostgreSQL/Neon + Redis/BullMQ queue) — no versions/hostnames/topology leaked.
+- **Compliance**: explicit forward-looking line — "Onyx is NOT SOC 2 or ISO 27001
+  certified today"; no false or "in-progress audit" claim.
+- **Responsible disclosure**: invites coordinated disclosure; links to
+  `/responsible-disclosure` (T21g) + GitHub Issues (no security email exists yet;
+  used GitHub as the contact channel).
+
+- **Changed:** `client/src/pages/Security.tsx` (stub → full page); docs/UPDATES.md.
+- **Tests:** none new — client build-verified (no pure helper); client suite 48/48 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** per-page SEO/meta for `/security` lands in T21h; a dedicated security email could replace the GitHub contact later.
