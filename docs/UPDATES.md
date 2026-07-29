@@ -149,3 +149,23 @@ labels mirror the server exactly.
 - **Changed:** `client/src/services/api.ts` (`OwaspApiCategory` type + `owaspCategory?` on `FindingDetail`; `OWASP_LABELS` / `OWASP_API_CATEGORIES`; `owaspShortCode` / `owaspLabel` / `owaspCoverage` helpers), `client/src/components/FindingDetailPanel.tsx` (OWASP chip in header), `client/src/pages/Report.tsx` (coverage section + row chips), `client/src/components/DashboardCommand.tsx` (OWASP chip on live rows).
 - **Server:** none (REST already surfaced `owaspCategory`).
 - **Migration:** none.
+
+## 2026-07-29 — T10a: API-token auth + token management UI
+
+Users can mint long-lived **API tokens** to authenticate REST calls
+non-interactively (for the T10b CLI / CI) and revoke them. Tokens are
+`onyx_<43 base62 chars>` (~256 bits); only a **SHA-256 hash** is stored
+(unique-indexed) and the plaintext is returned **exactly once** on creation
+(never again, never logged). `authenticateToken` now treats an `onyx_`-prefixed
+Bearer value as an API token (looked up by hash), sets the same `req.user`/`req.orgId`
+context a JWT would, and bumps `lastUsedAt` (throttled ≤1×/min, non-blocking) — so
+scoping, RBAC, and quota are identical; JWT auth is unchanged (fallthrough).
+Revoked/unknown tokens → 401. Token-management endpoints are **session-only**
+(a token can't mint/revoke tokens). CLI endpoints (`POST /test-runs`,
+`GET /test-runs/:id`, `.../logs`, `.../export/pdf`) accept token auth automatically.
+
+- **Added:** `server/src/services/api-token.service.ts` (+ test), `server/src/controllers/api-token.controller.ts` (+ test), `server/src/routes/api-token.routes.ts`, `server/src/middleware/__tests__/auth.test.ts`; `client/src/components/ApiTokensPanel.tsx`.
+- **Changed:** `server/src/middleware/auth.ts` (async; API-token path + `requireSessionAuth` guard; `req.authMethod`), `types/express.d.ts` (`authMethod`), `validators/schemas.ts` (`createApiTokenSchema`), `routes/index.ts` (register), `schema.prisma` (`ApiToken` model); `client/src/services/api.ts` (token bindings), `client/src/pages/Settings.tsx` (render API tokens panel).
+- **Header choice:** reuse `Authorization: Bearer <token>` (prefix-discriminated) — no new header, CLI-friendly.
+- **Env:** none (SHA-256 of a 256-bit random token; no keyed-HMAC secret needed).
+- **Migration:** `20260729093022_api_tokens` (additive: `api_tokens` table + unique `tokenHash` index + FKs; applied via `migrate deploy`, status clean).

@@ -302,6 +302,16 @@ export type AuthRecipeMetaInput = z.infer<typeof authRecipeMetaSchema>;
 export type AuthRecipeSecretInput = z.infer<typeof secretSchema>;
 
 // ---------------------------------------------------------------------------
+// API Tokens (T10a) — long-lived credentials for non-interactive REST access.
+// ---------------------------------------------------------------------------
+
+export const createApiTokenSchema = z.object({
+    name: z.string().trim().min(1, "name is required").max(80),
+});
+
+export type CreateApiTokenInput = z.infer<typeof createApiTokenSchema>;
+
+// ---------------------------------------------------------------------------
 // OWASP API Security Top 10 (2023) — category codes (T9)
 // ---------------------------------------------------------------------------
 

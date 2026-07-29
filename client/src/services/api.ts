@@ -543,6 +543,42 @@ export async function deleteAuthRecipe(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// API Tokens (T10a) — long-lived credentials for the CLI / CI.
+// The plaintext token is returned ONCE on create; the list is always masked.
+// ---------------------------------------------------------------------------
+
+export interface ApiToken {
+    id: string;
+    name: string;
+    maskedToken: string; // "onyx_••••wxyz"
+    last4: string;
+    createdAt: string;
+    lastUsedAt: string | null;
+    revokedAt: string | null;
+    revoked: boolean;
+}
+
+/** Create response — includes the plaintext `token` exactly once. */
+export interface CreatedApiToken extends ApiToken {
+    token: string;
+}
+
+export async function listApiTokens(): Promise<{ tokens: ApiToken[] }> {
+    const res = await api.get("/api-tokens");
+    return res.data;
+}
+
+export async function createApiToken(name: string): Promise<CreatedApiToken> {
+    const res = await api.post("/api-tokens", { name });
+    return res.data;
+}
+
+export async function revokeApiToken(id: string): Promise<ApiToken> {
+    const res = await api.post(`/api-tokens/${id}/revoke`);
+    return res.data;
+}
+
+// ---------------------------------------------------------------------------
 // PDF Export
 // ---------------------------------------------------------------------------
 

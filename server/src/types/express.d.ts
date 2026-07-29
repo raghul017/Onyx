@@ -10,6 +10,8 @@ declare global {
                 id: string;
                 email: string;
             };
+            /** How the request authenticated (T10a): interactive JWT session vs API token. */
+            authMethod?: "jwt" | "apiToken";
             orgMember?: OrgMember;  // set by requireOrgMember middleware
             orgId?: string;          // set by injectOrgContext middleware
         }

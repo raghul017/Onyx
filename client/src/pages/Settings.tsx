@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Building2, Users, Copy, Check, Trash2, Plus, Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import AuthRecipesPanel from "@/components/AuthRecipesPanel";
+import ApiTokensPanel from "@/components/ApiTokensPanel";
 import {
     getCurrentUser,
     getOrgMembers,
@@ -163,6 +164,11 @@ export default function Settings() {
                     otherwise to the user. */}
                 <div className="mb-8">
                     <AuthRecipesPanel />
+                </div>
+
+                {/* API tokens — long-lived credentials for the CLI / CI (T10a) */}
+                <div className="mb-8">
+                    <ApiTokensPanel />
                 </div>
 
                 {/* No org — create one */}

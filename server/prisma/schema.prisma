@@ -40,6 +40,7 @@ model User {
   verifiedTargets VerifiedTarget[]
   orgMemberships  OrgMember[]
   authRecipes     AuthRecipe[]
+  apiTokens       ApiToken[]
 
   @@map("users")
 }
@@ -61,8 +62,34 @@ model Organization {
   invites  OrgInvite[]
   testRuns TestRun[]
   authRecipes AuthRecipe[]
+  apiTokens ApiToken[]
 
   @@map("organizations")
+}
+
+// ---------------------------------------------------------------------------
+// API Token — long-lived credential for non-interactive REST access (T10a).
+// Stored as a SHA-256 hash only (never the plaintext); shown in full once on
+// creation. Scoped to its owner (user, optionally pinned to an org) so a token
+// does exactly what that user/org can do.
+// ---------------------------------------------------------------------------
+model ApiToken {
+  id         String    @id @default(uuid())
+  userId     String?
+  orgId      String?
+  name       String
+  tokenHash  String    @unique // SHA-256 hex of the plaintext token
+  last4      String    // last 4 chars of the token, for masked display
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([orgId])
+  @@map("api_tokens")
 }
 
 // ---------------------------------------------------------------------------
