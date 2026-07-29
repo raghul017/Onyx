@@ -505,3 +505,56 @@ mailbox — this closes the T21e follow-up that had pointed disclosure at GitHub
 - **Tests:** none new — client build-verified; client suite 51/51 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** lawyer review before relying on these; create the mailboxes above; per-page SEO/meta for the legal routes lands in T21h.
+
+## 2026-07-29 — T21h: Per-route SEO meta + prerender + sitemap
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Every public
+route now emits unique title/description/canonical/OG/Twitter meta, and the public
+routes are PRERENDERED to static HTML at build time so crawlers and social scrapers
+(which don't run JS) get real content + correct meta. The SPA still loads and takes
+over on top.
+
+- **Per-route meta:** added `react-helmet-async` (`HelmetProvider` at the app root)
+  and a reusable `<Seo>` component (title/description/canonical/og:*/twitter:*).
+  All per-route metadata lives in ONE source, `client/src/lib/seo.ts` →
+  `PUBLIC_ROUTES` + the `SITE_URL` constant.
+- **SITE_URL:** `https://onyx-engine.vercel.app`, defined once in
+  `client/src/lib/seo.ts`. **To move to a custom domain, change SITE_URL there** —
+  canonical, og:url, and sitemap.xml all derive from it. (Also update the two
+  default tags in `client/index.html` + the Sitemap line in `public/robots.txt`.)
+- **Prerender approach:** a postbuild Node script (`scripts/prerender.mjs`) uses
+  Vite's own SSR pipeline (`createServer` + `ssrLoadModule`) to render each public
+  route via `src/entry-prerender.tsx` (`renderToString` + `StaticRouter` + helmet),
+  then bakes the markup + per-route head tags into `dist/<route>/index.html`. Chosen
+  over vite-plugin-prerender (unmaintained) / react-snap (needs Chromium, React-17
+  era) because it needs no browser, no Chromium, and no router rewrite, and reuses
+  the project's aliases/plugins. Wired as `build = vite build && npm run prerender`.
+- **WebGL guard:** the three.js components (ShaderHeroBG, DotGlobe) init inside
+  `useEffect`, which does NOT fire during `renderToString` — so prerender renders
+  their CSS fallbacks and never touches WebGL/canvas. No crash. (Public pages are
+  imported STATICALLY in the prerender entry, not React.lazy, because renderToString
+  doesn't resolve Suspense — a lazy tree would bake the loading spinner instead of
+  the page.)
+- **sitemap.xml** emitted to `dist/` for all 10 public routes; `robots.txt` now has
+  a `Sitemap:` line; the commented canonical/og:url in `index.html` are set to
+  SITE_URL defaults (per-route helmet overrides them at prerender).
+- **Vercel:** `vercel.json` gains `cleanUrls: true` so Vercel serves the prerendered
+  `dist/<route>/index.html` for each public path (filesystem match wins); the SPA
+  rewrite only catches paths with no prerendered file (i.e. authed routes). Authed
+  routes are NEVER prerendered.
+
+Prerendered routes: /, /pricing, /security, /changelog, /privacy, /terms,
+/responsible-disclosure, /docs, /signin, /signup.
+
+VERIFIED in the built output (raw HTML, pre-JS): each route has its own
+`<title>`, single `canonical`/`og:url`/`description` (no dupes), absolute
+`og:image`, and real page copy (e.g. /pricing → "Plans that scale…"/"transparent
+pricing"; /security → "Security is the product"/"SSRF guard"; home → hero copy). No
+"Loading" fallback in output. App still references the JS entry → hydrates/loads and
+stays interactive; WebGL works in a real browser. No `dist/dashboard/` etc.
+
+- **Added:** `client/src/lib/seo.ts`, `client/src/components/Seo.tsx`, `client/src/entry-prerender.tsx`, `client/scripts/prerender.mjs`.
+- **Changed:** `client/src/App.tsx` (HelmetProvider + AppProviders/AppRoutes split + per-route `<Seo>`), `client/index.html` (default canonical/og:url), `client/public/robots.txt` (Sitemap line), `client/vercel.json` (cleanUrls), `client/package.json` (+`react-helmet-async`, build runs prerender); docs/UPDATES.md.
+- **Tests:** none new — build/output-verified; client suite 51/51 green; `npm run build` clean and prerenders 10/10 routes.
+- **Schema/migration:** none. **New env:** none (SITE_URL is a code constant, not an env var).
+- **Deferred/notes:** the app uses `createRoot` (client-render over the prerendered HTML), not `hydrateRoot` — safe and non-breaking (no mismatch errors), and crawlers already get the baked HTML; switching to true hydration is a possible future optimization. Custom-domain switch = change `SITE_URL` (+ the two index.html defaults + robots Sitemap line).
