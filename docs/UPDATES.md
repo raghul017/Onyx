@@ -248,3 +248,33 @@ anchor still works (same component); the nav Pricing now points at `/pricing`.
 - **Tests:** `nav-config.test.ts` (3 tests) asserts every internal href is a known route or homepage anchor (no 404) — client suite 35/35 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** forward anchor sections (T21b/T21c); full Pricing page (T21d), Security page (T21e), Changelog from UPDATES.md (T21f), legal content (T21g). Footer route links are still plain `<a>` (full-reload) — full footer refresh is a later ticket.
+
+## 2026-07-29 — T21b: Homepage — Authenticated scanning + OWASP coverage sections
+
+Second landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY.
+Added the two new homepage sections that the T21a Product dropdown anchors point
+at, so `/#authenticated` and `/#owasp` now scroll to real content. Both mirror the
+existing light-mono sections exactly (split/hairline-grid layout, `.mono-eyebrow`
++ `sq`, `text-[44px]` headline, `p-12 lg:p-24` rhythm, `.mono-card`, `#fafafa`/`#fff`
+surfaces, `#e6e6e6` hairlines, single blue `#3b82f6` accent, no shadows) and use
+the shared `enter` scroll-entrance motion. Inserted after HowItWorks, before
+FeatureShowcase (positions 6 & 7). Both carry `scroll-mt-24` so the sticky navbar
+doesn't overlap the target heading.
+
+- **Authenticated scanning** (`#authenticated`): "Test what's behind the login."
+  Split section with a four-tile "auth methods" grid (static tokens & API keys,
+  OAuth2 & login flows with auto-refresh, encrypted-at-rest/never-logged,
+  missing-auth probes). Code-generated visual — no screenshots.
+- **OWASP API Top 10 coverage** (`#owasp`): "Every finding, named." A 10-cell
+  API1–API10 grid using the **real 2023 titles** (matched to
+  `server/src/services/owasp-mapping.ts`). HONESTY: only the codes the mapping
+  actually emits today — **API2, API3, API4, API8** — are emphasized (accent
+  left-rail + `#eff6ff` fill + "Detected" chip); the rest are muted with a
+  "Mapped — expanding coverage" chip. A one-line legend explains the two states.
+  No claim of full detection.
+
+- **Added:** `client/src/components/AuthenticatedScanning.tsx`, `client/src/components/OwaspCoverage.tsx` (exports a pure `OWASP_CATEGORIES` array), `client/src/test/owasp-coverage.test.ts`.
+- **Changed:** `client/src/pages/Landing.tsx` (import + render the two sections in order).
+- **Tests:** `owasp-coverage.test.ts` (3 tests) asserts all 10 categories in order, exactly API2/3/4/8 flagged detected (no overclaim), and real titles — client suite 38/38 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** CI/CD shift-left + product-proof console sections (`#cicd`/`#demo`) land in T21c.

@@ -5,6 +5,8 @@ import Hero from "../components/Hero";
 import PoweredBy from "../components/PoweredBy";
 import FeatureShowcase from "../components/FeatureShowcase";
 import HowItWorks from "../components/HowItWorks";
+import AuthenticatedScanning from "../components/AuthenticatedScanning";
+import OwaspCoverage from "../components/OwaspCoverage";
 import AboutSection from "../components/AboutSection";
 import MoreFeatures from "../components/MoreFeatures";
 import PricingSection from "../components/PricingSection";
@@ -85,6 +87,8 @@ const Landing = () => {
                         <PoweredBy />
                         <AboutSection />
                         <HowItWorks />
+                        <AuthenticatedScanning />
+                        <OwaspCoverage />
                         <FeatureShowcase />
                         <MoreFeatures />
                         <PricingSection />
