@@ -7,67 +7,11 @@
 import { Check, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { pricingPlans } from "./plans";
 
-export interface PricingPlan {
-    name: string;
-    price: string;
-    period: string;
-    inrNote?: string;
-    features: string[];
-    cta: string;
-    href: string;
-    highlight: boolean;
-}
-
-export const pricingPlans: PricingPlan[] = [
-    {
-        name: "Free",
-        price: "$0",
-        period: "/mo",
-        features: [
-            "5 test runs / month",
-            "10 endpoints per run",
-            "5 attack types",
-            "Community support",
-        ],
-        cta: "Start free scan",
-        href: "/dashboard",
-        highlight: false,
-    },
-    {
-        name: "Pro",
-        price: "$9",
-        period: "/mo",
-        inrNote: "Billed in INR (₹900/mo)",
-        features: [
-            "100 test runs / month",
-            "50 endpoints per run",
-            "All attack types",
-            "PDF reports",
-            "Priority support",
-        ],
-        cta: "Upgrade to Pro",
-        href: "/billing",
-        highlight: true,
-    },
-    {
-        name: "Team",
-        price: "$18",
-        period: "/mo",
-        inrNote: "Billed in INR (₹1800/mo)",
-        features: [
-            "500 test runs / month",
-            "Unlimited endpoints",
-            "Everything in Pro",
-            "Multi-user workspaces",
-            "API access",
-            "SLA support",
-        ],
-        cta: "Upgrade to Team",
-        href: "/billing",
-        highlight: false,
-    },
-];
+// Re-exported for existing importers (single source of truth lives in ./plans).
+export { pricingPlans } from "./plans";
+export type { PricingPlan } from "./plans";
 
 const PricingSection = () => {
     const navigate = useNavigate();

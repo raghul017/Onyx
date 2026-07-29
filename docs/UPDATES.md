@@ -362,3 +362,35 @@ with the exact swap-in points marked in a code comment:
 - **Tests:** `replay-fixture.test.ts` (4 tests) guards row shape, OWASP codes, the findings/info mix, and the row cap — client suite 42/42 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred (T21-media):** swap the two placeholders for `client/public/demo-scan.mp4` + `client/public/report-sample.png`.
+
+## 2026-07-29 — T21d: Full standalone Pricing page
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Turned the
+T21a `/pricing` stub into a full page: hero → shared tier cards → quota/feature
+comparison table → billing FAQ (accordion) → black CTA banner. Light-mono
+throughout; billing logic, checkout, and the authed Billing page are untouched
+(cards still link to `/billing`).
+
+SOURCE OF TRUTH (verified from code, no invented numbers):
+- Quotas — `server/src/middleware/quota.middleware.ts` `PLAN_LIMITS`:
+  FREE 5 runs/mo · 10 endpoints/run; PRO 100 · 50; TEAM 500 · unlimited (999999);
+  ENTERPRISE 999999/999999 — NOT sold via checkout, so no client tier (Free/Pro/Team only).
+- Feature gates (server): PDF export is paid-only (`routes/index.ts`, FREE → 403
+  `PLAN_REQUIRED` "PDF export is a Pro feature"); baseline capture is paid-only
+  (`test-run.controller.ts`, `captureBaseline = plan !== "FREE"`).
+- Prices/currency — `Billing.tsx` + `PricingSection`: $0 / $9 (₹900) / $18 (₹1800);
+  "Priced in USD, billed in INR". Pro is the highlighted/recommended tier.
+- Comparison rows reflect the above; runs/endpoints/PDF/baseline/multi-user/API/
+  support marked per real enforcement; authenticated scanning, OWASP mapping, and
+  live streaming shown as available on all tiers.
+
+Extracted a shared `components/plans.ts` (single source of truth: `pricingPlans` +
+`COMPARE_ROWS` + `PLAN_COLUMNS`) so the homepage `#pricing` section and `/pricing`
+never drift. `PricingSection.tsx` now imports from it and re-exports `pricingPlans`
+for existing importers (no visual change). Currency display logic unchanged.
+
+- **Added:** `client/src/components/plans.ts`, `client/src/test/plans.test.ts`.
+- **Changed:** `client/src/pages/Pricing.tsx` (stub → full page: comparison table + FAQ + CTA), `client/src/components/PricingSection.tsx` (consume shared `plans.ts`; re-export for compat); docs/UPDATES.md.
+- **Tests:** `plans.test.ts` (6 tests) asserts tiers = Free/Pro/Team, prices, Pro highlighted, comparison quotas == server PLAN_LIMITS, PDF/baseline paid-only gates, 3 cells/row — client suite 48/48 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** per-page SEO/meta for `/pricing` lands in T21h; refund/cancellation copy points to Terms (T21g) rather than inventing policy.
