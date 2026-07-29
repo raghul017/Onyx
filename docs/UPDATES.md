@@ -169,3 +169,23 @@ Revoked/unknown tokens → 401. Token-management endpoints are **session-only**
 - **Header choice:** reuse `Authorization: Bearer <token>` (prefix-discriminated) — no new header, CLI-friendly.
 - **Env:** none (SHA-256 of a 256-bit random token; no keyed-HMAC secret needed).
 - **Migration:** `20260729093022_api_tokens` (additive: `api_tokens` table + unique `tokenHash` index + FKs; applied via `migrate deploy`, status clean).
+
+## 2026-07-29 — T10b: Onyx CLI (`onyx scan`)
+
+A standalone `cli/` package (Node ≥20, TypeScript, **zero runtime deps** — uses
+built-in `fetch`) that runs a scan against the hosted Onyx API with a T10a API
+token and gates CI on the result. `onyx scan --spec <public-openapi-url>` creates
+a run (`POST /api/test-runs`), polls `GET /api/test-runs/:id` (backoff, `--timeout`)
+until `COMPLETED`/`FAILED`, then renders **table** / **json** / **sarif** and sets
+its exit code by `--fail-on`. Exit: **0** none ≥ threshold, **1** ≥ threshold,
+**2** operational (401, unverified domain, run FAILED, timeout, network) with a
+clear hint. SARIF 2.1.0: rule-per-category, `level` mapped from severity
+(critical/high→error, medium→warning, low/info→note), locations = endpoint. Token
+via `--api-token`/`ONYX_TOKEN`, base via `--api-url`/`ONYX_API_URL`; the token is
+never logged. `DOMAIN_NOT_VERIFIED` surfaces a verify-the-domain hint. `INFO`
+probes are counted but excluded from findings/results.
+
+- **Added:** `cli/` package — `package.json` (`bin: onyx`), `tsconfig.json`, `README.md` (usage, exit-code table, GitHub Actions snippet), `src/` (index, args, client, scan, io, findings, errors, types, owasp, version, format/{table,json,sarif}), `test/` (args, fail-on, json, sarif, scan — 24 tests, mocked client/IO, no live network).
+- **Changed:** docs/UPDATES.md.
+- **Server/client:** untouched (the CLI is standalone; it mirrors the API types).
+- **Migration:** none.

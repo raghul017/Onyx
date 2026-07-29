@@ -1,0 +1,38 @@
+{
+  "name": "@onyx/cli",
+  "version": "0.1.0",
+  "description": "Onyx CLI — run API security scans from the terminal / CI.",
+  "type": "module",
+  "bin": {
+    "onyx": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "onyx",
+    "api-security",
+    "owasp",
+    "sarif",
+    "ci",
+    "cli"
+  ],
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
