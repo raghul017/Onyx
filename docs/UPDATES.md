@@ -330,3 +330,35 @@ OwaspCoverage → CiCdSection → FeatureShowcase.
 - **Schema/migration:** none. **Env:** none.
 - **Note:** the Action snippet shows `uses: onyx/scan-action@v1` (intended external-distribution form); the T11 action is currently repo-local (`uses: ./`) with external distribution as a documented follow-up.
 - **Deferred:** product-proof / live-console `#demo` section is the next ticket.
+
+## 2026-07-29 — T21-demo: Homepage — product-proof live console replay section
+
+Landing-redesign section 9 (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Added the
+`#demo` homepage section — "Watch it attack, live." — so that anchor scrolls to
+real product proof. Inserted after CiCdSection, before FeatureShowcase: HowItWorks
+→ AuthenticatedScanning → OwaspCoverage → CiCdSection → DemoSection →
+FeatureShowcase. Carries `scroll-mt-24` under the sticky navbar.
+
+Centerpiece is a NEW **light-mono** `LiveConsoleReplay` (the dark off-brand
+ChaosStream was NOT resurrected): white `mono-card` panel, `#e6e6e6` hairlines,
+JetBrains Mono, blue `#3b82f6` accent. Header shows "onyx // live" + a status dot
+and a live finding count. Rows mirror the real console's AttackResult shape
+(METHOD, path, status, latency ms, attack type, severity chip + OWASP code).
+Auto-plays via IntersectionObserver (only animates when visible), streaming one
+curated fixture row per ~320ms, auto-scrolling the list, then a "scan complete"
+state that loops after a pause. `prefers-reduced-motion` → the full list renders
+statically with no timers. The panel is `role="img"` with an aria-label summary
+(decorative; no focus trap). Fixture is a realistic mix (confirmed findings across
+CRITICAL/HIGH/MEDIUM/LOW + handled 2xx INFO probes), capped at 12 rows.
+
+Below the replay: two intentional, captioned placeholder frames ("Product
+walkthrough" / "Sample report") reserved for real media in the **T21-media** pass,
+with the exact swap-in points marked in a code comment:
+  • `client/public/demo-scan.mp4`     → `<video autoPlay muted loop playsInline>`
+  • `client/public/report-sample.png` → `<img alt="Onyx sample report">`
+
+- **Added:** `client/src/data/replayFixture.ts` (pure `REPLAY_ROWS`), `client/src/components/LiveConsoleReplay.tsx`, `client/src/components/DemoSection.tsx`, `client/src/test/replay-fixture.test.ts`.
+- **Changed:** `client/src/pages/Landing.tsx` (import + render DemoSection in order).
+- **Tests:** `replay-fixture.test.ts` (4 tests) guards row shape, OWASP codes, the findings/info mix, and the row cap — client suite 42/42 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred (T21-media):** swap the two placeholders for `client/public/demo-scan.mp4` + `client/public/report-sample.png`.

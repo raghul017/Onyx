@@ -8,6 +8,7 @@ import HowItWorks from "../components/HowItWorks";
 import AuthenticatedScanning from "../components/AuthenticatedScanning";
 import OwaspCoverage from "../components/OwaspCoverage";
 import CiCdSection from "../components/CiCdSection";
+import DemoSection from "../components/DemoSection";
 import AboutSection from "../components/AboutSection";
 import MoreFeatures from "../components/MoreFeatures";
 import PricingSection from "../components/PricingSection";
@@ -91,6 +92,7 @@ const Landing = () => {
                         <AuthenticatedScanning />
                         <OwaspCoverage />
                         <CiCdSection />
+                        <DemoSection />
                         <FeatureShowcase />
                         <MoreFeatures />
                         <PricingSection />
