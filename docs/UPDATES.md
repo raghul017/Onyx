@@ -461,3 +461,47 @@ New/Improved/Fixed tag chip and bullet items. Seeded from real ship history only
 - **Tests:** `changelog.test.ts` (3 tests) — entries well-formed, sorted newest-first, and a guard that no ticket IDs / file paths / test counts leak into the public copy. Client suite 51/51 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** per-page SEO/meta for `/changelog` lands in T21h.
+
+## 2026-07-29 — T21g: Legal pages (Privacy, Terms, Responsible Disclosure)
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Turned the
+T21a shared Legal stub into three DISTINCT, real long-form documents on a shared
+light-mono prose shell (`LegalDoc`: max-w-[760px] column, semantic H2/H3/P/UL). The
+three named exports (Privacy/Terms/ResponsibleDisclosure) are unchanged, so App.tsx
+routing needs no edit. **DRAFTS, not legal advice** — a banner + bracketed
+[PLACEHOLDERS] mark everything that needs an owner/lawyer to fill in.
+
+Data-handling claims verified against real code (no overclaim):
+- Stored: email, optional name, bcrypt passwordHash (null for OAuth), Google/GitHub
+  OAuth identity, plan + Razorpay sub id/expiry, org membership; target spec URLs +
+  endpoints; AttackLog (method/path/payload/status/latency + responseSnippet
+  **redacted** and **capped at 500 chars** — `worker.ts`/`redact.ts`); AuthRecipe
+  secret **AES-256-GCM encrypted** (`secretEnc`; meta = descriptors + last4);
+  ApiToken **SHA-256 hash**; Razorpay WebhookEvent ids. Source: `schema.prisma`.
+- Processors listed: Neon (Postgres), Upstash/Redis (queue), Render (API), Vercel
+  (web + analytics/speed-insights), Razorpay (payments), Google/GitHub (OAuth),
+  Google Gemini (payload generation).
+- Terms includes a strong **authorization-first acceptable-use** section (scan only
+  what you own / are authorized to test; domain-ownership verification enforced;
+  prohibited: third-party scanning, DoS, circumventing controls) + billing via
+  Razorpay ("cancel anytime, access until period end", no invented refund policy) +
+  warranty disclaimer + liability limit + termination + governing law.
+- Responsible Disclosure routes reporters to a **private** contact
+  (`security@[your-domain]`), NOT public GitHub Issues; includes safe-harbor/good-
+  faith terms, in/out scope, what to include, and expected response.
+
+Footer: added a **Legal** column (Privacy / Terms / Responsible Disclosure) — the
+footer previously had no legal links (nothing pointed at the stubs).
+
+PLACEHOLDERS TO FILL (owner/lawyer): `[Legal Entity Name]`, `[Address]`,
+`[Jurisdiction]` (+ venue/dispute clause), `[Effective Date]`, retention periods,
+legal-basis/transfer-mechanism framing, liability-cap window, refund policy (if any),
+disclosure response-time window.
+MAILBOXES TO CREATE: `privacy@[your-domain]`, `legal@[your-domain]`,
+`support@[your-domain]`, and **`security@[your-domain]`** (the private security
+mailbox — this closes the T21e follow-up that had pointed disclosure at GitHub).
+
+- **Changed:** `client/src/pages/Legal.tsx` (shared stub → three full documents on a `LegalDoc` shell), `client/src/components/Footer.tsx` (new Legal column); docs/UPDATES.md.
+- **Tests:** none new — client build-verified; client suite 51/51 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** lawyer review before relying on these; create the mailboxes above; per-page SEO/meta for the legal routes lands in T21h.

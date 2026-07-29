@@ -42,6 +42,14 @@ const COLUMNS: { title: string; links: { label: string; href: string; ext?: bool
             { label: "Sign Up", href: "/signup" },
         ],
     },
+    {
+        title: "Legal",
+        links: [
+            { label: "Privacy", href: "/privacy" },
+            { label: "Terms", href: "/terms" },
+            { label: "Responsible Disclosure", href: "/responsible-disclosure" },
+        ],
+    },
 ];
 
 const Footer = () => {
