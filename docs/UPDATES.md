@@ -302,3 +302,31 @@ untouched.
 
 - **Changed:** `client/src/components/Navbar.tsx` (dropdowns render in both auth states; only right-side cluster branches; mobile mirrors; dropped unused GITHUB_URL import); docs/UPDATES.md.
 - **Schema/migration:** none. **Env:** none. **Tests:** none new — client suite 38/38 green; `npm run build` (tsc + vite) clean.
+
+## 2026-07-29 — T21c: Homepage — CI/CD shift-left section
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Added the
+`#cicd` homepage section so the Product/Solutions dropdown anchors scroll to real
+content advertising the shipped CLI (T10b) + GitHub Action (T11). Mirrors the
+existing light-mono sections exactly (split/hairline-grid, `.mono-eyebrow` + `sq`,
+`text-[44px]` headline, `p-12 lg:p-24` rhythm, `.mono-card` tiles, `#e6e6e6`
+hairlines, single blue `#3b82f6` accent, shared `enter` scroll-motion, no shadows)
+and carries `scroll-mt-24` under the sticky navbar. Inserted after OwaspCoverage,
+before FeatureShowcase (position 8): HowItWorks → AuthenticatedScanning →
+OwaspCoverage → CiCdSection → FeatureShowcase.
+
+- Eyebrow SHIFT LEFT; headline "Break the build before attackers break in."
+- Four tiles: one-line CLI (table/JSON/SARIF), GitHub Action with PR comments,
+  SARIF → GitHub Security tab, exit-code gating for any CI.
+- Two **light-mono** code blocks (JetBrains Mono on `#f5f5f5`, hairline border,
+  `overflow-x-auto`, per-block copy button reusing the Docs pattern — NOT a dark
+  terminal): the real CLI command
+  `onyx scan --spec ./openapi.json --fail-on high --format sarif`, and a compact
+  GitHub Action YAML snippet.
+
+- **Added:** `client/src/components/CiCdSection.tsx`.
+- **Changed:** `client/src/pages/Landing.tsx` (import + render CiCdSection in order).
+- **Tests:** none new (no natural pure helper) — client suite 38/38 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Note:** the Action snippet shows `uses: onyx/scan-action@v1` (intended external-distribution form); the T11 action is currently repo-local (`uses: ./`) with external distribution as a documented follow-up.
+- **Deferred:** product-proof / live-console `#demo` section is the next ticket.
