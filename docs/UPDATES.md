@@ -433,3 +433,31 @@ Controls described + source (all verified in code):
 - **Tests:** none new — client build-verified (no pure helper); client suite 48/48 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** per-page SEO/meta for `/security` lands in T21h; a dedicated security email could replace the GitHub contact later.
+
+## 2026-07-29 — T21f: User-facing Changelog page
+
+Landing-redesign ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY. Turned the
+T21a `/changelog` stub into a real changelog rendered from a NEW curated,
+user-facing data source — NOT this file. Decision: `docs/UPDATES.md` is the
+internal dev log (ticket IDs, file paths, test counts) and is never rendered
+publicly; instead entries were rewritten into plain, benefit-oriented release
+notes in `client/src/data/changelog.ts`.
+
+> Note: user-facing release notes live in `client/src/data/changelog.ts`.
+> `docs/UPDATES.md` stays the internal dev log — do not render it to users.
+
+The page shows a light-mono vertical timeline of dated release blocks, each with a
+New/Improved/Fixed tag chip and bullet items. Seeded from real ship history only
+(no fabricated dates), grouped by the actual release dates:
+- **Jul 29** — refreshed site & navigation (New); CLI + GitHub Action + API tokens
+  (New); OWASP API Top 10 mapping (New).
+- **Jul 28** — authenticated scanning incl. OAuth2 + login flows w/ auto-refresh and
+  missing-auth probes (New); evidence-based detection via baselines + diffing (Improved).
+- **Jul 13** — broader attack coverage (GET/DELETE + query/path/header params) (Improved);
+  reliability & safety — structured logging, error tracking, redaction, migrations (Improved).
+
+- **Added:** `client/src/data/changelog.ts` (curated public changelog), `client/src/test/changelog.test.ts`.
+- **Changed:** `client/src/pages/Changelog.tsx` (stub → timeline rendering the curated data); docs/UPDATES.md.
+- **Tests:** `changelog.test.ts` (3 tests) — entries well-formed, sorted newest-first, and a guard that no ticket IDs / file paths / test counts leak into the public copy. Client suite 51/51 green; `npm run build` (tsc + vite) clean.
+- **Schema/migration:** none. **Env:** none.
+- **Deferred:** per-page SEO/meta for `/changelog` lands in T21h.
