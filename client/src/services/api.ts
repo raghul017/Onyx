@@ -112,6 +112,72 @@ export interface TestRunSummary {
 
 export type FindingConfidence = "confirmed" | "firm" | "tentative" | "info";
 
+/** OWASP API Security Top 10 (2023) codes — must match the server enum exactly. */
+export type OwaspApiCategory =
+    | "API1_BOLA"
+    | "API2_BROKEN_AUTHENTICATION"
+    | "API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION"
+    | "API4_UNRESTRICTED_RESOURCE_CONSUMPTION"
+    | "API5_BFLA"
+    | "API6_UNRESTRICTED_ACCESS_TO_SENSITIVE_BUSINESS_FLOWS"
+    | "API7_SSRF"
+    | "API8_SECURITY_MISCONFIGURATION"
+    | "API9_IMPROPER_INVENTORY_MANAGEMENT"
+    | "API10_UNSAFE_CONSUMPTION_OF_APIS";
+
+/** Canonical ordered list (for the coverage section). */
+export const OWASP_API_CATEGORIES: OwaspApiCategory[] = [
+    "API1_BOLA",
+    "API2_BROKEN_AUTHENTICATION",
+    "API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION",
+    "API4_UNRESTRICTED_RESOURCE_CONSUMPTION",
+    "API5_BFLA",
+    "API6_UNRESTRICTED_ACCESS_TO_SENSITIVE_BUSINESS_FLOWS",
+    "API7_SSRF",
+    "API8_SECURITY_MISCONFIGURATION",
+    "API9_IMPROPER_INVENTORY_MANAGEMENT",
+    "API10_UNSAFE_CONSUMPTION_OF_APIS",
+];
+
+/** Display lookup — mirrors server/src/services/owasp-mapping.ts labels. */
+export const OWASP_LABELS: Record<OwaspApiCategory, { code: string; title: string; label: string }> = {
+    API1_BOLA: { code: "API1:2023", title: "Broken Object Level Authorization", label: "API1:2023 Broken Object Level Authorization" },
+    API2_BROKEN_AUTHENTICATION: { code: "API2:2023", title: "Broken Authentication", label: "API2:2023 Broken Authentication" },
+    API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION: { code: "API3:2023", title: "Broken Object Property Level Authorization", label: "API3:2023 Broken Object Property Level Authorization" },
+    API4_UNRESTRICTED_RESOURCE_CONSUMPTION: { code: "API4:2023", title: "Unrestricted Resource Consumption", label: "API4:2023 Unrestricted Resource Consumption" },
+    API5_BFLA: { code: "API5:2023", title: "Broken Function Level Authorization", label: "API5:2023 Broken Function Level Authorization" },
+    API6_UNRESTRICTED_ACCESS_TO_SENSITIVE_BUSINESS_FLOWS: { code: "API6:2023", title: "Unrestricted Access to Sensitive Business Flows", label: "API6:2023 Unrestricted Access to Sensitive Business Flows" },
+    API7_SSRF: { code: "API7:2023", title: "Server Side Request Forgery", label: "API7:2023 Server Side Request Forgery" },
+    API8_SECURITY_MISCONFIGURATION: { code: "API8:2023", title: "Security Misconfiguration", label: "API8:2023 Security Misconfiguration" },
+    API9_IMPROPER_INVENTORY_MANAGEMENT: { code: "API9:2023", title: "Improper Inventory Management", label: "API9:2023 Improper Inventory Management" },
+    API10_UNSAFE_CONSUMPTION_OF_APIS: { code: "API10:2023", title: "Unsafe Consumption of APIs", label: "API10:2023 Unsafe Consumption of APIs" },
+};
+
+/** Short code ("API8") for a category, or "Unmapped" when null/absent. */
+export function owaspShortCode(code?: OwaspApiCategory | null): string {
+    return code ? OWASP_LABELS[code].code.split(":")[0] : "Unmapped";
+}
+
+/** Full label ("API8:2023 Security Misconfiguration") or "Unmapped". */
+export function owaspLabel(code?: OwaspApiCategory | null): string {
+    return code ? OWASP_LABELS[code].label : "Unmapped";
+}
+
+/** Count findings per OWASP category (all 10 present, 0 where none) + Unmapped. */
+export function owaspCoverage(
+    categories: Array<OwaspApiCategory | null | undefined>,
+): { counts: Record<OwaspApiCategory, number>; unmapped: number } {
+    const counts = Object.fromEntries(
+        OWASP_API_CATEGORIES.map((c) => [c, 0]),
+    ) as Record<OwaspApiCategory, number>;
+    let unmapped = 0;
+    for (const c of categories) {
+        if (c && c in counts) counts[c] += 1;
+        else unmapped += 1;
+    }
+    return { counts, unmapped };
+}
+
 export interface FindingDetail {
     severity: SeverityLevel;
     category: string;
@@ -120,6 +186,8 @@ export interface FindingDetail {
     evidence: string | null;
     remediation: string;
     confidence: FindingConfidence;
+    /** OWASP API Top 10 (2023) code (T9) — additive context; null/absent = Unmapped. */
+    owaspCategory?: OwaspApiCategory | null;
 }
 
 export interface AttackResult {

@@ -5,6 +5,7 @@
 // =============================================================================
 
 import type { FindingDetail } from "@/services/api";
+import OwaspBadge from "@/components/OwaspBadge";
 
 const SEV_COLOR: Record<string, string> = {
     CRITICAL: "#dc2626",
@@ -79,6 +80,8 @@ export default function FindingDetailPanel({
                 <span className="font-mono text-[10px] uppercase tracking-wide text-[#999] border border-[#e6e6e6] px-1.5 py-0.5">
                     {CONFIDENCE_LABEL[finding.confidence] ?? finding.confidence}
                 </span>
+                {/* OWASP API Top 10 category (T9) — additive context */}
+                <OwaspBadge code={finding.owaspCategory} />
             </div>
 
             {/* Explanation grid */}

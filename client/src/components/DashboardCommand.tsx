@@ -29,6 +29,7 @@ import { Play, Square, Terminal, Gauge, ChevronDown } from "lucide-react";
 import type { AttackLog } from "@/store/useAttackStore";
 import { useCountUp } from "@/hooks/useCountUp";
 import FindingDetailPanel from "@/components/FindingDetailPanel";
+import OwaspBadge from "@/components/OwaspBadge";
 
 // Light-mono palette — single blue accent + shared severity semantics.
 const ACCENT = "#3b82f6";
@@ -316,7 +317,10 @@ const DashboardCommand = ({
                                     >
                                         <span className="text-[#999] text-[10px] tabular-nums">{fmtTime(log.timestamp)}</span>
                                         <span className="font-semibold text-[11px]" style={{ color: methodColor(log.method) }}>{log.method}</span>
-                                        <span className={"truncate " + (sv === "critical" ? "text-black" : "text-[#333]")}>{log.endpoint}</span>
+                                        <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className={"truncate flex-1 min-w-0 " + (sv === "critical" ? "text-black" : "text-[#333]")}>{log.endpoint}</span>
+                                            {log.finding && <OwaspBadge code={log.finding.owaspCategory} className="hidden lg:inline-flex" />}
+                                        </span>
                                         <span><span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 border" style={{ color: chip, backgroundColor: chip + "12", borderColor: chip + "40" }}>{sv.toUpperCase()}</span></span>
                                         <span className="tabular-nums text-[#666] text-[11px]">{log.statusCode || "ERR"}</span>
                                         <span className="flex items-center gap-1 tabular-nums text-[#999] text-[10px]">

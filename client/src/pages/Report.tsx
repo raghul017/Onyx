@@ -17,10 +17,14 @@ import {
     ChevronDown,
 } from "lucide-react";
 import FindingDetailPanel from "@/components/FindingDetailPanel";
+import OwaspBadge from "@/components/OwaspBadge";
 import {
     getTestRun,
     exportTestRunPDF,
     getCurrentUser,
+    owaspCoverage,
+    OWASP_API_CATEGORIES,
+    OWASP_LABELS,
     type GetTestRunResponse,
     type SeverityLevel,
     type CurrentUser,
@@ -138,6 +142,12 @@ const Report = () => {
         if (severityFilter === "ALL") return logs;
         return logs.filter((l) => l.severity === severityFilter);
     }, [logs, severityFilter]);
+
+    // OWASP API Top 10 coverage (T9b) — mirrors the PDF's section.
+    const { counts: owaspCounts, unmapped: owaspUnmapped } = useMemo(
+        () => owaspCoverage(logs.map((l) => l.finding?.owaspCategory)),
+        [logs],
+    );
 
     const progressPct =
         totalPayloads > 0 ? Math.min(100, Math.round((completedCount / totalPayloads) * 100)) : 0;
@@ -340,6 +350,48 @@ const Report = () => {
                 </div>
             )}
 
+            {/* 3b. Coverage by OWASP API Top 10 (T9b) — mirrors the PDF section */}
+            {!loading && logs.length > 0 && (
+                <div className="relative z-10 shrink-0 border-b border-[#e6e6e6] bg-white px-4 sm:px-6 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
+                            Coverage by OWASP API Top 10 (2023)
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
+                        {OWASP_API_CATEGORIES.map((code) => {
+                            const n = owaspCounts[code];
+                            return (
+                                <div
+                                    key={code}
+                                    className="flex items-center justify-between gap-2 border-b border-[#f0f0f0] py-1"
+                                    title={OWASP_LABELS[code].label}
+                                >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                        <OwaspBadge code={code} />
+                                        <span className={`text-[11px] truncate ${n > 0 ? "text-[#333]" : "text-[#999]"}`}>
+                                            {OWASP_LABELS[code].title}
+                                        </span>
+                                    </span>
+                                    <span className={`font-mono text-[12px] tabular-nums shrink-0 ${n > 0 ? "text-[#3b82f6] font-bold" : "text-[#ccc]"}`}>
+                                        {n}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                        {owaspUnmapped > 0 && (
+                            <div className="flex items-center justify-between gap-2 border-b border-[#f0f0f0] py-1" title="No clear OWASP fit">
+                                <span className="flex items-center gap-2 min-w-0">
+                                    <OwaspBadge code={null} />
+                                    <span className="text-[11px] text-[#999] truncate">No clear OWASP fit</span>
+                                </span>
+                                <span className="font-mono text-[12px] tabular-nums text-[#666] shrink-0">{owaspUnmapped}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* 4. Attack Log Table */}
             <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
                 {/* Filter buttons + column headers */}
@@ -441,6 +493,7 @@ const Report = () => {
                                             {log.responseTime}<span className="text-[#ccc]">ms</span>
                                         </span>
                                         <span className="flex items-center gap-1.5 min-w-0">
+                                            {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
                                             <span className="text-[#999] text-[11px] truncate flex-1" title={payloadStr}>
                                                 {log.finding?.category ?? payloadStr}
                                             </span>
@@ -473,8 +526,11 @@ const Report = () => {
                                         <div className={`text-[11px] truncate ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#666]"}`}>
                                             {log.endpoint}
                                         </div>
-                                        <div className="text-[#999] text-[10px] truncate">
-                                            {log.finding?.title ?? payloadStr}
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
+                                            <span className="text-[#999] text-[10px] truncate">
+                                                {log.finding?.title ?? payloadStr}
+                                            </span>
                                         </div>
                                     </div>
 

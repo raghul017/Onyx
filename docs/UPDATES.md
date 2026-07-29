@@ -131,3 +131,21 @@ Resolved mapping table (finding category / attack type → code):
 - **Added:** `server/src/services/owasp-mapping.ts` (single source of truth: `mapFindingToOwasp` + `OWASP_API_CATEGORIES` + `OWASP_LABELS`), `server/src/services/__tests__/owasp-mapping.test.ts`.
 - **Changed:** `types/shared.ts` (`OwaspApiCategory` type + `owaspCategory?` on `FindingDetail`), `validators/schemas.ts` (`owaspApiCategoryEnum`), `services/finding-analysis.ts` (set `owaspCategory` in `analyzeFinding`, additive), `queues/worker.ts` (persist + broadcast `owaspCategory`), `services/pdf.service.ts` (new "Coverage by OWASP API Top 10" section), `services/__tests__/finding-analysis.test.ts` (owaspCategory assertions).
 - **Migration:** `20260729043328_owasp_category` (additive: `attack_logs.owaspCategory TEXT`; applied via `migrate deploy`, status clean).
+
+## 2026-07-29 — T9b: OWASP category badges + coverage view (client)
+
+The client half of OWASP API Top 10 mapping. Every finding now shows a compact
+**OWASP category chip** (short code like `API8`, full 2023 label on hover) in the
+FindingDetailPanel (shared by the live console + Report), on the Report finding
+rows, and on the live-console rows; null/absent renders a muted **Unmapped** chip.
+The Report gains a **"Coverage by OWASP API Top 10 (2023)"** section listing all
+10 categories with a per-category finding count (0 where none) + Unmapped,
+mirroring the PDF. The REST response already carries `owaspCategory` (getTestRun
+recomputes findings via analyzeFinding, which sets it in T9a), so categories
+survive reload — **no server change needed**. Light-mono styling; enum values +
+labels mirror the server exactly.
+
+- **Added:** `client/src/components/OwaspBadge.tsx` (shared chip), `client/src/test/owasp.test.ts` (coverage reducer + label helpers).
+- **Changed:** `client/src/services/api.ts` (`OwaspApiCategory` type + `owaspCategory?` on `FindingDetail`; `OWASP_LABELS` / `OWASP_API_CATEGORIES`; `owaspShortCode` / `owaspLabel` / `owaspCoverage` helpers), `client/src/components/FindingDetailPanel.tsx` (OWASP chip in header), `client/src/pages/Report.tsx` (coverage section + row chips), `client/src/components/DashboardCommand.tsx` (OWASP chip on live rows).
+- **Server:** none (REST already surfaced `owaspCategory`).
+- **Migration:** none.
