@@ -278,3 +278,27 @@ doesn't overlap the target heading.
 - **Tests:** `owasp-coverage.test.ts` (3 tests) asserts all 10 categories in order, exactly API2/3/4/8 flagged detected (no overclaim), and real titles — client suite 38/38 green; `npm run build` (tsc + vite) clean.
 - **Schema/migration:** none. **Env:** none.
 - **Deferred:** CI/CD shift-left + product-proof console sections (`#cicd`/`#demo`) land in T21c.
+
+## 2026-07-29 — T21a-fix: show marketing dropdowns when logged in
+
+Fix to the T21a marketing navbar. CLIENT-ONLY. Previously the Product/Solutions/
+Resources dropdowns + Pricing rendered ONLY when logged out; logged-in visitors on
+the marketing/landing pages saw a stripped variant (Docs/GitHub/Dashboard) with no
+mega-menu. Refactored `Navbar.tsx` so the left/center nav (logo + the three
+dropdowns + Pricing) renders in BOTH auth states; only the right-side action
+cluster branches — logged-out shows Sign In + Start free scan (unchanged),
+logged-in shows Dashboard / Billing / profile chip / sign-out (+ plan pill on the
+logo, unchanged). The mobile menu likewise shows the collapsible groups + Pricing
+in both states, with the correct auth actions at the bottom. The standalone
+"Docs"/"GitHub" links from the old logged-in variant are dropped — both remain
+reachable inside the Resources dropdown. Bar styling (height, colors, fonts, blur,
+border) unchanged; removed a now-unused `GITHUB_URL` import.
+
+Marketing `Navbar` renders on: `/` (Landing) and every `MarketingPage` route
+(`/pricing`, `/security`, `/changelog`, `/privacy`, `/terms`,
+`/responsible-disclosure`). The authed app header (`AppHeader.tsx`, used by
+`/dashboard`, `/settings`, `/profile`, `/history`, `/report/:id`, `/billing`) is
+untouched.
+
+- **Changed:** `client/src/components/Navbar.tsx` (dropdowns render in both auth states; only right-side cluster branches; mobile mirrors; dropped unused GITHUB_URL import); docs/UPDATES.md.
+- **Schema/migration:** none. **Env:** none. **Tests:** none new — client suite 38/38 green; `npm run build` (tsc + vite) clean.

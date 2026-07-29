@@ -6,7 +6,6 @@ import { getCurrentUser, CurrentUser } from "@/services/api";
 import {
     NAV_GROUPS,
     NAV_PRICING,
-    GITHUB_URL,
     type NavGroup,
     type NavItem,
 } from "./nav-config";
@@ -264,88 +263,77 @@ const Navbar = () => {
                 )}
             </button>
 
-            {/* Center / right nav (desktop) */}
+            {/* Center / right nav (desktop) — the mega-menu (Product / Solutions /
+                Resources + Pricing) renders in BOTH auth states; only the
+                right-side action cluster branches on isAuthenticated. */}
             <div className="hidden md:flex items-center gap-8 text-sm uppercase">
-                {isAuthenticated && user ? (
-                    // -------- LOGGED-IN VARIANT (unchanged) --------
-                    <>
-                        <Link to="/docs" className="hover:opacity-60 transition-opacity">
-                            Docs
-                        </Link>
-                        <a
-                            href={GITHUB_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:opacity-60 transition-opacity"
-                        >
-                            GitHub
-                        </a>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => navigate("/dashboard")}
-                                className="hover:opacity-60 transition-opacity"
-                            >
-                                Dashboard
-                            </button>
-                            <button
-                                onClick={() => navigate("/billing")}
-                                className="hover:opacity-60 transition-opacity"
-                            >
-                                Billing
-                            </button>
-                            <button
-                                onClick={() => navigate("/profile")}
-                                title={`${user.email} · Profile`}
-                                aria-label="Profile"
-                                className="flex items-center gap-2 border border-[#e6e6e6] bg-white pl-1.5 pr-3 py-1 text-[11px] normal-case text-[#666] hover:text-black hover:border-black transition-colors"
-                                style={{ transitionProperty: "color, border-color" }}
-                            >
-                                <span
-                                    className="flex items-center justify-center w-5 h-5 bg-black text-white text-[10px] font-semibold"
-                                    aria-hidden="true"
-                                >
-                                    {(fullUser?.name ?? user.email).charAt(0).toUpperCase()}
-                                </span>
-                                <span className="max-w-[120px] truncate">
-                                    {fullUser?.name ?? user.email.split("@")[0]}
-                                </span>
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center justify-center w-9 h-9 border border-[#e6e6e6] text-[#666] hover:text-black hover:border-black transition-colors"
-                                title="Sign out"
-                                aria-label="Sign out"
-                            >
-                                <LogOut size={15} />
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    // -------- LOGGED-OUT MARKETING VARIANT (mega-menu) --------
-                    <>
-                        {NAV_GROUPS.map((group) => (
-                            <NavDropdown key={group.label} group={group} />
-                        ))}
-                        <Link
-                            to={NAV_PRICING.href}
-                            className="hover:opacity-60 transition-opacity"
-                        >
-                            {NAV_PRICING.label}
-                        </Link>
+                {/* Left/center nav — always shown on the marketing navbar */}
+                {NAV_GROUPS.map((group) => (
+                    <NavDropdown key={group.label} group={group} />
+                ))}
+                <Link
+                    to={NAV_PRICING.href}
+                    className="hover:opacity-60 transition-opacity"
+                >
+                    {NAV_PRICING.label}
+                </Link>
 
-                        <div className="flex items-center gap-6">
-                            <Link
-                                to="/signin"
-                                className="hover:opacity-60 transition-opacity"
+                {/* Right-side action cluster — branches on auth state */}
+                {isAuthenticated && user ? (
+                    // -------- LOGGED-IN CONTROLS --------
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => navigate("/dashboard")}
+                            className="hover:opacity-60 transition-opacity"
+                        >
+                            Dashboard
+                        </button>
+                        <button
+                            onClick={() => navigate("/billing")}
+                            className="hover:opacity-60 transition-opacity"
+                        >
+                            Billing
+                        </button>
+                        <button
+                            onClick={() => navigate("/profile")}
+                            title={`${user.email} · Profile`}
+                            aria-label="Profile"
+                            className="flex items-center gap-2 border border-[#e6e6e6] bg-white pl-1.5 pr-3 py-1 text-[11px] normal-case text-[#666] hover:text-black hover:border-black transition-colors"
+                            style={{ transitionProperty: "color, border-color" }}
+                        >
+                            <span
+                                className="flex items-center justify-center w-5 h-5 bg-black text-white text-[10px] font-semibold"
+                                aria-hidden="true"
                             >
-                                Sign In
-                            </Link>
-                            <button onClick={handleCTA} className="mono-btn py-2 px-4">
-                                Start free scan
-                                <ArrowRight size={14} />
-                            </button>
-                        </div>
-                    </>
+                                {(fullUser?.name ?? user.email).charAt(0).toUpperCase()}
+                            </span>
+                            <span className="max-w-[120px] truncate">
+                                {fullUser?.name ?? user.email.split("@")[0]}
+                            </span>
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center justify-center w-9 h-9 border border-[#e6e6e6] text-[#666] hover:text-black hover:border-black transition-colors"
+                            title="Sign out"
+                            aria-label="Sign out"
+                        >
+                            <LogOut size={15} />
+                        </button>
+                    </div>
+                ) : (
+                    // -------- LOGGED-OUT CONTROLS --------
+                    <div className="flex items-center gap-6">
+                        <Link
+                            to="/signin"
+                            className="hover:opacity-60 transition-opacity"
+                        >
+                            Sign In
+                        </Link>
+                        <button onClick={handleCTA} className="mono-btn py-2 px-4">
+                            Start free scan
+                            <ArrowRight size={14} />
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -362,99 +350,81 @@ const Navbar = () => {
             {/* Mobile menu */}
             {mobileOpen && (
                 <div className="md:hidden absolute top-full inset-x-0 bg-[#fafafa] border-b border-[#e6e6e6] px-6 py-6 flex flex-col gap-4 text-sm uppercase max-h-[calc(100vh-4rem)] overflow-y-auto">
+                    {/* Dropdown groups + Pricing — shown in BOTH auth states */}
+                    {NAV_GROUPS.map((group) => (
+                        <MobileGroup
+                            key={group.label}
+                            group={group}
+                            onNavigate={closeMobile}
+                        />
+                    ))}
+                    <Link
+                        to={NAV_PRICING.href}
+                        onClick={closeMobile}
+                        className="hover:opacity-60"
+                    >
+                        {NAV_PRICING.label}
+                    </Link>
+
+                    {/* Auth actions — branch on auth state */}
                     {isAuthenticated ? (
-                        // -------- LOGGED-IN MOBILE (unchanged behavior) --------
-                        <>
-                            <Link
-                                to="/docs"
-                                onClick={closeMobile}
-                                className="hover:opacity-60"
+                        <div className="border-t border-[#e6e6e6] pt-4 mt-2 flex flex-col gap-3">
+                            <button
+                                onClick={() => {
+                                    navigate("/dashboard");
+                                    closeMobile();
+                                }}
+                                className="text-left hover:opacity-60"
                             >
-                                Docs
-                            </Link>
-                            <a
-                                href={GITHUB_URL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="hover:opacity-60"
+                                Dashboard
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigate("/billing");
+                                    closeMobile();
+                                }}
+                                className="text-left hover:opacity-60"
                             >
-                                GitHub
-                            </a>
-                            <div className="border-t border-[#e6e6e6] pt-4 mt-2 flex flex-col gap-3">
-                                <button
-                                    onClick={() => {
-                                        navigate("/dashboard");
-                                        closeMobile();
-                                    }}
-                                    className="text-left hover:opacity-60"
-                                >
-                                    Dashboard
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        navigate("/billing");
-                                        closeMobile();
-                                    }}
-                                    className="text-left hover:opacity-60"
-                                >
-                                    Billing
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        navigate("/profile");
-                                        closeMobile();
-                                    }}
-                                    className="text-left hover:opacity-60"
-                                >
-                                    Profile
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        handleLogout();
-                                        closeMobile();
-                                    }}
-                                    className="text-left text-red-600 hover:opacity-60"
-                                >
-                                    Sign Out
-                                </button>
-                            </div>
-                        </>
+                                Billing
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigate("/profile");
+                                    closeMobile();
+                                }}
+                                className="text-left hover:opacity-60"
+                            >
+                                Profile
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleLogout();
+                                    closeMobile();
+                                }}
+                                className="text-left text-red-600 hover:opacity-60"
+                            >
+                                Sign Out
+                            </button>
+                        </div>
                     ) : (
-                        // -------- LOGGED-OUT MOBILE (collapsible groups) --------
-                        <>
-                            {NAV_GROUPS.map((group) => (
-                                <MobileGroup
-                                    key={group.label}
-                                    group={group}
-                                    onNavigate={closeMobile}
-                                />
-                            ))}
+                        <div className="border-t border-[#e6e6e6] pt-4 mt-2 flex flex-col gap-3">
                             <Link
-                                to={NAV_PRICING.href}
+                                to="/signin"
                                 onClick={closeMobile}
                                 className="hover:opacity-60"
                             >
-                                {NAV_PRICING.label}
+                                Sign In
                             </Link>
-                            <div className="border-t border-[#e6e6e6] pt-4 mt-2 flex flex-col gap-3">
-                                <Link
-                                    to="/signin"
-                                    onClick={closeMobile}
-                                    className="hover:opacity-60"
-                                >
-                                    Sign In
-                                </Link>
-                                <button
-                                    onClick={() => {
-                                        handleCTA();
-                                        closeMobile();
-                                    }}
-                                    className="mono-btn justify-center"
-                                >
-                                    Start free scan
-                                </button>
-                            </div>
-                        </>
+                            <button
+                                onClick={() => {
+                                    handleCTA();
+                                    closeMobile();
+                                }}
+                                className="mono-btn justify-center"
+                            >
+                                Start free scan
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
