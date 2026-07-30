@@ -70,11 +70,6 @@ export default defineConfig(({ mode }) => ({
                         "@radix-ui/react-menubar",
                         "@radix-ui/react-navigation-menu",
                     ],
-                    // Lottie animations — heavy, only needed on Landing
-                    "vendor-lottie": [
-                        "@lottiefiles/react-lottie-player",
-                        "lottie-react",
-                    ],
                     // Charts — only loaded on pages that use recharts
                     "vendor-charts": ["recharts"],
                 },

@@ -604,3 +604,16 @@ Proven unused (0 importers/references):
 KEEP (still referenced — do NOT delete): `ShaderHeroBG.tsx` and `DotGlobe.tsx` are
 **lazy-imported** (`lazy(() => import(...))`) by Hero/SignIn/SignUp and HowItWorks —
 a naive grep misses these; they are live WebGL components.
+
+## 2026-07-30 — T21i (Part B): Remove dead components + unused lottie deps
+
+Executed the approved deletions from T21i Part A (all proven 0-reference). Verified
+after removal: `tsc --noEmit` 0 errors, `npm run build` clean (+ prerender 10/10),
+`npm test` 51/51, and no stale imports remain.
+
+- **Deleted files:** `client/src/components/{SupportedTech,MetricsRow,Pipeline,ChaosStream,HeroTerminal,ShaderBackground,NavLink}.tsx`, `client/src/data/mockChaosData.ts`, `landing-page.html` (repo root), `client/public/hero-bg.png`.
+- **Deleted dirs:** `client/src/pages/LandingPage/` (FAQFooter, FeatureGrid, Hero, Navbar, TechStack), `client/public/lottie/` (5 JSON files).
+- **Deps removed:** `lottie-react`, `@lottiefiles/react-lottie-player` (package.json + package-lock.json updated); also dropped the now-empty `vendor-lottie` manualChunk from `client/vite.config.ts` (it still listed the removed packages and would have failed the build).
+- **KEPT (lazy-imported, live):** `client/src/components/ShaderHeroBG.tsx`, `client/src/components/DotGlobe.tsx`.
+- **Note:** `client/src/hooks/useChaosStream.ts` is a **separate live WebSocket hook** (not the deleted ChaosStream component) — it imports none of the deleted files and was not on the deletion list, so it was left untouched.
+- **Changed:** `client/package.json`, `client/package-lock.json` (deps), `client/vite.config.ts` (removed vendor-lottie chunk); docs/UPDATES.md.
