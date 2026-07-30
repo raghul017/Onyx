@@ -558,3 +558,49 @@ stays interactive; WebGL works in a real browser. No `dist/dashboard/` etc.
 - **Tests:** none new — build/output-verified; client suite 51/51 green; `npm run build` clean and prerenders 10/10 routes.
 - **Schema/migration:** none. **New env:** none (SITE_URL is a code constant, not an env var).
 - **Deferred/notes:** the app uses `createRoot` (client-render over the prerendered HTML), not `hydrateRoot` — safe and non-breaking (no mismatch errors), and crawlers already get the baked HTML; switching to true hydration is a possible future optimization. Custom-domain switch = change `SITE_URL` (+ the two index.html defaults + robots Sitemap line).
+
+## 2026-07-30 — T21i (Part A): Font config + TypeScript cleanup
+
+Landing-redesign hygiene ticket (docs/Onyx-Landing-Redesign.md). CLIENT-ONLY.
+Part A safe fixes only — **no files deleted** (dead-file list is in the commit /
+summary, pending owner approval).
+
+- **Font config aligned with reality:** `tailwind.config.ts` declared `sans: Inter`
+  but the CSS actually renders **Geist** (sans) + **JetBrains Mono** (mono).
+  Updated `fontFamily` to `sans: [Geist, …]` / `mono: [JetBrains Mono, …]`, and
+  removed the two unused webfont `@import`s from `index.css` — **Satoshi**
+  (never referenced by any font-family) and **Inter** (no longer mapped by
+  `font-sans`; Geist renders everywhere). No visual change — Geist already renders.
+- **TypeScript: `tsc --noEmit` now fully clean (0 errors, was 23 pre-existing).**
+  - Hero.tsx (4): typed the `rise` variant as `Variants` and made the cubic-bezier
+    `ease` an `as const` tuple (framer-motion `Easing` widening). No behavior change.
+  - SignIn.tsx / SignUp.tsx (8): same fix — `heroContainer`/`heroChild` typed as
+    `Variants` (from `motion/react`) + `as const` ease.
+  - Docs.tsx (10): the sidebar `NAV_GROUPS` used `as const`, so `flatMap(g => g.items)`
+    produced a union of readonly tuples and every `.id`/`.label` degraded to `unknown`.
+    Added `DocNavItem`/`DocNavGroup` types + annotated `NAV_GROUPS` (dropped `as const`).
+
+Verify: `npm run build` clean (+ prerender 10/10); `tsc --noEmit` 0 errors; `npm test`
+51/51 green.
+
+- **Changed:** `client/tailwind.config.ts` (sans→Geist, mono→JetBrains), `client/src/index.css` (removed Satoshi + Inter imports), `client/src/components/Hero.tsx`, `client/src/pages/SignIn.tsx`, `client/src/pages/SignUp.tsx`, `client/src/pages/Docs.tsx` (type fixes); docs/UPDATES.md.
+- **Schema/migration:** none. **Env:** none. **Tests:** none new.
+
+### Part B — DELETION CANDIDATES (identified, NOT deleted — awaiting approval)
+Proven unused (0 importers/references):
+- `client/src/components/SupportedTech.tsx` — dark legacy, superseded by HowItWorks.
+- `client/src/components/MetricsRow.tsx` — dark legacy dashboard widget, unused.
+- `client/src/components/Pipeline.tsx` — dark legacy, superseded by HowItWorks.
+- `client/src/components/ChaosStream.tsx` — dark, superseded by LiveConsoleReplay (T21-demo).
+- `client/src/data/mockChaosData.ts` — only referenced by ChaosStream (dead pair).
+- `client/src/components/HeroTerminal.tsx` — dark legacy hero, unused (also the only user of `public/hero-bg.png`).
+- `client/src/components/ShaderBackground.tsx` — 0 references (superseded by ShaderHeroBG).
+- `client/src/components/NavLink.tsx` — 0 references.
+- `landing-page.html` (repo root) — orphaned; not a Vite entry, not referenced (the only "match" is a comment in FeatureShowcase.tsx).
+- `client/src/pages/LandingPage/` (FAQFooter, FeatureGrid, Hero, Navbar, TechStack) — 0 importers; self-contained dead cluster.
+- `client/public/lottie/*.json` (analytics, meter, reporting, scanning, search) — no `/lottie/` references in src; deps `lottie-react` + `@lottiefiles/react-lottie-player` are also unimported and could be removed from package.json.
+- `client/public/hero-bg.png` — only used by HeroTerminal (dead); dies with it.
+
+KEEP (still referenced — do NOT delete): `ShaderHeroBG.tsx` and `DotGlobe.tsx` are
+**lazy-imported** (`lazy(() => import(...))`) by Hero/SignIn/SignUp and HowItWorks —
+a naive grep misses these; they are live WebGL components.

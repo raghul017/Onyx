@@ -1,19 +1,21 @@
 import { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { useAuthStore } from "../store/useAuthStore";
 
 // Lazy — three.js (~178KB gz) loads after paint; the CSS mesh shows meanwhile.
 const ShaderHeroBG = lazy(() => import("./ShaderHeroBG"));
 
 // Staggered entrance — each chunk rises independently (~90ms apart).
-const rise = {
+// `as const` keeps the cubic-bezier a fixed tuple (not number[]) so it satisfies
+// framer-motion's Easing type; typing as Variants allows the function-form variant.
+const rise: Variants = {
     hidden: { opacity: 0, y: 18 },
     show: (i: number) => ({
         opacity: 1,
         y: 0,
-        transition: { delay: 0.05 + i * 0.09, duration: 0.6, ease: [0.2, 0, 0, 1] },
+        transition: { delay: 0.05 + i * 0.09, duration: 0.6, ease: [0.2, 0, 0, 1] as const },
     }),
 };
 

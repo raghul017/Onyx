@@ -23,7 +23,10 @@ import {
 // ---------------------------------------------------------------------------
 // Navigation — grouped for the sidebar; flattened for scroll-spy
 // ---------------------------------------------------------------------------
-const NAV_GROUPS = [
+type DocNavItem = { id: string; label: string };
+type DocNavGroup = { group: string; items: DocNavItem[] };
+
+const NAV_GROUPS: DocNavGroup[] = [
     {
         group: "Getting started",
         items: [
@@ -52,7 +55,7 @@ const NAV_GROUPS = [
             { id: "glossary", label: "Glossary" },
         ],
     },
-] as const;
+];
 
 const SECTIONS = NAV_GROUPS.flatMap((g) => g.items);
 

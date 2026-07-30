@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 import { Eye, EyeOff, Check, ArrowRight } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { api, startOAuth } from "../services/api";
@@ -21,7 +21,7 @@ const OnyxMark = ({ size = 24 }: { size?: number }) => (
     </svg>
 );
 
-const heroContainer = {
+const heroContainer: Variants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
@@ -29,9 +29,9 @@ const heroContainer = {
     },
 };
 
-const heroChild = {
+const heroChild: Variants = {
     hidden: { opacity: 0, y: 12 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.2, 0, 0, 1] } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.2, 0, 0, 1] as const } },
 };
 
 const SignIn = () => {
