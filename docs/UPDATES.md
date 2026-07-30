@@ -617,3 +617,42 @@ after removal: `tsc --noEmit` 0 errors, `npm run build` clean (+ prerender 10/10
 - **KEPT (lazy-imported, live):** `client/src/components/ShaderHeroBG.tsx`, `client/src/components/DotGlobe.tsx`.
 - **Note:** `client/src/hooks/useChaosStream.ts` is a **separate live WebSocket hook** (not the deleted ChaosStream component) — it imports none of the deleted files and was not on the deletion list, so it was left untouched.
 - **Changed:** `client/package.json`, `client/package-lock.json` (deps), `client/vite.config.ts` (removed vendor-lottie chunk); docs/UPDATES.md.
+
+## 2026-07-30 — T12a: Multi-identity foundation (RunIdentity + per-identity credential resolution)
+
+Phase 6 backend prerequisite for BOLA (T13). **SCOPE REFINEMENT:** foundation only —
+NO attack fan-out across identities (that would multiply scan volume/cost). The
+normal scan (baseline + attacks) runs under ONE PRIMARY identity exactly as today;
+additional identities are stored, ownership-validated, and their credentials made
+resolvable per-identity, ready for T13's targeted cross-identity replays. Fully
+backward compatible; UI is T12b (no client work here).
+
+- **Schema (additive migration `20260730100541_t12_run_identity`, applied via
+  `migrate deploy` — purely additive: new table + 2 nullable columns + indexes +
+  FKs, no drops/data loss; `migrate status` → "up to date"):**
+  - New `RunIdentity { id, testRunId, authRecipeId?, label, isPrimary, createdAt }`,
+    unique `(testRunId, label)`, FK testRun (cascade) + authRecipe (set null).
+  - `identityId String?` added to `AttackLog` (indexed) and `BaselineResponse`, FK
+    to RunIdentity (set null).
+  - **`TestRun.authRecipeId` retained as the PRIMARY identity's recipe** — the
+    scan path (worker/resolver) is unchanged; RunIdentity rows are additive. This
+    was the cleaner, lower-risk choice than moving the recipe onto the primary row.
+- **Run creation (`POST /api/test-runs`):** optional `identities: [{ label,
+  authRecipeId?, isPrimary? }]` (max 4, unique labels, ≤1 primary). Every identity
+  recipe is ownership-checked (same rule as the single-recipe path); rows persisted
+  in the run-create transaction. Legacy `authRecipeId` → single primary identity;
+  neither → single anonymous primary — today's behavior byte-for-byte.
+- **Pipeline attribution:** the worker reads the primary identity id and tags every
+  scan-created `AttackLog` and `BaselineResponse` with it. Job cardinality is
+  unchanged — NO per-identity fan-out. Completion gate untouched.
+- **Per-identity credential resolution:** new `IdentityCredentialResolver` (thin
+  layer over the T8a `CredentialResolver`) resolves the credential for ANY identity
+  by `identityId → authRecipeId → resolve(runId, recipeId)`; anonymous → no
+  credential without hitting the loader. Reuses the shared resolver's cache /
+  single-flight / no-plaintext-in-Redis guarantees. This is what T13 will call.
+
+- **Added:** `server/src/services/run-identities.ts` (pure normalize/primary helpers), `server/src/services/identity-credential-resolver.ts` (per-identity resolution), `server/src/services/__tests__/run-identities.test.ts`, `server/src/services/__tests__/identity-credential-resolver.test.ts`, `server/prisma/migrations/20260730100541_t12_run_identity/`.
+- **Changed:** `server/prisma/schema.prisma` (RunIdentity + identityId), `server/src/validators/schemas.ts` (identities[] validation + MAX_RUN_IDENTITIES), `server/src/controllers/test-run.controller.ts` (normalize + validate + persist identities; authRecipeId = primary), `server/src/queues/worker.ts` (read primary identity; attribute AttackLog + BaselineResponse); docs/UPDATES.md.
+- **Tests:** 219 pass (17 files; +2 new — 10 T12 cases). Covers: multi-identity persistence shape, ownership/cap/unique/single-primary validation, primary selection, per-identity resolution incl. anonymous→no-cred and shared-cache, and backward-compat (legacy/anonymous unchanged). `npm run build`/tsc clean.
+- **Backward compatibility:** legacy single-recipe and anonymous runs produce identical behavior with a single primary RunIdentity; completion gate unaffected; existing 209 tests still green.
+- **Execution deferred to T13:** cross-identity (BOLA) replays that actually fire as secondary identities. **T12b:** UI to attach 2+ identities.

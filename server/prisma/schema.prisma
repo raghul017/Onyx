@@ -24,17 +24,17 @@ enum OrgRole {
 // User
 // ---------------------------------------------------------------------------
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  name            String?   // user-set display name (optional)
-  passwordHash    String?   // null for OAuth-only accounts (Google / GitHub)
-  googleId        String?   @unique
-  githubId        String?   @unique
-  avatarUrl       String?
-  createdAt       DateTime  @default(now())
-  plan            Plan      @default(FREE)
-  razorpaySubId   String?   @unique
-  planExpiresAt   DateTime?
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String? // user-set display name (optional)
+  passwordHash  String? // null for OAuth-only accounts (Google / GitHub)
+  googleId      String?   @unique
+  githubId      String?   @unique
+  avatarUrl     String?
+  createdAt     DateTime  @default(now())
+  plan          Plan      @default(FREE)
+  razorpaySubId String?   @unique
+  planExpiresAt DateTime?
 
   testRuns        TestRun[]
   verifiedTargets VerifiedTarget[]
@@ -58,11 +58,11 @@ model Organization {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  members  OrgMember[]
-  invites  OrgInvite[]
-  testRuns TestRun[]
+  members     OrgMember[]
+  invites     OrgInvite[]
+  testRuns    TestRun[]
   authRecipes AuthRecipe[]
-  apiTokens ApiToken[]
+  apiTokens   ApiToken[]
 
   @@map("organizations")
 }
@@ -79,7 +79,7 @@ model ApiToken {
   orgId      String?
   name       String
   tokenHash  String    @unique // SHA-256 hex of the plaintext token
-  last4      String    // last 4 chars of the token, for masked display
+  last4      String // last 4 chars of the token, for masked display
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
   revokedAt  DateTime?
@@ -135,44 +135,74 @@ model OrgInvite {
 // Test Run — the top-level attack session
 // ---------------------------------------------------------------------------
 model TestRun {
-  id              String    @id @default(uuid())
-  specUrl         String
-  status          String    @default("PENDING") // PENDING | PARSING | GENERATING | ATTACKING | COMPLETED | FAILED
-  totalEndpoints  Int       @default(0)
-  totalAttacks    Int       @default(0)
-  completedAttacks Int      @default(0)
+  id                 String    @id @default(uuid())
+  specUrl            String
+  status             String    @default("PENDING") // PENDING | PARSING | GENERATING | ATTACKING | COMPLETED | FAILED
+  totalEndpoints     Int       @default(0)
+  totalAttacks       Int       @default(0)
+  completedAttacks   Int       @default(0)
   // Baseline (control-request) job accounting, tracked separately so the
   // UI-facing attack counts above always mean ONLY attacks. The run completes
   // once both attacks AND baselines are done (see isRunComplete).
-  totalBaselines     Int    @default(0)
-  completedBaselines Int    @default(0)
-  enqueuedAt      DateTime? // set once ALL attack jobs are enqueued; guards premature completion
+  totalBaselines     Int       @default(0)
+  completedBaselines Int       @default(0)
+  enqueuedAt         DateTime? // set once ALL attack jobs are enqueued; guards premature completion
   // Denormalized score, computed once when the run reaches a terminal state so
   // the history list doesn't have to load every log to re-derive it. Nullable:
   // in-progress runs and pre-migration rows fall back to on-the-fly scoring.
-  overallScore    Int?
-  scoreLabel      String?
-  errorMessage    String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
+  overallScore       Int?
+  scoreLabel         String?
+  errorMessage       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  completedAt        DateTime?
 
-  userId          String?
-  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orgId           String?
-  org             Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId  String?
+  org    Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
   // Optional static credential (T7a) attached to every request in this run.
-  authRecipeId    String?
-  authRecipe      AuthRecipe?   @relation(fields: [authRecipeId], references: [id], onDelete: SetNull)
+  // With T12, this remains the PRIMARY identity's recipe: the scan (baseline +
+  // attacks) always runs under it, so the single-recipe/anonymous path is
+  // unchanged. RunIdentity rows (below) add the primary + any secondaries.
+  authRecipeId String?
+  authRecipe   AuthRecipe? @relation(fields: [authRecipeId], references: [id], onDelete: SetNull)
 
-  endpoints TargetEndpoint[]
-  logs      AttackLog[]
-  baselines BaselineResponse[]
+  endpoints  TargetEndpoint[]
+  logs       AttackLog[]
+  baselines  BaselineResponse[]
+  identities RunIdentity[]
 
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@map("test_runs")
+}
+
+// ---------------------------------------------------------------------------
+// RunIdentity (T12) — an identity a run can attack as. Exactly ONE is primary
+// (the scan runs under it, mirroring TestRun.authRecipeId). Secondaries are
+// stored + ownership-validated so their credentials are resolvable per-identity
+// for T13's cross-identity BOLA replays. authRecipeId null = an anonymous
+// identity (no credential). Backward compat: legacy/anonymous runs get a single
+// primary RunIdentity mirroring the run's authRecipeId (or anonymous).
+// ---------------------------------------------------------------------------
+model RunIdentity {
+  id           String   @id @default(uuid())
+  testRunId    String
+  authRecipeId String? // null = anonymous identity (no credential)
+  label        String // human label, e.g. "userA", "admin", "anon"
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  testRun    TestRun            @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  authRecipe AuthRecipe?        @relation(fields: [authRecipeId], references: [id], onDelete: SetNull)
+  logs       AttackLog[]
+  baselines  BaselineResponse[]
+
+  @@unique([testRunId, label])
+  @@index([testRunId])
+  @@map("run_identities")
 }
 
 // ---------------------------------------------------------------------------
@@ -193,14 +223,14 @@ model WebhookEvent {
 model TargetEndpoint {
   id                String  @id @default(uuid())
   testRunId         String
-  method            String  // GET | POST | PUT | DELETE | PATCH
+  method            String // GET | POST | PUT | DELETE | PATCH
   path              String
   operationId       String?
-  requestBodySchema Json?   // raw JSON schema for the request body
-  authRequirements  Json?   // T7a: compact auth descriptors this endpoint expects (display-only)
+  requestBodySchema Json? // raw JSON schema for the request body
+  authRequirements  Json? // T7a: compact auth descriptors this endpoint expects (display-only)
 
-  testRun TestRun     @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  logs    AttackLog[]
+  testRun   TestRun            @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  logs      AttackLog[]
   baselines BaselineResponse[]
 
   @@index([testRunId])
@@ -218,15 +248,16 @@ model AuthRecipe {
   userId    String?
   orgId     String?
   name      String
-  type      String   // "bearer" | "apiKey" | "header" | "cookie"
-  meta      Json     // non-secret descriptors: headerName, queryName, location, cookieName, last4
+  type      String // "bearer" | "apiKey" | "header" | "cookie"
+  meta      Json // non-secret descriptors: headerName, queryName, location, cookieName, last4
   secretEnc String   @db.Text // encrypted secret value (never returned in full)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org      Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  testRuns TestRun[]
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org        Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  testRuns   TestRun[]
+  identities RunIdentity[]
 
   @@index([userId])
   @@index([orgId])
@@ -242,13 +273,15 @@ model BaselineResponse {
   testRunId   String
   endpointId  String
   status      Int?
-  latencyMs   Int?     // median of 2-3 fires to reduce noise
+  latencyMs   Int? // median of 2-3 fires to reduce noise
   bodyLength  Int?
   bodySnippet String?  @db.Text // redacted, capped ~500 chars
+  identityId  String? // T12: the RunIdentity this baseline was captured as (primary)
   createdAt   DateTime @default(now())
 
   testRun  TestRun        @relation(fields: [testRunId], references: [id], onDelete: Cascade)
   endpoint TargetEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  identity RunIdentity?   @relation(fields: [identityId], references: [id], onDelete: SetNull)
 
   @@unique([testRunId, endpointId])
   @@index([testRunId])
@@ -287,14 +320,17 @@ model AttackLog {
   latencyMs       Int?
   responseSnippet String?  @db.Text
   attackType      String   @default("UNKNOWN")
-  owaspCategory   String?  // T9: OWASP API Top 10 (2023) code, or null = Unmapped
+  owaspCategory   String? // T9: OWASP API Top 10 (2023) code, or null = Unmapped
+  identityId      String? // T12: the RunIdentity this attack was fired as (scan → primary)
   error           String?
   createdAt       DateTime @default(now())
 
   testRun  TestRun        @relation(fields: [testRunId], references: [id], onDelete: Cascade)
   endpoint TargetEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  identity RunIdentity?   @relation(fields: [identityId], references: [id], onDelete: SetNull)
 
   @@index([testRunId])
   @@index([endpointId])
+  @@index([identityId])
   @@map("attack_logs")
 }

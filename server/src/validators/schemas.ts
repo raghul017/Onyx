@@ -8,6 +8,19 @@ import { z } from "zod";
 // REST API Requests
 // ---------------------------------------------------------------------------
 
+/** One identity a run can attack as (T12). authRecipeId omitted = anonymous. */
+export const runIdentityInputSchema = z.object({
+    label: z.string().trim().min(1, "label is required").max(40, "label too long"),
+    authRecipeId: z.string().uuid("authRecipeId must be a UUID").optional(),
+    /** Marks the primary identity; if none flagged, the first is primary. */
+    isPrimary: z.boolean().optional(),
+});
+
+export type RunIdentityInput = z.infer<typeof runIdentityInputSchema>;
+
+/** Max identities per run (primary + secondaries) — bounds T13's replay fan-out. */
+export const MAX_RUN_IDENTITIES = 4;
+
 export const createTestRunSchema = z.object({
     specUrl: z
         .string()
@@ -17,7 +30,25 @@ export const createTestRunSchema = z.object({
             "URL must use http:// or https:// protocol",
         ),
     // Optional static credential to attach to every request in this run (T7a).
+    // Backward-compatible: when `identities` is omitted, this becomes the run's
+    // single PRIMARY identity (or anonymous if also omitted).
     authRecipeId: z.string().uuid("authRecipeId must be a UUID").optional(),
+    // T12: optionally define 2+ identities (a primary + secondaries). The scan
+    // still runs under the primary only; secondaries are stored + resolvable for
+    // T13's cross-identity replays. Unique labels; at most MAX_RUN_IDENTITIES.
+    identities: z
+        .array(runIdentityInputSchema)
+        .min(1, "identities must not be empty when provided")
+        .max(MAX_RUN_IDENTITIES, `at most ${MAX_RUN_IDENTITIES} identities per run`)
+        .refine(
+            (ids) => new Set(ids.map((i) => i.label.trim())).size === ids.length,
+            "identity labels must be unique",
+        )
+        .refine(
+            (ids) => ids.filter((i) => i.isPrimary).length <= 1,
+            "at most one identity may be marked primary",
+        )
+        .optional(),
 });
 
 export type CreateTestRunInput = z.infer<typeof createTestRunSchema>;

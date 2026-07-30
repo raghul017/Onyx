@@ -406,11 +406,23 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // NO auth material ever touches Redis job data.
     const runState = await prisma.testRun.findUnique({
         where: { id: job.data?.testRunId },
-        select: { status: true, authRecipeId: true },
+        select: {
+            status: true,
+            authRecipeId: true,
+            // T12: the PRIMARY identity — the scan runs under it, and every
+            // AttackLog/BaselineResponse it writes is attributed to this id.
+            identities: {
+                where: { isPrimary: true },
+                select: { id: true },
+                take: 1,
+            },
+        },
     });
     if (!runState || runState.status === "FAILED" || runState.status === "COMPLETED") {
         return; // run is gone or terminal — silently drop this job
     }
+    // Primary identity id (null for pre-T12 rows → logs simply carry no identity).
+    const primaryIdentityId = runState.identities[0]?.id ?? null;
 
     // Validate job data
     const validation = attackJobDataSchema.safeParse(job.data);
@@ -433,7 +445,12 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // Branch on job kind (T5). Baseline jobs fire ONE benign control request and
     // store a BaselineResponse — no AttackLog, no finding, no attack analysis.
     if (validation.data.kind === "baseline") {
-        await processBaselineJob(validation.data, resolved, runState.authRecipeId);
+        await processBaselineJob(
+            validation.data,
+            resolved,
+            runState.authRecipeId,
+            primaryIdentityId,
+        );
         return;
     }
 
@@ -488,6 +505,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                     latencyMs: 0,
                     responseSnippet: null,
                     attackType,
+                    identityId: primaryIdentityId, // T12: attribute to primary
                     error: "SSRF blocked: target resolves to internal/private IP",
                 },
             }),
@@ -633,6 +651,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 responseSnippet: storedSnippet,
                 attackType,
                 owaspCategory: finding.owaspCategory ?? null, // T9
+                identityId: primaryIdentityId, // T12: attribute to primary
                 error: error?.replace(/\0/g, "\\u0000") ?? null,
             },
         }),
@@ -779,6 +798,7 @@ async function processBaselineJob(
     data: AttackJobData,
     resolved: ResolvedCredential,
     recipeId: string | null,
+    identityId: string | null, // T12: the primary identity this baseline is captured as
 ): Promise<void> {
     const { testRunId, endpointId, method, path, baseUrl, parameters, requestBodySchema } = data;
 
@@ -853,12 +873,14 @@ async function processBaselineJob(
             latencyMs: medianLatency,
             bodyLength: lastBodyLength || null,
             bodySnippet,
+            identityId, // T12: attribute to the primary identity
         },
         update: {
             status: lastStatus,
             latencyMs: medianLatency,
             bodyLength: lastBodyLength || null,
             bodySnippet,
+            identityId, // T12
         },
     });
 

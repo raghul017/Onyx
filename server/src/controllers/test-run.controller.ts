@@ -6,6 +6,11 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
 import { createTestRunSchema } from "../validators/schemas.js";
 import {
+    normalizeIdentities,
+    primaryRecipeId,
+    distinctRecipeIds,
+} from "../services/run-identities.js";
+import {
     parseOpenApiSpec,
     OpenApiParserError,
 } from "../services/openapi-parser.js";
@@ -221,26 +226,38 @@ export async function createTestRun(
             return;
         }
 
-        const { specUrl, authRecipeId } = validation.data;
+        const { specUrl, authRecipeId, identities: identitiesInput } = validation.data;
 
-        // ── Auth recipe (T7a): validate ownership before attaching to the run ──
-        if (authRecipeId) {
-            const recipe = await prisma.authRecipe.findUnique({
-                where: { id: authRecipeId },
+        // ── Identities (T12) ── Normalize into a canonical list with exactly one
+        // primary (backward-compatible: legacy authRecipeId → single primary;
+        // neither → single anonymous primary). The scan still runs under the
+        // primary only; secondaries are stored for T13's cross-identity replays.
+        const identities = normalizeIdentities({ authRecipeId, identities: identitiesInput });
+
+        // ── Auth recipe (T7a/T12): validate ownership of EVERY identity's recipe
+        // before attaching to the run (same check as the single-recipe path). ──
+        const recipeIds = distinctRecipeIds(identities);
+        if (recipeIds.length > 0) {
+            const recipes = await prisma.authRecipe.findMany({
+                where: { id: { in: recipeIds } },
                 select: { id: true, userId: true, orgId: true },
             });
-            const canUse =
-                recipe != null &&
-                ((recipe.userId != null && recipe.userId === req.user?.id) ||
-                    (recipe.orgId != null && req.orgId != null && recipe.orgId === req.orgId));
-            if (!canUse) {
+            const canUse = (r: { userId: string | null; orgId: string | null }) =>
+                (r.userId != null && r.userId === req.user?.id) ||
+                (r.orgId != null && req.orgId != null && r.orgId === req.orgId);
+            const usableIds = new Set(recipes.filter(canUse).map((r) => r.id));
+            const forbidden = recipeIds.find((id) => !usableIds.has(id));
+            if (forbidden) {
                 res.status(403).json({
                     error: "AUTH_RECIPE_FORBIDDEN",
-                    message: "The specified authRecipeId does not exist or is not yours.",
+                    message: "An authRecipeId does not exist or is not yours.",
                 });
                 return;
             }
         }
+
+        // The scan runs under the primary identity's recipe (mirrors legacy).
+        const primaryAuthRecipeId = primaryRecipeId(identities);
 
         // ── Per-user concurrency cap ──
         const activeRuns = await prisma.testRun.count({
@@ -296,18 +313,29 @@ export async function createTestRun(
             }
         }
 
-        // Create the test run record
+        // Create the test run record + its identity rows. authRecipeId mirrors
+        // the PRIMARY identity's recipe so the scan path is unchanged (T7a/T8a).
         const testRun = await prisma.testRun.create({
             data: {
                 specUrl,
                 status: "PARSING",
                 userId: req.user?.id,
                 orgId: req.orgId ?? null,
-                authRecipeId: authRecipeId ?? null,
+                authRecipeId: primaryAuthRecipeId,
+                identities: {
+                    create: identities.map((i) => ({
+                        label: i.label,
+                        authRecipeId: i.authRecipeId,
+                        isPrimary: i.isPrimary,
+                    })),
+                },
             },
         });
 
-        log.info({ testRunId: testRun.id, specUrl }, "Created test run");
+        log.info(
+            { testRunId: testRun.id, specUrl, identityCount: identities.length },
+            "Created test run",
+        );
 
         // Plan-gate baseline capture (T5): paid plans capture a benign baseline
         // per endpoint; FREE plans skip it so free scans incur no extra request
