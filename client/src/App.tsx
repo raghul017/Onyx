@@ -20,6 +20,7 @@ const Docs = lazy(() => import("./pages/Docs"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Security = lazy(() => import("./pages/Security"));
 const Changelog = lazy(() => import("./pages/Changelog"));
+const SharedReport = lazy(() => import("./pages/SharedReport"));
 const Privacy = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Privacy })));
 const Terms = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Terms })));
 const ResponsibleDisclosure = lazy(() =>
@@ -83,6 +84,9 @@ export const AppRoutes = () => (
                 path="/responsible-disclosure"
                 element={withSeo("/responsible-disclosure", <ResponsibleDisclosure />)}
             />
+            {/* T16b — PUBLIC read-only shared report. Deliberately OUTSIDE
+                ProtectedRoute: a logged-out visitor with a link must see it. */}
+            <Route path="/shared/:token" element={<SharedReport />} />
             <Route path="/signin" element={withSeo("/signin", <SignIn />)} />
             <Route path="/signup" element={withSeo("/signup", <SignUp />)} />
             <Route path="/auth/callback" element={<OAuthCallback />} />

@@ -634,3 +634,52 @@ export async function exportTestRunPDF(id: string): Promise<"ok" | "plan_require
     URL.revokeObjectURL(url);
     return "ok";
 }
+
+// ---------------------------------------------------------------------------
+// Report sharing (T16b)
+// ---------------------------------------------------------------------------
+
+export interface ShareStatus {
+    shared: boolean;
+    token?: string;
+    url?: string;
+    createdAt?: string;
+}
+
+/** Create (or return) the run's active public share link. Idempotent. */
+export async function createReportShare(
+    testRunId: string,
+): Promise<{ token: string; url: string; createdAt: string }> {
+    const res = await api.post(`/test-runs/${testRunId}/share`);
+    return res.data;
+}
+
+/** Current share status for a run (for the Share control's UI). */
+export async function getReportShare(testRunId: string): Promise<ShareStatus> {
+    const res = await api.get(`/test-runs/${testRunId}/share`);
+    return res.data;
+}
+
+/** Revoke the run's share link(s). Takes effect immediately. */
+export async function revokeReportShare(
+    testRunId: string,
+): Promise<{ revoked: number }> {
+    const res = await api.post(`/test-runs/${testRunId}/share/revoke`);
+    return res.data;
+}
+
+/**
+ * PUBLIC read-only report fetch — used by /shared/:token for LOGGED-OUT visitors.
+ *
+ * Deliberately does NOT use the shared `api` instance: that instance's request
+ * interceptor injects Authorization/x-org-id, and its response interceptor
+ * force-logs-out + reloads on a 401. Neither is correct here (there may be no
+ * session at all, and a 404 must render a clean "unavailable" state). So this
+ * uses a BARE axios call with no interceptors and no credentials.
+ */
+export async function getSharedReport(token: string): Promise<GetTestRunResponse> {
+    const res = await axios.get(`${API_BASE_URL}/shared/${encodeURIComponent(token)}`, {
+        timeout: 30_000,
+    });
+    return res.data;
+}

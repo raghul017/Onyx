@@ -4,27 +4,14 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-    Crosshair,
-    AlertTriangle,
-    ShieldAlert,
-    ShieldCheck,
-    Gauge,
-    Terminal,
-    FileDown,
-    Loader2,
-    ChevronDown,
-} from "lucide-react";
-import FindingDetailPanel from "@/components/FindingDetailPanel";
-import OwaspBadge from "@/components/OwaspBadge";
+import { motion } from "framer-motion";
+import { Terminal, FileDown, Loader2 } from "lucide-react";
+import ReportBody from "@/components/ReportBody";
+import ShareReportControl from "@/components/ShareReportControl";
 import {
     getTestRun,
     exportTestRunPDF,
     getCurrentUser,
-    owaspCoverage,
-    OWASP_API_CATEGORIES,
-    OWASP_LABELS,
     type GetTestRunResponse,
     type SeverityLevel,
     type CurrentUser,
@@ -143,12 +130,6 @@ const Report = () => {
         return logs.filter((l) => l.severity === severityFilter);
     }, [logs, severityFilter]);
 
-    // OWASP API Top 10 coverage (T9b) — mirrors the PDF's section.
-    const { counts: owaspCounts, unmapped: owaspUnmapped } = useMemo(
-        () => owaspCoverage(logs.map((l) => l.finding?.owaspCategory)),
-        [logs],
-    );
-
     const progressPct =
         totalPayloads > 0 ? Math.min(100, Math.round((completedCount / totalPayloads) * 100)) : 0;
 
@@ -227,6 +208,10 @@ const Report = () => {
                     <span className={`w-2 h-2 rounded-full ${statusLabel === "SEQUENCE COMPLETE" ? "bg-[#16a34a]" : "bg-[#dc2626]"}`} />
                     <span className="text-[#999]">{statusLabel}</span>
                 </div>
+                {/* T16b — share this report read-only via a public link. */}
+                {summary?.status === "COMPLETED" && id && (
+                    <ShareReportControl testRunId={id} />
+                )}
                 {summary?.status === "COMPLETED" && (
                     <button
                         onClick={handleExportPDF}
@@ -239,328 +224,9 @@ const Report = () => {
                 )}
             </div>
 
-            {/* 2. Telemetry Row */}
-            <div className="relative z-10 shrink-0 grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#e6e6e6] border-b border-[#e6e6e6] bg-white">
-                <div className="p-4 sm:p-5 flex flex-col min-h-[96px] relative overflow-hidden">
-                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
-                        <Crosshair size={11} /> Payloads Fired
-                    </div>
-                    <div className="mt-auto flex items-baseline gap-1">
-                        <span className="text-3xl font-mono text-black tabular-nums">{completedCount}</span>
-                        {totalPayloads > 0 && <span className="text-sm font-mono text-[#999]">/ {totalPayloads}</span>}
-                    </div>
-                    {totalPayloads > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#e6e6e6]">
-                            <motion.div
-                                className="h-full bg-[#3b82f6]"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${progressPct}%` }}
-                                transition={{ duration: 0.5, ease: "easeOut" }}
-                            />
-                        </div>
-                    )}
-                </div>
-
-                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
-                        <AlertTriangle size={11} className="text-[#dc2626]" /> Critical Failures
-                    </div>
-                    <div className="mt-auto flex items-baseline gap-2">
-                        <span className="text-3xl font-mono text-[#dc2626] font-bold tabular-nums">{criticalCount}</span>
-                        {criticalCount > 0 && (
-                            <span className="text-[10px] font-mono text-[#dc2626] uppercase tracking-wider animate-pulse">VULN DETECTED</span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
-                        <ShieldAlert size={11} className="text-[#ea580c]" /> Payloads Blocked
-                    </div>
-                    <div className="mt-auto">
-                        <span className="text-3xl font-mono tabular-nums text-[#ea580c]">{blockedCount}</span>
-                    </div>
-                </div>
-
-                <div className="p-4 sm:p-5 flex flex-col min-h-[96px]">
-                    <div className="flex items-center gap-2 text-[#999] text-[10px] font-mono uppercase tracking-[0.15em]">
-                        <ShieldCheck size={11} className="text-[#16a34a]" /> Info / Passed
-                    </div>
-                    <div className="mt-auto">
-                        <span className="text-3xl font-mono text-[#16a34a] tabular-nums">{infoCount}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* 3. Score + Breakdown Bar */}
-            {!loading && summary && (
-                <div className="relative z-10 shrink-0 border-b border-[#e6e6e6] px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#fafafa]">
-                    {/* Score pill */}
-                    <div
-                        className="flex items-baseline gap-1.5 px-4 py-2.5 bg-white border"
-                        style={{ backgroundColor: `${scoreHex(overallScore)}0f`, borderColor: `${scoreHex(overallScore)}40` }}
-                    >
-                        <span className="text-4xl font-bold font-mono tabular-nums" style={{ color: scoreHex(overallScore) }}>
-                            {overallScore}
-                        </span>
-                        <span className="text-[#999] text-lg font-mono">/100</span>
-                        <div className="ml-2 flex flex-col justify-center">
-                            <Gauge size={14} style={{ color: scoreHex(overallScore) }} />
-                        </div>
-                        <div className="ml-1 flex flex-col">
-                            <span className="text-[9px] font-bold font-mono uppercase tracking-widest" style={{ color: scoreHex(overallScore) }}>
-                                {scoreLabelText(scoreLabel)}
-                            </span>
-                            <span className="text-[9px] text-[#999] font-mono uppercase tracking-wider">Security Score</span>
-                        </div>
-                    </div>
-
-                    {/* Breakdown bar + counts */}
-                    <div className="flex-1 flex flex-col gap-2 min-w-0">
-                        {(() => {
-                            const segs = [
-                                { key: "critical", label: "critical", n: breakdown.critical, c: "#dc2626" },
-                                { key: "high", label: "high", n: breakdown.high, c: "#ea580c" },
-                                { key: "medium", label: "medium", n: breakdown.medium, c: "#ca8a04" },
-                                { key: "low", label: "low", n: breakdown.low, c: "#3b82f6" },
-                                { key: "info", label: "info", n: breakdown.info, c: "#64748b" },
-                            ];
-                            return (
-                                <>
-                                    {breakdownTotal > 0 && (
-                                        <div className="flex h-2 overflow-hidden gap-px w-full bg-[#f0f0f0]">
-                                            {segs.map((s) => s.n > 0 ? (
-                                                <div key={s.key} style={{ backgroundColor: s.c, width: `${(s.n / breakdownTotal) * 100}%` }} />
-                                            ) : null)}
-                                        </div>
-                                    )}
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px]">
-                                        {segs.map((s) => (
-                                            <span key={s.key} className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.c, opacity: s.n ? 1 : 0.3 }} />
-                                                <span className="text-[#666]"><span className="tabular-nums">{s.n}</span> {s.label}</span>
-                                            </span>
-                                        ))}
-                                        <span className="hidden sm:block text-[#999] ml-auto text-[10px] tabular-nums">avg {avgLatency}ms</span>
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
-                </div>
-            )}
-
-            {/* 3b. Coverage by OWASP API Top 10 (T9b) — mirrors the PDF section */}
-            {!loading && logs.length > 0 && (
-                <div className="relative z-10 shrink-0 border-b border-[#e6e6e6] bg-white px-4 sm:px-6 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
-                            Coverage by OWASP API Top 10 (2023)
-                        </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
-                        {OWASP_API_CATEGORIES.map((code) => {
-                            const n = owaspCounts[code];
-                            return (
-                                <div
-                                    key={code}
-                                    className="flex items-center justify-between gap-2 border-b border-[#f0f0f0] py-1"
-                                    title={OWASP_LABELS[code].label}
-                                >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <OwaspBadge code={code} />
-                                        <span className={`text-[11px] truncate ${n > 0 ? "text-[#333]" : "text-[#999]"}`}>
-                                            {OWASP_LABELS[code].title}
-                                        </span>
-                                    </span>
-                                    <span className={`font-mono text-[12px] tabular-nums shrink-0 ${n > 0 ? "text-[#3b82f6] font-bold" : "text-[#ccc]"}`}>
-                                        {n}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                        {owaspUnmapped > 0 && (
-                            <div className="flex items-center justify-between gap-2 border-b border-[#f0f0f0] py-1" title="No clear OWASP fit">
-                                <span className="flex items-center gap-2 min-w-0">
-                                    <OwaspBadge code={null} />
-                                    <span className="text-[11px] text-[#999] truncate">No clear OWASP fit</span>
-                                </span>
-                                <span className="font-mono text-[12px] tabular-nums text-[#666] shrink-0">{owaspUnmapped}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* 4. Attack Log Table */}
-            <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
-                {/* Filter buttons + column headers */}
-                <div className="shrink-0 bg-white border-b border-[#e6e6e6]">
-                    {/* Filter row */}
-                    <div className="flex items-center gap-1 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] overflow-x-auto">
-                        <span className="text-[10px] font-mono text-[#999] uppercase tracking-wider mr-2 shrink-0">Filter:</span>
-                        {SEVERITY_FILTERS.map((f) => {
-                            const on = severityFilter === f;
-                            const n =
-                                f === "ALL" ? logs.length :
-                                f === "CRITICAL" ? breakdown.critical :
-                                f === "HIGH" ? breakdown.high :
-                                f === "MEDIUM" ? breakdown.medium :
-                                f === "LOW" ? breakdown.low : breakdown.info;
-                            const dot = f === "ALL" ? undefined : SEV_COLOR[f];
-                            return (
-                                <button
-                                    key={f}
-                                    onClick={() => setSeverityFilter(f)}
-                                    className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold font-mono uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#3b82f6]/60 ${
-                                        on ? "bg-black text-white" : "text-[#666] hover:bg-[#f0f0f0]"
-                                    }`}
-                                >
-                                    {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dot, opacity: n ? 1 : 0.35 }} />}
-                                    {f} <span className={`tabular-nums ${on ? "text-white/60" : "text-[#999]"}`}>({n})</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Column headers — desktop */}
-                    <div className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2.5 font-mono text-[10px] text-[#999] uppercase tracking-[0.15em]">
-                        <span>Time</span>
-                        <span>Method</span>
-                        <span>Endpoint</span>
-                        <span>Severity</span>
-                        <span>Status</span>
-                        <span>Latency</span>
-                        <span>Payload</span>
-                    </div>
-                    <div className="md:hidden px-4 py-2.5 font-mono text-[10px] text-[#999] uppercase tracking-[0.15em]">
-                        Attack Log Archive
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto bg-white">
-                    {error && (
-                        <div className="mx-4 sm:mx-6 mt-3 px-3 py-2.5 border border-[#fca5a5] bg-[#fef2f2] text-[#dc2626] text-[11px] font-mono flex items-center gap-2">
-                            <AlertTriangle size={12} className="shrink-0" />
-                            {error}
-                        </div>
-                    )}
-
-                    {!loading && filteredLogs.length === 0 && !error && (
-                        <div className="flex flex-col items-center justify-center h-52 text-[#999] font-mono text-xs gap-3">
-                            <Terminal size={20} className="text-[#ccc]" />
-                            <span>{severityFilter === "ALL" ? "No logs recorded for this operation." : `No ${severityFilter} severity findings.`}</span>
-                        </div>
-                    )}
-
-                    <AnimatePresence initial={false}>
-                        {filteredLogs.map((log) => {
-                            const payloadStr =
-                                typeof log.payload === "string" ? log.payload : JSON.stringify(log.payload);
-                            const isOpen = expandedId === log.id;
-                            const toggle = () => setExpandedId(isOpen ? null : log.id);
-
-                            return (
-                                <motion.div
-                                    key={log.id}
-                                    initial={{ opacity: 0, y: -16, height: 0 }}
-                                    animate={{ opacity: 1, y: 0, height: "auto" }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.18, ease: "easeOut" }}
-                                    className={getRowClass(log.severity)}
-                                >
-                                    {/* Desktop row */}
-                                    <div
-                                        onClick={toggle}
-                                        className="hidden md:grid grid-cols-[72px_60px_1fr_100px_60px_72px_1.2fr] gap-0 px-4 sm:px-6 py-2 border-b border-[#e6e6e6] font-mono text-[12px] items-center hover:bg-black/[0.02] transition-colors cursor-pointer"
-                                    >
-                                        <span className="text-[#999] text-[11px] tabular-nums">
-                                            {formatTime(log.timestamp)}
-                                        </span>
-                                        <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>
-                                            {log.method}
-                                        </span>
-                                        <span className={`truncate pr-3 ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#333]"}`}>
-                                            {log.endpoint}
-                                        </span>
-                                        <span className="flex items-center">
-                                            {severityBadge(log.severity)}
-                                        </span>
-                                        <span className="text-[#666] tabular-nums">
-                                            {log.statusCode || "ERR"}
-                                        </span>
-                                        <span className="text-[#666] text-[11px] tabular-nums">
-                                            {log.responseTime}<span className="text-[#ccc]">ms</span>
-                                        </span>
-                                        <span className="flex items-center gap-1.5 min-w-0">
-                                            {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
-                                            <span className="text-[#999] text-[11px] truncate flex-1" title={payloadStr}>
-                                                {log.finding?.category ?? payloadStr}
-                                            </span>
-                                            <ChevronDown
-                                                size={13}
-                                                className={`shrink-0 text-[#ccc] transition-transform ${isOpen ? "rotate-180 text-[#666]" : ""}`}
-                                            />
-                                        </span>
-                                    </div>
-
-                                    {/* Mobile card */}
-                                    <div
-                                        onClick={toggle}
-                                        className="md:hidden px-4 py-3 border-b border-[#e6e6e6] font-mono text-[12px] hover:bg-black/[0.02] transition-colors space-y-1.5 cursor-pointer"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[11px] font-semibold ${getMethodColor(log.method)}`}>{log.method}</span>
-                                                <span className="text-[#666] tabular-nums text-[11px]">{log.statusCode || "ERR"}</span>
-                                                {severityBadge(log.severity)}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[#999] text-[10px]">
-                                                <span className="tabular-nums">{log.responseTime}ms</span>
-                                                <ChevronDown
-                                                    size={13}
-                                                    className={`text-[#ccc] transition-transform ${isOpen ? "rotate-180 text-[#666]" : ""}`}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className={`text-[11px] truncate ${log.severity === "CRITICAL" || log.severity === "HIGH" ? "text-black" : "text-[#666]"}`}>
-                                            {log.endpoint}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
-                                            <span className="text-[#999] text-[10px] truncate">
-                                                {log.finding?.title ?? payloadStr}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded finding detail */}
-                                    {isOpen && log.finding && (
-                                        <FindingDetailPanel
-                                            finding={log.finding}
-                                            payload={payloadStr}
-                                            responseSnippet={log.responseSnippet}
-                                        />
-                                    )}
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
-
-                <div className="shrink-0 h-7 bg-[#fafafa] border-t border-[#e6e6e6] flex items-center justify-between px-4 sm:px-6 font-mono text-[10px] text-[#999]">
-                    <span>
-                        {filteredLogs.length} / {totalPayloads || "—"} results
-                        {severityFilter !== "ALL" && <span className="text-[#666] ml-1">(filtered: {severityFilter})</span>}
-                        {breakdown.critical > 0 && <span className="text-[#dc2626] ml-2">● {breakdown.critical} critical</span>}
-                        {breakdown.high > 0 && <span className="text-[#ea580c] ml-2">● {breakdown.high} high</span>}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#ccc]" />
-                        Log Terminal Immutable
-                    </span>
-                </div>
-            </div>
+            {/* Report content — shared with the PUBLIC /shared/:token page so
+                both render the identical report from the identical payload. */}
+            {data && <ReportBody data={data} loading={loading} error={error} />}
         </div>
     );
 };

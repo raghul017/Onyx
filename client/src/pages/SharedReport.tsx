@@ -1,0 +1,120 @@
+// =============================================================================
+// /shared/:token (T16b) — the PUBLIC, read-only report page.
+//
+// Renders the SAME report content as the authed page (via ReportBody) from the
+// same payload, in a standalone shell: no app header, no sidebar, no actions
+// that require a session. Fetches with getSharedReport, which uses a BARE axios
+// call (no auth interceptors), so it works for a logged-out visitor.
+//
+// A 404 (unknown OR revoked — the backend never distinguishes them) renders a
+// neutral "unavailable" state that never confirms a token ever existed.
+// =============================================================================
+import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Loader2, ArrowRight } from "lucide-react";
+import ReportBody from "@/components/ReportBody";
+import { getSharedReport, type GetTestRunResponse } from "@/services/api";
+
+const OnyxMark = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" fill="black" />
+        <path d="M7 7H11V11H7V7Z" fill="white" />
+        <path d="M13 13H17V17H13V13Z" fill="white" />
+        <path d="M7 13H11V17H7V13Z" fill="white" />
+    </svg>
+);
+
+export default function SharedReport() {
+    const { token } = useParams<{ token: string }>();
+    const [data, setData] = useState<GetTestRunResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [unavailable, setUnavailable] = useState(false);
+
+    useEffect(() => {
+        if (!token) {
+            setUnavailable(true);
+            setLoading(false);
+            return;
+        }
+        let cancelled = false;
+        getSharedReport(token)
+            .then((res) => {
+                if (!cancelled) setData(res);
+            })
+            .catch(() => {
+                // Unknown, revoked, or any error → the same neutral state. We
+                // never reveal whether the token ever existed.
+                if (!cancelled) setUnavailable(true);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [token]);
+
+    return (
+        <div className="onyx-mono relative min-h-screen flex flex-col bg-[#fafafa] overflow-x-clip">
+            {/* Read-only header — wordmark links home, no authed nav. */}
+            <header className="shrink-0 border-b border-[#e6e6e6] bg-white px-5 sm:px-8 lg:px-12 py-3 flex items-center gap-3">
+                <Link to="/" className="flex items-center gap-2 shrink-0">
+                    <OnyxMark />
+                    <span className="font-semibold text-[15px] tracking-tight">Onyx</span>
+                </Link>
+                <span className="w-px h-4 bg-[#e6e6e6] shrink-0" aria-hidden="true" />
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#999]">
+                    Shared report — read only
+                </span>
+                {data?.summary?.specUrl && (
+                    <span className="hidden md:block font-mono text-[12px] text-[#666] truncate ml-2">
+                        {data.summary.specUrl}
+                    </span>
+                )}
+            </header>
+
+            {loading ? (
+                <div className="flex-1 flex items-center justify-center">
+                    <span className="flex items-center gap-2 text-[13px] text-[#666]">
+                        <Loader2 size={14} className="animate-spin" /> Loading report…
+                    </span>
+                </div>
+            ) : unavailable || !data ? (
+                <div className="flex-1 flex items-center justify-center px-6">
+                    <div className="max-w-md text-center">
+                        <h1 className="text-[20px] leading-tight mb-3">
+                            This report link is unavailable
+                        </h1>
+                        <p className="text-[13.5px] text-[#666] leading-relaxed">
+                            The link may have been revoked, or it may never have existed.
+                            Ask whoever shared it for an up-to-date link.
+                        </p>
+                        <Link to="/" className="mono-btn-ghost mt-8 inline-flex w-max">
+                            Go to Onyx <ArrowRight size={14} />
+                        </Link>
+                    </div>
+                </div>
+            ) : (
+                <ReportBody data={data} />
+            )}
+
+            {/* Growth CTA — subtle, on-brand. */}
+            <footer className="shrink-0 border-t border-[#e6e6e6] bg-white px-5 sm:px-8 lg:px-12 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-[12.5px] text-[#666]">
+                    Generated by <span className="text-black font-medium">Onyx</span> — AI-native
+                    API security testing.
+                </span>
+                <Link
+                    to="/signup"
+                    className="group flex items-center gap-1.5 text-[12.5px] text-[#3b82f6] hover:underline"
+                >
+                    Scan your own API
+                    <ArrowRight
+                        size={13}
+                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                    />
+                </Link>
+            </footer>
+        </div>
+    );
+}
