@@ -743,3 +743,38 @@ Backend-only. (Configuring 2+ identities is still API-only — the UI ticket is 
 - **Tests:** 277 pass (23 files; +22 T13b cases) — vulnerable→CONFIRMED, secure (403/404/empty/error-shaped), B-gets-own-data, judge veto, judge missing/throwing/null→firm fallback, stored-vs-recomputed read path, BOLA scoring. `npm run build`/tsc clean.
 - **Verification note:** a real end-to-end BOLA needs 2 identities configured, which is only possible via the API until the UI ticket — so T13b is verified via fixtures/unit tests, not a live 2-identity scan.
 - **Next:** UI to configure identities + surface BOLA findings.
+
+## 2026-08-31 — T13c: Multi-identity scan UI + BOLA finding display
+
+CLIENT-ONLY. Closes the BOLA loop: users can now attach 2–4 labeled identities to
+a scan (which enables the T13a/b cross-identity engine), and confirmed BOLA
+findings render clearly. Backend untouched.
+
+- **Identities on the scan form** (`Dashboard.tsx`): a new "Identities" toggle in
+  the scan toolbar (shown once at least one auth recipe exists) opens a compact
+  light-mono panel. The **PRIMARY** identity keeps using the existing toolbar
+  credential dropdown — so a single-identity scan is byte-for-byte the pre-T13c
+  flow — and the panel adds secondary rows (label + credential picker, or
+  "Anonymous (no auth)"), each removable, capped at 4 (server MAX_RUN_IDENTITIES).
+  Labels are validated client-side against the server rules (non-empty, unique).
+- **Payload** (`lib/identities.ts`, pure + tested): ONE identity → the legacy
+  `authRecipeId` (or nothing when anonymous), NO `identities` array; 2+ → the
+  `identities` array matching `server/src/validators/schemas.ts` exactly —
+  `{ label, authRecipeId?, isPrimary? }`, trimmed labels, exactly one primary, and
+  anonymous rows **omit** `authRecipeId` entirely (never null). `createTestRun`
+  gained an optional third arg and only sends `identities` when length > 1.
+- **BOLA hint**: shown only when a **credentialed primary** plus at least one other
+  identity make cross-user testing possible — "BOLA testing enabled — Onyx will
+  check whether one user can access another user's data." No hint for 1 identity or
+  an anonymous primary (A must own objects).
+- **BOLA finding display** (`FindingDetailPanel.tsx`): the panel already rendered
+  cause/remediation/evidence + the OWASP badge, and evidence was already
+  `whitespace-pre-wrap` monospace — so the A/B evidence read correctly. Added two
+  minimal touches: a subtle **"Cross-user"** tag beside the API1 badge, and a
+  full-width, taller evidence block ("Evidence — both requests") for API1_BOLA
+  findings so both requests fit without cramping. Everything else unchanged.
+
+- **Added:** `client/src/lib/identities.ts`, `client/src/test/identities.test.ts`.
+- **Changed:** `client/src/pages/Dashboard.tsx` (identities state + toggle + panel + payload), `client/src/services/api.ts` (createTestRun identities arg + RunIdentityInput type), `client/src/components/FindingDetailPanel.tsx` (cross-user tag + wide evidence); docs/UPDATES.md.
+- **Tests:** client 64 pass (9 files; +13 T13c) — backward-compat single-identity payload, multi-identity shape, anonymous omits authRecipeId, cap/trim, primary defaulting, BOLA-hint conditions, label validation. `npm run build` clean (prerender 10/10).
+- **Schema/migration:** none. **Env:** none. **Backend:** untouched.

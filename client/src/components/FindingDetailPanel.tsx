@@ -26,18 +26,25 @@ function Section({
     label,
     children,
     mono = false,
+    wide = false,
 }: {
     label: string;
     children: React.ReactNode;
     mono?: boolean;
+    /** Span both grid columns + allow more height — for multi-request evidence. */
+    wide?: boolean;
 }) {
     return (
-        <div className="min-w-0">
+        <div className={`min-w-0${wide ? " lg:col-span-2" : ""}`}>
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999] mb-1">
                 {label}
             </p>
             {mono ? (
-                <div className="font-mono text-[11.5px] leading-relaxed text-[#333] bg-white border border-[#e6e6e6] px-2.5 py-2 max-h-40 overflow-auto whitespace-pre-wrap break-words">
+                <div
+                    className={`font-mono text-[11.5px] leading-relaxed text-[#333] bg-white border border-[#e6e6e6] px-2.5 py-2 overflow-auto whitespace-pre-wrap break-words ${
+                        wide ? "max-h-72" : "max-h-40"
+                    }`}
+                >
                     {children}
                 </div>
             ) : (
@@ -59,6 +66,9 @@ export default function FindingDetailPanel({
     responseSnippet?: string;
 }) {
     const c = SEV_COLOR[finding.severity] ?? SEV_COLOR.INFO;
+    // T13c: a BOLA finding (API1) compares TWO identities, so its evidence holds
+    // both requests — render it wider and tag it so the cross-user nature is clear.
+    const isCrossUser = finding.owaspCategory === "API1_BOLA";
 
     return (
         <div className="px-4 sm:px-6 py-4 bg-[#fafafa] border-t border-[#e6e6e6] space-y-4">
@@ -82,6 +92,12 @@ export default function FindingDetailPanel({
                 </span>
                 {/* OWASP API Top 10 category (T9) — additive context */}
                 <OwaspBadge code={finding.owaspCategory} />
+                {/* T13c: subtle marker that this finding spans two identities. */}
+                {isCrossUser && (
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-[#3b82f6] border border-[#93c5fd] px-1.5 py-0.5">
+                        Cross-user
+                    </span>
+                )}
             </div>
 
             {/* Explanation grid */}
@@ -89,7 +105,13 @@ export default function FindingDetailPanel({
                 <Section label="Why this happened">{finding.cause}</Section>
                 <Section label="How to fix">{finding.remediation}</Section>
                 {finding.evidence && (
-                    <Section label="Evidence" mono>
+                    // A cross-user (BOLA) finding's evidence is BOTH requests
+                    // side by side, so give it the full width + more height.
+                    <Section
+                        label={isCrossUser ? "Evidence — both requests" : "Evidence"}
+                        mono
+                        wide={isCrossUser}
+                    >
                         {finding.evidence}
                     </Section>
                 )}

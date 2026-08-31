@@ -237,12 +237,31 @@ export async function getAllTestRuns(): Promise<GetAllTestRunsResponse> {
  * Create a new test run by submitting an OpenAPI spec URL. Optionally attach a
  * static credential (auth recipe) so every request in the run carries it (T7).
  */
+/** One identity for a multi-identity (BOLA) run — matches the server schema. */
+export interface RunIdentityInput {
+    label: string;
+    /** Omitted entirely for an anonymous identity. */
+    authRecipeId?: string;
+    isPrimary?: boolean;
+}
+
 export async function createTestRun(
     specUrl: string,
     authRecipeId?: string,
+    /**
+     * T13c: optional 2+ identities (max 4, one primary). When provided, the
+     * backend stores them and enables cross-identity BOLA replays. Omitted for
+     * single-identity scans, which keep the exact legacy authRecipeId payload.
+     */
+    identities?: RunIdentityInput[],
 ): Promise<CreateTestRunResponse> {
-    const body: { specUrl: string; authRecipeId?: string } = { specUrl };
+    const body: {
+        specUrl: string;
+        authRecipeId?: string;
+        identities?: RunIdentityInput[];
+    } = { specUrl };
     if (authRecipeId) body.authRecipeId = authRecipeId;
+    if (identities && identities.length > 1) body.identities = identities;
     const res = await api.post("/test-runs", body);
     return res.data;
 }

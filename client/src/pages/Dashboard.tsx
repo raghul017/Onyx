@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Terminal, Play, Square, KeyRound } from "lucide-react";
+import { Terminal, Play, Square, KeyRound, Users, Plus, X } from "lucide-react";
 import { useAttackStore } from "@/store/useAttackStore";
 import {
     createTestRun,
@@ -22,6 +22,14 @@ import ColdStartBanner from "@/components/ColdStartBanner";
 import DomainVerifyPanel from "@/components/DomainVerifyPanel";
 import AppHeader from "@/components/AppHeader";
 import DashboardCommand from "@/components/DashboardCommand";
+import {
+    MAX_IDENTITIES,
+    buildIdentityPayload,
+    isBolaEnabled,
+    newIdentityRow,
+    validateIdentities,
+    type IdentityRow,
+} from "@/lib/identities";
 
 // =============================================================================
 // Component
@@ -57,6 +65,25 @@ const Dashboard = () => {
     // T7: optional static credential attached to the run.
     const [authRecipes, setAuthRecipes] = useState<AuthRecipe[]>([]);
     const [authRecipeId, setAuthRecipeId] = useState<string>("");
+    // T13c: extra identities for cross-identity (BOLA) testing. Row 0 mirrors the
+    // toolbar credential picker (the PRIMARY identity), so a single-identity scan
+    // is exactly what it was before. Adding a 2nd row enables BOLA.
+    const [identityRows, setIdentityRows] = useState<IdentityRow[]>([]);
+    const [identitiesOpen, setIdentitiesOpen] = useState(false);
+
+    // The full identity list = the PRIMARY (toolbar credential) + any extra rows.
+    // Keeping the primary in the toolbar preserves the pre-T13c single-scan UX.
+    const allIdentityRows: IdentityRow[] = [
+        {
+            key: "primary",
+            label: "User A",
+            authRecipeId,
+            isPrimary: true,
+        },
+        ...identityRows,
+    ];
+    const bolaEnabled = isBolaEnabled(allIdentityRows);
+    const identityError = validateIdentities(allIdentityRows);
 
     const {
         logs,
@@ -125,7 +152,10 @@ const Dashboard = () => {
         setActiveTestRunId(null);
 
         try {
-            const res = await createTestRun(targetUrl, authRecipeId || undefined);
+            // T13c: one row = legacy single-recipe payload; 2+ = identities array.
+            const { authRecipeId: legacyRecipe, identities } =
+                buildIdentityPayload(allIdentityRows);
+            const res = await createTestRun(targetUrl, legacyRecipe, identities);
             setActiveTestRunId(res.testRunId);
             connectWebSocket(res.testRunId);
         } catch (err) {
@@ -268,6 +298,30 @@ const Dashboard = () => {
                                     <KeyRound size={13} /> Add auth
                                 </button>
                             )}
+                            {/* T13c: identities toggle — opens the multi-identity
+                                (BOLA) panel. Hidden until at least one credential
+                                exists, since BOLA needs a credentialed primary. */}
+                            {authRecipes.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIdentitiesOpen((v) => !v)}
+                                    title="Add more identities to test cross-user access (BOLA)"
+                                    aria-expanded={identitiesOpen}
+                                    className={`flex items-center gap-1.5 bg-white px-3 border text-[12px] font-mono transition-colors shrink-0 h-10 ${
+                                        identitiesOpen || identityRows.length > 0
+                                            ? "border-[#3b82f6] text-[#3b82f6]"
+                                            : "border-[#e6e6e6] text-[#666] hover:border-black hover:text-black"
+                                    }`}
+                                >
+                                    <Users size={13} />
+                                    Identities
+                                    {identityRows.length > 0 && (
+                                        <span className="tabular-nums">
+                                            {allIdentityRows.length}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
                             <div className="flex items-center gap-2">
                                 <button
                                     type="submit"
@@ -297,6 +351,151 @@ const Dashboard = () => {
                                 )}
                             </div>
                         </form>
+
+                        {/* T13c — Identities panel. The PRIMARY identity uses the
+                            credential picked in the toolbar above; extra identities
+                            let Onyx replay one user's object ids as another user
+                            (BOLA). Light-mono, compact, collapsed by default. */}
+                        {identitiesOpen && authRecipes.length > 0 && (
+                            <div className="border-b border-[#e6e6e6] bg-white px-4 sm:px-6 py-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#999]">
+                                        Identities
+                                    </p>
+                                    <span className="font-mono text-[10px] text-[#999] tabular-nums">
+                                        {allIdentityRows.length} / {MAX_IDENTITIES}
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    {/* Primary row — label fixed, credential mirrors the toolbar */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono text-[10px] uppercase tracking-wide border border-[#93c5fd] text-[#3b82f6] px-1.5 py-0.5 shrink-0">
+                                            Primary
+                                        </span>
+                                        <input
+                                            value="User A"
+                                            readOnly
+                                            aria-label="Primary identity label"
+                                            className="bg-[#fafafa] text-[#666] font-mono text-[12px] px-2.5 py-2 border border-[#e6e6e6] w-[120px] outline-none"
+                                        />
+                                        <select
+                                            value={authRecipeId}
+                                            onChange={(e) => setAuthRecipeId(e.target.value)}
+                                            disabled={launching || isAttacking}
+                                            aria-label="Primary identity credential"
+                                            className="flex-1 min-w-0 bg-white text-[#333] font-mono text-[12px] px-2.5 py-2 border border-[#e6e6e6] focus:border-[#3b82f6] outline-none transition-colors disabled:opacity-50"
+                                        >
+                                            <option value="">Anonymous (no auth)</option>
+                                            {authRecipes.map((r) => (
+                                                <option key={r.id} value={r.id}>
+                                                    {r.name} · {r.type}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span className="w-7 shrink-0" aria-hidden="true" />
+                                    </div>
+
+                                    {/* Secondary identities */}
+                                    {identityRows.map((row, i) => (
+                                        <div key={row.key} className="flex items-center gap-2">
+                                            <span className="font-mono text-[10px] uppercase tracking-wide border border-[#e6e6e6] text-[#999] px-1.5 py-0.5 shrink-0">
+                                                {String.fromCharCode(66 + i)}
+                                            </span>
+                                            <input
+                                                value={row.label}
+                                                onChange={(e) =>
+                                                    setIdentityRows((rows) =>
+                                                        rows.map((r) =>
+                                                            r.key === row.key
+                                                                ? { ...r, label: e.target.value }
+                                                                : r,
+                                                        ),
+                                                    )
+                                                }
+                                                maxLength={40}
+                                                placeholder="Label"
+                                                aria-label={`Identity ${i + 2} label`}
+                                                disabled={launching || isAttacking}
+                                                className="bg-white text-[#333] font-mono text-[12px] px-2.5 py-2 border border-[#e6e6e6] focus:border-[#3b82f6] outline-none transition-colors w-[120px] disabled:opacity-50"
+                                            />
+                                            <select
+                                                value={row.authRecipeId}
+                                                onChange={(e) =>
+                                                    setIdentityRows((rows) =>
+                                                        rows.map((r) =>
+                                                            r.key === row.key
+                                                                ? { ...r, authRecipeId: e.target.value }
+                                                                : r,
+                                                        ),
+                                                    )
+                                                }
+                                                disabled={launching || isAttacking}
+                                                aria-label={`Identity ${i + 2} credential`}
+                                                className="flex-1 min-w-0 bg-white text-[#333] font-mono text-[12px] px-2.5 py-2 border border-[#e6e6e6] focus:border-[#3b82f6] outline-none transition-colors disabled:opacity-50"
+                                            >
+                                                <option value="">Anonymous (no auth)</option>
+                                                {authRecipes.map((r) => (
+                                                    <option key={r.id} value={r.id}>
+                                                        {r.name} · {r.type}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setIdentityRows((rows) =>
+                                                        rows.filter((r) => r.key !== row.key),
+                                                    )
+                                                }
+                                                disabled={launching || isAttacking}
+                                                aria-label={`Remove identity ${row.label || i + 2}`}
+                                                className="w-7 h-7 shrink-0 flex items-center justify-center border border-[#e6e6e6] text-[#999] hover:text-[#dc2626] hover:border-[#fca5a5] transition-colors disabled:opacity-40"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Add + validation + BOLA hint */}
+                                <div className="flex flex-wrap items-center gap-3 mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setIdentityRows((rows) => [
+                                                ...rows,
+                                                newIdentityRow(rows.length + 1),
+                                            ])
+                                        }
+                                        disabled={
+                                            allIdentityRows.length >= MAX_IDENTITIES ||
+                                            launching ||
+                                            isAttacking
+                                        }
+                                        className="flex items-center gap-1.5 border border-[#e6e6e6] text-[#666] hover:border-black hover:text-black text-[12px] font-mono px-2.5 py-1.5 transition-colors disabled:opacity-40 disabled:hover:border-[#e6e6e6] disabled:hover:text-[#666]"
+                                    >
+                                        <Plus size={12} /> Add identity
+                                    </button>
+
+                                    {identityError && (
+                                        <span className="text-[12px] text-[#dc2626]">
+                                            {identityError}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* BOLA hint — only once a credentialed primary + a
+                                    second identity make cross-user testing possible. */}
+                                {bolaEnabled && !identityError && (
+                                    <p className="mt-3 flex items-start gap-2 text-[12px] text-[#3b82f6] leading-relaxed">
+                                        <Users size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                                        BOLA testing enabled — Onyx will check whether one user
+                                        can access another user&rsquo;s data.
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Body — clean idle state OR live command center */}
                         <div className="flex-1 flex flex-col">
