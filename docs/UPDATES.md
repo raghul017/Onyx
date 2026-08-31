@@ -965,3 +965,25 @@ has already collected.
 - **Schema/migration:** **none** — reuses `findingJson`, `owaspCategory`, and existing columns. `prisma migrate status` → "Database schema is up to date!"; zero diff under `prisma/`.
 - **Tests:** 360 pass (30 files; +27) — detector positives (hash/JWT/SSN/card/nested/internal flags), negatives (ordinary fields, key-only error mentions, implausible + placeholder values, partial keys, non-2xx/non-JSON), PII conservatism (single record vs bulk vs alongside a strong signal), SECRET_LEAK complement (no double-flag, and the passwordHash case SECRET_LEAK misses), verdict severity/evidence/judge behavior, and the scan pass (one finding per endpoint, clean/no-response cases, never throws).
 - **Deferred:** analyzing non-JSON bodies, and per-field allow-listing for APIs that legitimately return e.g. `email` to its owner.
+
+## 2026-08-31 — chore: OWASP grid reflects API1/API5 detection
+
+CLIENT-ONLY. The homepage OWASP coverage grid (`#owasp`) still showed API1 and
+API5 as "Mapped — expanding coverage" even though the engine now emits both.
+Marked them **Detected** so the section matches shipped reality:
+
+- **API1** Broken Object Level Authorization — BOLA cross-identity replays +
+  persisted verdict (T13a/T13b).
+- **API5** Broken Function Level Authorization — privileged-function probes as a
+  secondary identity (T14a).
+- **API3** was already detected and now covers more: mass assignment (T14b) and
+  excessive data exposure (T14c).
+
+Detected set is now **API1, API2, API3, API4, API5, API8**; **API6, API7, API9,
+API10** stay "expanding" — still no overclaim. Updated the file's header/inline
+notes (which named the old API2/3/4/8 set) and the guard test's expected set, so
+the honesty check keeps failing if the grid drifts from what the engine emits.
+
+- **Changed:** `client/src/components/OwaspCoverage.tsx` (API1 + API5 → `detected: true`; comments now list which ticket each detected code comes from), `client/src/test/owasp-coverage.test.ts` (expected detected set + header note); docs/UPDATES.md.
+- **Tests:** client 64 pass (9 files). `npm run build` clean (prerender 10/10).
+- **Schema/migration:** none. **Backend:** untouched.

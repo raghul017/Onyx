@@ -1,8 +1,8 @@
 // =============================================================================
 // OwaspCoverage (#owasp) — homepage section (T21b).
 // A compact API1–API10 grid (OWASP API Security Top 10, 2023). HONESTY: the
-// categories Onyx actively detects today (API2/API3/API4/API8 — the codes the
-// server's owasp-mapping actually emits) are emphasized with an accent border +
+// categories Onyx actively detects today (API1/API2/API3/API4/API5/API8 — the
+// codes the engine actually emits) are emphasized with an accent border +
 // "detected" chip; the rest are shown muted as "expanding coverage". A one-line
 // legend explains the two states. No overclaim of full detection.
 //
@@ -26,13 +26,19 @@ export interface OwaspCategory {
 }
 
 // Titles match server/src/services/owasp-mapping.ts (OWASP API Top 10, 2023).
-// detected = codes mapFindingToOwasp() actually returns: API2, API3, API4, API8.
+// detected = codes the engine actually emits today:
+//   API1 — BOLA cross-identity replays (T13a/T13b)
+//   API2 — broken auth / missing-auth probes
+//   API3 — mass assignment (T14b) + excessive data exposure (T14c)
+//   API4 — resource consumption (oversized payload, rate limit)
+//   API5 — BFLA privileged-function probes (T14a)
+//   API8 — injection / misconfiguration signals
 export const OWASP_CATEGORIES: OwaspCategory[] = [
-    { code: "API1", title: "Broken Object Level Authorization", detected: false },
+    { code: "API1", title: "Broken Object Level Authorization", detected: true },
     { code: "API2", title: "Broken Authentication", detected: true },
     { code: "API3", title: "Broken Object Property Level Authorization", detected: true },
     { code: "API4", title: "Unrestricted Resource Consumption", detected: true },
-    { code: "API5", title: "Broken Function Level Authorization", detected: false },
+    { code: "API5", title: "Broken Function Level Authorization", detected: true },
     { code: "API6", title: "Unrestricted Access to Sensitive Business Flows", detected: false },
     { code: "API7", title: "Server Side Request Forgery", detected: false },
     { code: "API8", title: "Security Misconfiguration", detected: true },
