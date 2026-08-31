@@ -444,6 +444,13 @@ async function processTestRunAsync(
                         operationId: ep.operationId ?? null,
                         requestBodySchema:
                             (ep.requestBodySchema as any) ?? undefined,
+                        // T15b-fix: persist the parsed parameters so a single-finding
+                        // re-scan can rebuild the EXACT original request. Runtime
+                        // behavior is unchanged — jobs still carry these as before.
+                        parameters:
+                            ep.parameters && ep.parameters.length > 0
+                                ? (ep.parameters as any)
+                                : undefined,
                         // T7a: persist what auth each endpoint expects (display-only).
                         authRequirements:
                             ep.authRequirements && ep.authRequirements.length > 0

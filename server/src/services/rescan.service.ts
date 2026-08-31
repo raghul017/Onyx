@@ -33,6 +33,7 @@ import {
     buildBenignRequest,
     type AttachedCredential,
 } from "../services/request-builder.js";
+import type { ParsedParameterInput } from "../validators/schemas.js";
 import { analyzeFinding, type BaselineComparison } from "./finding-analysis.js";
 import {
     buildMassAssignmentBody,
@@ -50,6 +51,18 @@ const RESPONSE_SNIPPET_MAX_LENGTH = 500;
 
 /** Cross-identity probes need a live second identity + acquired id — deferred. */
 const UNSUPPORTED_ATTACK_TYPES = new Set(["BOLA_REPLAY", "BFLA_PROBE"]);
+
+/**
+ * analyzeFinding categories that mean the attack did NOT succeed — i.e. the
+ * finding no longer reproduces. "Input Rejected" is LOW (not INFO) severity but
+ * explicitly means input validation worked, so it MUST count as fixed.
+ */
+const NOT_REPRODUCED = new Set([
+    "Handled",
+    "Input Rejected",
+    "Access Control Enforced",
+    "Request Error",
+]);
 
 export type RescanOutcome = "resolved" | "still_present" | "unsupported" | "error";
 
@@ -181,7 +194,7 @@ export async function rescanFinding(
             identityId: true,
             findingJson: true,
             testRun: { select: { specUrl: true } },
-            endpoint: { select: { requestBodySchema: true } },
+            endpoint: { select: { requestBodySchema: true, parameters: true } },
         },
     });
     if (!row) return failed("Finding not found.");
@@ -212,6 +225,14 @@ export async function rescanFinding(
         unknown
     > | null;
 
+    // T15b-fix: re-fire with the endpoint's ORIGINAL parameters so a query- or
+    // header-parameter finding is reconstructed exactly and can't false-resolve.
+    // Legacy rows (created before the column existed) are null → fall back to [],
+    // i.e. exactly the pre-fix behavior for that older data.
+    const parameters = Array.isArray(row.endpoint.parameters)
+        ? (row.endpoint.parameters as ParsedParameterInput[])
+        : [];
+
     try {
         // ---- Build the SAME request the original check sent -----------------
         const isMassAssignment = row.attackType === "MASS_ASSIGNMENT";
@@ -224,7 +245,7 @@ export async function rescanFinding(
                   method: row.method,
                   path: row.path,
                   baseUrl,
-                  parameters: [],
+                  parameters,
                   requestBodySchema,
                   credential,
               })
@@ -236,7 +257,7 @@ export async function rescanFinding(
                       ? buildMassAssignmentBody(requestBodySchema).body
                       : row.payload,
                   attackType: row.attackType,
-                  parameters: [],
+                  parameters,
                   requestBodySchema,
                   credential,
               });
@@ -311,10 +332,17 @@ export async function rescanFinding(
                 },
                 baseline,
             );
-            // "Still present" = the fresh verdict is an actual finding. INFO-grade
-            // categories (Handled / Access Control Enforced / Request Error) mean
-            // the original issue no longer reproduces.
-            stillPresent = finding.severity !== "INFO";
+            // "Still present" = the fresh verdict is an actual finding.
+            //
+            // The categories below all mean the attack did NOT succeed, so the
+            // original issue no longer reproduces:
+            //   Handled / Access Control Enforced / Request Error → INFO
+            //   Input Rejected  → LOW + confidence "info" ("validation is doing
+            //                     its job") — the textbook FIXED outcome, which a
+            //                     severity-only check would wrongly call unresolved.
+            // Every one of these carries confidence "info", so we key on the
+            // category set plus that marker rather than on severity alone.
+            stillPresent = !(NOT_REPRODUCED.has(finding.category) || finding.confidence === "info");
             severity = finding.severity;
             category = finding.category;
         }

@@ -182,3 +182,137 @@ describe("deferred + error paths return a CLEAR result, never a wrong verdict", 
         expect(update).not.toHaveBeenCalled(); // must never mark resolved on failure
     });
 });
+
+// =============================================================================
+// T15b-fix — the re-fired request must use the endpoint's PERSISTED parameters,
+// so a query/header-parameter finding is reconstructed exactly and cannot
+// false-resolve. Legacy rows (parameters null) must still work.
+// =============================================================================
+describe("T15b-fix — re-fires with the stored endpoint parameters", () => {
+    const queryParamRow = (params: unknown) =>
+        row({
+            method: "GET",
+            path: "/search",
+            payload: "' OR 1=1--",
+            attackType: "SQL_INJECTION",
+            endpoint: { requestBodySchema: null, parameters: params },
+        });
+
+    it("injects the payload into the stored QUERY parameter (URL carries it)", async () => {
+        findUnique.mockResolvedValue(
+            queryParamRow([{ name: "q", in: "query", required: true, schema: null }]),
+        );
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 200, latencyMs: 10, snippet: "{}", bodyLength: 2,
+        });
+
+        await rescanFinding("log-1", { fire });
+
+        const sent = fire.mock.calls[0]![0];
+        // The stored param name must appear in the re-fired URL...
+        expect(sent.url).toContain("q=");
+        // ...carrying the ORIGINAL payload (url-encoded), not a benign dummy.
+        expect(decodeURIComponent(sent.url)).toContain("' OR 1=1--");
+    });
+
+    it("a STILL-vulnerable query-param finding is NOT falsely resolved", async () => {
+        findUnique.mockResolvedValue(
+            queryParamRow([{ name: "q", in: "query", required: true, schema: null }]),
+        );
+        // The target still reflects a SQL error for the injected query param.
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 500,
+            latencyMs: 25,
+            snippet: 'You have an error in your SQL syntax near "OR 1=1"',
+            bodyLength: 50,
+        });
+
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.outcome).toBe("still_present");
+        expect(res.resolved).toBe(false);
+    });
+
+    it("a genuinely FIXED query-param finding resolves", async () => {
+        findUnique.mockResolvedValue(
+            queryParamRow([{ name: "q", in: "query", required: true, schema: null }]),
+        );
+        const fire = vi.fn().mockResolvedValue({
+            // A clean 4xx rejection (no leaky wording) — "Input Rejected",
+            // which means validation now works => the finding is fixed.
+            statusCode: 400, latencyMs: 8, snippet: '{"message":"Bad Request"}', bodyLength: 25,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.resolved).toBe(true);
+        expect(res.outcome).toBe("resolved");
+    });
+
+    it("passes stored HEADER parameters through too", async () => {
+        findUnique.mockResolvedValue(
+            queryParamRow([{ name: "X-Tenant", in: "header", required: false, schema: null }]),
+        );
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 200, latencyMs: 10, snippet: "{}", bodyLength: 2,
+        });
+        await rescanFinding("log-1", { fire });
+        const sent = fire.mock.calls[0]![0];
+        expect(Object.keys(sent.headers)).toContain("X-Tenant");
+    });
+
+    it("LEGACY row with parameters=null still works (falls back to [])", async () => {
+        findUnique.mockResolvedValue(queryParamRow(null));
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 200, latencyMs: 10, snippet: "{}", bodyLength: 2,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.outcome).toBe("resolved"); // no crash, pre-fix behavior
+        expect(fire).toHaveBeenCalledTimes(1);
+    });
+
+    it("tolerates a malformed parameters value without crashing", async () => {
+        findUnique.mockResolvedValue(queryParamRow({ not: "an array" }));
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 200, latencyMs: 10, snippet: "{}", bodyLength: 2,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.outcome).toBe("resolved");
+    });
+});
+
+// =============================================================================
+// Regression guard: a patched endpoint that now REJECTS the payload must resolve.
+// analyzeFinding classifies that as "Input Rejected" — LOW severity but
+// confidence "info" ("input validation is doing its job"). A severity-only
+// check would call it still-present and the finding could never be resolved.
+// =============================================================================
+describe("a patched endpoint that now rejects input resolves", () => {
+    it("'Input Rejected' (LOW + confidence info) counts as FIXED", async () => {
+        findUnique.mockResolvedValue(row());
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 400, latencyMs: 8, snippet: '{"message":"Bad Request"}', bodyLength: 25,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.outcome).toBe("resolved");
+        expect(res.resolved).toBe(true);
+    });
+
+    it("a 403 (Access Control Enforced) also counts as FIXED", async () => {
+        findUnique.mockResolvedValue(row({ attackType: "MISSING_AUTH" }));
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 403, latencyMs: 9, snippet: '{"message":"Forbidden"}', bodyLength: 23,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.resolved).toBe(true);
+    });
+
+    it("but a leaky 4xx (verbose error) is STILL a finding", async () => {
+        findUnique.mockResolvedValue(row());
+        const fire = vi.fn().mockResolvedValue({
+            statusCode: 400,
+            latencyMs: 8,
+            snippet: '{"error":"invalid input at line 42 of QueryBuilder"}',
+            bodyLength: 52,
+        });
+        const res = await rescanFinding("log-1", { fire });
+        expect(res.outcome).toBe("still_present");
+    });
+});

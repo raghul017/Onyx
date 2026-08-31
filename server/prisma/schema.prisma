@@ -233,6 +233,12 @@ model TargetEndpoint {
   path              String
   operationId       String?
   requestBodySchema Json? // raw JSON schema for the request body
+  // T15b-fix: the endpoint's parsed parameters (name/in/required/schema). The
+  // scan carries these on the job; persisting them lets a single-finding re-scan
+  // rebuild the EXACT original request (query/header/path injection included)
+  // instead of firing with no params and risking a false "resolved".
+  // Null on rows created before this column existed — rescan falls back to [].
+  parameters        Json?
   authRequirements  Json? // T7a: compact auth descriptors this endpoint expects (display-only)
 
   testRun   TestRun            @relation(fields: [testRunId], references: [id], onDelete: Cascade)

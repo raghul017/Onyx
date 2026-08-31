@@ -1133,3 +1133,39 @@ and re-checked now. (A thin client button is the next ticket.)
 - **Changed:** `prisma/schema.prisma` (AttackLog.resolvedAt + lastCheckedAt), `src/controllers/test-run.controller.ts` (surface both fields on the read path), `src/types/shared.ts` (AttackResult gains the two optional fields), `src/routes/index.ts` (route + rescan rate limiter); docs/UPDATES.md.
 - **Schema/migration:** `20260831102558_t15b_finding_rescan` — applied via `migrate deploy`; `migrate status` → "Database schema is up to date!". Additive only (two nullable columns).
 - **Tests:** 404 pass (35 files; +22) — safe-now ⇒ resolved with resolvedAt set; still-vulnerable ⇒ lastCheckedAt set and resolvedAt cleared; mass-assignment and data-exposure both directions; BOLA/BFLA ⇒ unsupported with nothing updated; missing log and firing failure ⇒ error with nothing marked resolved; ownership (owner ✓, org member ✓, non-owner 403, unauthenticated 403, missing run 404, cross-run log 404); and the read path emitting nulls / ISO strings with the score unchanged.
+
+## 2026-08-31 — T15b-fix: persist endpoint parameters for accurate re-scan
+
+Backend-only. Closes the false-"resolved" gap flagged in T15b: `rescanFinding`
+re-fired with `parameters: []` because T4 threaded endpoint parameters through
+the BullMQ job but never persisted them. Body/path checks were fine, but a
+query- or header-parameter injection finding was re-fired **without** that
+parameter — so a still-vulnerable endpoint could be reported as resolved.
+
+- **Schema:** `TargetEndpoint.parameters Json?` (additive, nullable) —
+  migration `20260831104754_t15b_fix_endpoint_parameters`, applied via `migrate deploy`; `migrate status` clean.
+- **Populate:** the endpoint-creation call now stores `ep.parameters` alongside
+  `requestBodySchema` (`undefined` when empty, so the column stays NULL).
+  **Scan runtime behavior is unchanged** — jobs still carry parameters exactly as
+  before; this is purely persistence for later re-verification.
+- **Consume:** `rescan.service` selects `parameters` and passes them to the
+  request-builder at both call sites, so a re-fired request reconstructs
+  path/query/header injection exactly as the original.
+- **Legacy fallback:** rows created before this column exist with
+  `parameters = null`; rescan falls back to `[]` (pre-fix behavior) for that
+  older data, and an `Array.isArray` guard also tolerates a malformed value.
+  New scans persist parameters from here on.
+
+**Also fixed — a real bug found while testing this.** `rescanFinding` decided
+"still present" with `severity !== "INFO"`. But `analyzeFinding` classifies a
+clean 4xx rejection as **"Input Rejected" — LOW severity with
+`confidence: "info"`**, whose own cause reads *"input validation is doing its
+job"*. Under the old check, an endpoint that had genuinely been **patched to
+reject the payload** would have stayed "still present" forever and could never be
+resolved. The verdict now keys on an explicit not-reproduced category set
+(`Handled`, `Input Rejected`, `Access Control Enforced`, `Request Error`) plus
+the `confidence === "info"` marker they all share, rather than severity alone. A
+leaky 4xx (`Verbose Error / Info Disclosure`) correctly remains a finding.
+
+- **Changed:** `prisma/schema.prisma` (TargetEndpoint.parameters), `src/controllers/test-run.controller.ts` (persist ep.parameters at endpoint creation), `src/services/rescan.service.ts` (select + use stored parameters; corrected the still-present threshold); docs/UPDATES.md.
+- **Tests:** 419 pass (37 files; +15) — the re-fired URL carries the stored query param with the ORIGINAL payload; a still-vulnerable query-param finding is not falsely resolved while a genuinely fixed one is; stored header params are applied; legacy `null` and malformed `parameters` fall back without crashing; endpoint creation persists `parameters` and rescan no longer hardcodes `[]`; and regression guards that "Input Rejected" / 403 count as FIXED while a verbose 4xx does not.
