@@ -16,6 +16,8 @@ import {
 } from "../services/openapi-parser.js";
 import { generatePayloadsForEndpoint } from "../services/ai-payload.js";
 import { enqueueAttackJobs, enqueueBaselineJobs } from "../queues/producer.js";
+import { orchestrateReplays } from "../services/bola-orchestrator.js";
+import { runBolaIdAcquisitionFetcher } from "../services/bola-fetcher.js";
 import { wsManager } from "../websockets/ws-manager.js";
 import { assertNotSSRF } from "../lib/ssrf-guard.js";
 import { getEffectivePlan } from "../services/org.service.js";
@@ -553,6 +555,52 @@ async function processTestRunAsync(
         );
 
         totalJobs = results.reduce((a, n) => a + n, 0);
+
+        // ── BOLA replays (T13a) ── AFTER the primary scan enqueues, and ONLY when
+        // the run has >=2 identities, acquire ids as A and enqueue cross-identity
+        // replay jobs (as each secondary B). Skips cleanly otherwise (no effect on
+        // a normal scan). Must run BEFORE enqueuedAt so totalReplays is counted by
+        // the completion gate. Best-effort: a failure here never fails the scan.
+        try {
+            const runIdentities = await prisma.runIdentity.findMany({
+                where: { testRunId },
+                select: { id: true, authRecipeId: true, isPrimary: true },
+            });
+            if (runIdentities.length >= 2) {
+                const primary = runIdentities.find((i) => i.isPrimary);
+                if (primary) {
+                    // Enrich saved endpoints (DB ids) with parsed parameters.
+                    const paramsByKey = new Map(
+                        endpoints.map((ep) => [`${ep.method} ${ep.path}`, ep.parameters ?? []]),
+                    );
+                    const orchestratorEndpoints = savedEndpoints.map((se) => ({
+                        endpointId: se.id,
+                        method: se.method,
+                        path: se.path,
+                        parameters: (paramsByKey.get(`${se.method} ${se.path}`) ?? []) as any,
+                    }));
+                    await orchestrateReplays({
+                        testRunId,
+                        baseUrl,
+                        identities: runIdentities,
+                        endpoints: orchestratorEndpoints,
+                        fetchCollectionAsPrimary: runBolaIdAcquisitionFetcher(
+                            testRunId,
+                            baseUrl,
+                            primary.id,
+                        ),
+                        setTotalReplays: async (id, n) => {
+                            await prisma.testRun.update({
+                                where: { id },
+                                data: { totalReplays: n },
+                            });
+                        },
+                    });
+                }
+            }
+        } catch (err) {
+            runLog.error({ err }, "BOLA replay orchestration failed (scan unaffected)");
+        }
 
         // Mark enqueuing complete. The worker won't finalize a run as COMPLETED
         // until this is set, so early-finishing endpoints can't prematurely

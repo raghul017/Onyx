@@ -32,6 +32,11 @@ import {
     executeWithAuthRefresh,
     type ResolvedCredential,
 } from "../services/credential-resolver.js";
+import {
+    IdentityCredentialResolver,
+    type IdentityRef,
+} from "../services/identity-credential-resolver.js";
+import { loadRecipeCredential } from "../services/recipe-credential-loader.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
@@ -104,53 +109,23 @@ async function getBaselineFor(
 // ONE login. The decrypted secret + resolved token live only in worker memory —
 // never persisted, never logged, never placed in Redis.
 
-/** Load + resolve a recipe into a credential. Never throws — on failure it fires
- *  un-authenticated (value: null) but preserves the `dynamic` flag so a mid-run
- *  401 can still trigger one login retry. */
-async function loadRecipeCredential(recipeId: string): Promise<ResolvedCredential> {
-    let row: { type: string; meta: unknown; secretEnc: string } | null = null;
-    try {
-        row = await prisma.authRecipe.findUnique({
-            where: { id: recipeId },
-            select: { type: true, meta: true, secretEnc: true },
-        });
-    } catch (err) {
-        log.error({ recipeId, err: safeErr(err) }, "Failed to load auth recipe");
-        return { value: null, dynamic: false };
-    }
-    if (!row) return { value: null, dynamic: false };
-
-    const dynamic = isDynamicType(row.type);
-    try {
-        if (!dynamic) {
-            return { value: toAttachedCredential(row), dynamic: false };
-        }
-        // Dynamic: decrypt the JSON secret + call the auth-runner (SSRF-guarded).
-        const secret = JSON.parse(decryptSecret(row.secretEnc)) as Record<string, string>;
-        const value = await resolveDynamicCredential({
-            type: row.type as "loginRequest" | "oauth2ClientCredentials",
-            meta: (row.meta ?? {}) as Record<string, unknown>,
-            secret,
-        });
-        log.info({ recipeId, type: row.type }, "Resolved dynamic credential");
-        return { value, dynamic: true };
-    } catch (err) {
-        // SSRF block / non-2xx / missing token / decrypt failure: fire un-authed.
-        // NEVER log the secret or token — only the safe reason.
-        log.error(
-            { recipeId, type: row.type, reason: safeErr(err) },
-            "Failed to resolve credential — firing without it",
-        );
-        return { value: null, dynamic };
-    }
-}
-
-/** A safe, secret-free error string for logging. */
-function safeErr(err: unknown): string {
-    return err instanceof Error ? err.message : String(err);
-}
-
+// loadRecipeCredential moved to ../services/recipe-credential-loader.js (T13a)
+// so the BOLA orchestrator can resolve credentials exactly like the scan does.
 const credentialResolver = new CredentialResolver(loadRecipeCredential);
+
+// Per-identity resolver (T12a) — resolves a credential for ANY run identity by
+// its id → authRecipeId → the shared credentialResolver (anonymous → no cred).
+// Used by the BOLA replay path to fire AS identity B and AS identity A.
+const identityCredentialResolver = new IdentityCredentialResolver(
+    credentialResolver,
+    async (identityId: string): Promise<IdentityRef | null> => {
+        const row = await prisma.runIdentity.findUnique({
+            where: { id: identityId },
+            select: { id: true, testRunId: true, authRecipeId: true },
+        });
+        return row;
+    },
+);
 
 /** Scrub the exact credential secret from a stored/broadcast string (T7a).
  *  Runs BEFORE the generic T3 redaction so even custom header/cookie secrets
@@ -305,6 +280,8 @@ async function finalizeIfComplete(
         totalAttacks: number;
         totalBaselines: number;
         completedBaselines: number;
+        totalReplays: number;
+        completedReplays: number;
         status: string;
     },
 ): Promise<void> {
@@ -318,6 +295,8 @@ async function finalizeIfComplete(
                 totalAttacks: true,
                 totalBaselines: true,
                 completedBaselines: true,
+                totalReplays: true,
+                completedReplays: true,
                 status: true,
             },
         }));
@@ -451,6 +430,15 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
             runState.authRecipeId,
             primaryIdentityId,
         );
+        return;
+    }
+
+    // Replay job (T13a) — BOLA machinery. Re-request the detail endpoint with
+    // identity A's object id, once AS identity B and once AS identity A, and
+    // record both AttackLogs (no verdict — that's T13b). Never touches the
+    // attack/baseline counters; advances its own completedReplays.
+    if (validation.data.kind === "replay") {
+        await processReplayJob(validation.data);
         return;
     }
 
@@ -894,4 +882,113 @@ async function incrementCompletedBaseline(testRunId: string): Promise<void> {
         data: { completedBaselines: { increment: 1 } },
     });
     await finalizeIfComplete(testRunId, testRun);
+}
+
+/** Advance the replay counter (T13a) and check run completion. */
+async function incrementCompletedReplay(testRunId: string): Promise<void> {
+    const testRun = await prisma.testRun.update({
+        where: { id: testRunId },
+        data: { completedReplays: { increment: 1 } },
+    });
+    await finalizeIfComplete(testRunId, testRun);
+}
+
+// ---------------------------------------------------------------------------
+// Replay job (T13a) — BOLA machinery. Re-request the detail endpoint with
+// identity A's object id, once AS identity B (the potential cross-tenant
+// accessor) and once AS identity A (the owner's own baseline for that id), and
+// record both as AttackLogs so T13b can diff them. NO verdict/finding here.
+// ---------------------------------------------------------------------------
+async function processReplayJob(data: AttackJobData): Promise<void> {
+    const {
+        testRunId,
+        endpointId,
+        method,
+        path,
+        baseUrl,
+        parameters,
+        requestBodySchema,
+        objectId,
+        idParamName,
+        sourceIdentityId, // A
+        targetIdentityId, // B
+    } = data;
+
+    // Replay fields must be present (schema keeps them optional for the union).
+    if (!objectId || !idParamName || !sourceIdentityId || !targetIdentityId) {
+        await incrementCompletedReplay(testRunId);
+        return;
+    }
+
+    // Inject A's object id into the detail path (URL-encoded), leaving other
+    // placeholders to the builder's benign dummies. Drop the id param from the
+    // list so the builder doesn't overwrite the now-literal segment.
+    const injectedPath = path.replace(/\{([^}]+)\}/g, (_m, raw) =>
+        String(raw).trim() === idParamName ? encodeURIComponent(objectId) : `{${String(raw).trim()}}`,
+    );
+    const otherParams = (parameters ?? []).filter((p) => p.name !== idParamName);
+
+    // Fire the injected detail request AS one identity; return a redacted result.
+    const fireAs = async (identityId: string) => {
+        const resolved = await identityCredentialResolver.resolveForIdentity(identityId);
+        const request = buildBenignRequest({
+            method,
+            path: injectedPath,
+            baseUrl,
+            parameters: otherParams,
+            requestBodySchema,
+            credential: resolved.value,
+        });
+        try {
+            await assertNotSSRF(request.url);
+        } catch {
+            return null; // SSRF-blocked → record nothing for this side
+        }
+        let res: AttackExecutionResult;
+        try {
+            res = await executeAttack(request);
+        } catch (err) {
+            return { statusCode: classifyNetworkError(err).statusCode, latencyMs: 0, snippet: null as string | null, bodyLength: 0 };
+        }
+        // Scrub this identity's credential, then T3-redact, then cap.
+        const snippet = res.responseSnippet
+            ? redactSecrets(scrubCredential(res.responseSnippet, resolved.value)!)
+                  .replace(/\0/g, "\\u0000")
+                  .slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
+            : null;
+        return { statusCode: res.statusCode, latencyMs: res.latencyMs, snippet, bodyLength: res.bodyLength };
+    };
+
+    // B first (the actual cross-identity probe), then A (owner baseline for the id).
+    const bResult = await fireAs(targetIdentityId);
+    const aResult = await fireAs(sourceIdentityId);
+
+    // Record both as AttackLogs (BOLA_REPLAY). identityId = who fired it;
+    // bolaSourceIdentityId = A (owner); bolaObjectId = the id under test. T13b
+    // groups by (endpointId, bolaObjectId) and compares the A row vs the B row.
+    const rows = [
+        bResult && { identityId: targetIdentityId, r: bResult },
+        aResult && { identityId: sourceIdentityId, r: aResult },
+    ].filter(Boolean) as Array<{ identityId: string; r: NonNullable<Awaited<ReturnType<typeof fireAs>>> }>;
+
+    if (rows.length > 0) {
+        await prisma.attackLog.createMany({
+            data: rows.map(({ identityId, r }) => ({
+                testRunId,
+                endpointId,
+                method,
+                path: injectedPath,
+                payload: "", // replay carries no payload
+                statusCode: r.statusCode,
+                latencyMs: r.latencyMs,
+                responseSnippet: r.snippet,
+                attackType: "BOLA_REPLAY",
+                identityId,
+                bolaObjectId: objectId,
+                bolaSourceIdentityId: sourceIdentityId,
+            })),
+        });
+    }
+
+    await incrementCompletedReplay(testRunId);
 }

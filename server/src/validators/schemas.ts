@@ -131,10 +131,20 @@ export const attackJobDataSchema = z.object({
     // validate and behave like a bare request (path resolved, no param injection).
     parameters: z.array(parsedParameterSchema).optional().default([]),
     requestBodySchema: z.record(z.unknown()).nullable().optional().default(null),
-    // Job kind (T5). "attack" fires a payload; "baseline" fires ONE benign
-    // control request and stores a BaselineResponse. Defaults to "attack" so all
-    // pre-T5 jobs (which have no `kind`) keep their exact behavior.
-    kind: z.enum(["attack", "baseline"]).optional().default("attack"),
+    // Job kind (T5/T13a). "attack" fires a payload; "baseline" fires ONE benign
+    // control request and stores a BaselineResponse; "replay" (T13a) re-requests
+    // a detail endpoint with identity A's object id while attached to identity B
+    // (BOLA machinery). Defaults to "attack" so all pre-T5 jobs keep behavior.
+    kind: z.enum(["attack", "baseline", "replay"]).optional().default("attack"),
+    // ── Replay-only fields (T13a) — present only when kind === "replay". ──
+    /** The object id acquired AS identity A, injected into the detail path. */
+    objectId: z.string().optional(),
+    /** Identity A — whose object id this is (the resource owner). */
+    sourceIdentityId: z.string().uuid().optional(),
+    /** Identity B — who we replay AS (the potential cross-tenant accessor). */
+    targetIdentityId: z.string().uuid().optional(),
+    /** The path param name that carries the object id (e.g. "id", "userId"). */
+    idParamName: z.string().optional(),
 });
 
 export type AttackJobData = z.infer<typeof attackJobDataSchema>;

@@ -22,6 +22,9 @@ export interface RunCompletionCounts {
     // baselines as "none outstanding" and behave exactly as before.
     totalBaselines?: number | null;
     completedBaselines?: number | null;
+    // Replay (BOLA) jobs (T13a) — optional so pre-T13 rows behave as before.
+    totalReplays?: number | null;
+    completedReplays?: number | null;
 }
 
 export function isRunComplete(c: RunCompletionCounts): boolean {
@@ -35,5 +38,10 @@ export function isRunComplete(c: RunCompletionCounts): boolean {
     const totalBaselines = c.totalBaselines ?? 0;
     const completedBaselines = c.completedBaselines ?? 0;
     if (completedBaselines < totalBaselines) return false;
+    // ...and every replay too (T13a; defaults treat missing counts as 0/0, so a
+    // run with no replays — single-identity/normal — is unaffected).
+    const totalReplays = c.totalReplays ?? 0;
+    const completedReplays = c.completedReplays ?? 0;
+    if (completedReplays < totalReplays) return false;
     return true;
 }

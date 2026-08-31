@@ -137,3 +137,68 @@ export async function enqueueBaselineJobs(
 
     return jobs.length;
 }
+
+// ---------------------------------------------------------------------------
+// Replay jobs (T13a) — BOLA machinery. Each replay re-requests a detail endpoint
+// with identity A's object id while attached to identity B, so T13b can judge
+// whether B reached A's data. Lower priority than attacks so the primary scan
+// isn't delayed. Pre-computed specs are passed in (id acquisition happens in the
+// BOLA orchestrator); this function only enqueues.
+// ---------------------------------------------------------------------------
+const REPLAY_PRIORITY = 3;
+
+export interface ReplayJobSpec {
+    endpointId: string;
+    method: string;
+    path: string; // detail path, e.g. "/users/{id}"
+    parameters?: ParsedParameterInput[];
+    requestBodySchema?: Record<string, unknown> | null;
+    objectId: string; // A's acquired id
+    idParamName: string; // path param that carries the id
+    sourceIdentityId: string; // A
+    targetIdentityId: string; // B
+}
+
+/**
+ * Enqueue replay (kind: "replay") jobs. Returns the number enqueued. Callers
+ * only invoke this when the run has >=2 identities and has resolvable ids, so
+ * an empty array here is a clean no-op (normal scans enqueue none).
+ */
+export async function enqueueReplayJobs(
+    testRunId: string,
+    baseUrl: string,
+    specs: ReplayJobSpec[],
+): Promise<number> {
+    if (specs.length === 0) return 0;
+
+    const jobs = specs.map((s) => ({
+        name: `replay-${testRunId}`,
+        data: {
+            testRunId,
+            endpointId: s.endpointId,
+            method: s.method,
+            path: s.path,
+            baseUrl,
+            payload: "", // replay carries no attack payload
+            attackType: "BOLA_REPLAY",
+            parameters: s.parameters ?? [],
+            requestBodySchema: s.requestBodySchema ?? null,
+            kind: "replay",
+            objectId: s.objectId,
+            idParamName: s.idParamName,
+            sourceIdentityId: s.sourceIdentityId,
+            targetIdentityId: s.targetIdentityId,
+        },
+        opts: {
+            // One replay per (run, endpoint, A-id, B) — idempotent re-enqueue.
+            jobId: `${testRunId}:${s.endpointId}:${s.objectId}:${s.targetIdentityId}:replay`,
+            priority: REPLAY_PRIORITY,
+        },
+    }));
+
+    await chaosQueue.addBulk(jobs);
+
+    log.info({ testRunId, count: jobs.length }, "Enqueued replay jobs");
+
+    return jobs.length;
+}

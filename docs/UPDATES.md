@@ -656,3 +656,47 @@ backward compatible; UI is T12b (no client work here).
 - **Tests:** 219 pass (17 files; +2 new — 10 T12 cases). Covers: multi-identity persistence shape, ownership/cap/unique/single-primary validation, primary selection, per-identity resolution incl. anonymous→no-cred and shared-cache, and backward-compat (legacy/anonymous unchanged). `npm run build`/tsc clean.
 - **Backward compatibility:** legacy single-recipe and anonymous runs produce identical behavior with a single primary RunIdentity; completion gate unaffected; existing 209 tests still green.
 - **Execution deferred to T13:** cross-identity (BOLA) replays that actually fire as secondary identities. **T12b:** UI to attach 2+ identities.
+
+## 2026-08-31 — T13a: BOLA machinery — object-id detection, id acquisition, replay jobs
+
+Phase 6. **MACHINERY ONLY** — no BOLA verdict/finding is emitted here; T13b judges
+the raw A-vs-B results this ticket records. Builds on T12a (RunIdentity, identityId
+on AttackLog, IdentityCredentialResolver). Backend-only.
+
+When a run has >=2 identities, Onyx now: (1) finds GET-by-id DETAIL endpoints and
+pairs them with their COLLECTION endpoint; (2) as the PRIMARY identity A, acquires
+a real object id (from the collection JSON, else the spec example); (3) enqueues
+"replay" jobs that re-request each detail endpoint with A's id AS each secondary
+identity B; (4) the worker fires the replay AS B and AS A (owner baseline for that
+id) and records both as AttackLogs (attackType BOLA_REPLAY) tagged by identity —
+so T13b can group by (endpointId, bolaObjectId) and diff A vs B. If preconditions
+aren't met (<2 identities, no detail endpoints, no acquired ids, or an anonymous
+primary), NO replay jobs are enqueued and a normal scan is byte-for-byte unchanged.
+
+- **Pure intelligence** (`object-id.ts`): id-param detection (path names id/*Id/
+  *_id/uuid or integer/uuid types; last-in-path wins) + collection/detail pairing.
+  `id-acquisition.ts`: JSON id extraction (arrays + data/items/results envelopes)
+  + spec-example fallback + acquire orchestration. `bola-planner.ts`: plans B-vs-A
+  replay specs, bounded by MAX_REPLAY_JOBS (60), skips cleanly. All unit-tested.
+- **Orchestration** (`bola-orchestrator.ts` + `bola-fetcher.ts`): controller runs
+  it AFTER the primary scan enqueues; the fetcher fires the collection GET as A
+  (SSRF-guarded, 10s timeout, credential via IdentityCredentialResolver). Extracted
+  `recipe-credential-loader.ts` from worker.ts so acquisition-as-A and replay-as-B
+  resolve credentials exactly like the scan (no logic duplicated).
+- **Job kind "replay"** (`attackJobDataSchema` + producer `enqueueReplayJobs`,
+  priority 3 < attacks). Worker `processReplayJob`: injects A's objectId into the
+  detail path, fires as B then A, records two AttackLogs (BOLA_REPLAY, identityId =
+  firer, bolaSourceIdentityId = A, bolaObjectId = id), redacted + SSRF-guarded +
+  timed. NO finding.
+- **Completion gate**: `totalReplays`/`completedReplays` tracked separately (like
+  baselines); `isRunComplete` waits for replays too; attack progress unaffected;
+  missing counts default 0/0 so pre-T13/normal runs are unchanged.
+
+- **Schema (additive migration `20260831054540_t13a_bola_replay`, applied via
+  migrate deploy; migrate status clean):** AttackLog `bolaObjectId`/
+  `bolaSourceIdentityId` (nullable); TestRun `totalReplays`/`completedReplays`
+  (Int default 0). No drops/data loss. Job-kind string needs no migration.
+- **Added:** `server/src/services/object-id.ts`, `id-acquisition.ts`, `bola-planner.ts`, `bola-orchestrator.ts`, `bola-fetcher.ts`, `recipe-credential-loader.ts` + 4 test files (`object-id`, `id-acquisition`, `bola-planner`, `bola-orchestrator`); migration dir.
+- **Changed:** `prisma/schema.prisma` (replay columns/counters), `src/validators/schemas.ts` (kind "replay" + replay fields), `src/queues/producer.ts` (enqueueReplayJobs), `src/queues/worker.ts` (replay branch + processReplayJob + identity resolver wiring; loadRecipeCredential moved out), `src/services/run-completion.ts` (+replay counts), `src/controllers/test-run.controller.ts` (orchestrate replays after scan enqueue), `src/services/__tests__/run-completion.test.ts` (+replay cases); docs/UPDATES.md.
+- **Tests:** 255 pass (21 files; +~30 T13a cases). `npm run build`/tsc clean.
+- **Deferred to T13b:** the BOLA verdict — comparing each (A row, B row) pair to decide whether B accessed A's data, and emitting the finding.

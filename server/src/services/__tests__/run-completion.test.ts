@@ -88,3 +88,24 @@ describe("isRunComplete — attack/baseline counts are independent", () => {
         expect(isRunComplete({ ...c, completedBaselines: 1 })).toBe(true);
     });
 });
+
+describe("isRunComplete — replay (BOLA) counts (T13a)", () => {
+    it("a run with outstanding replays stays open until they finish", () => {
+        const c = run({
+            totalAttacks: 5,
+            completedAttacks: 5,
+            totalBaselines: 2,
+            completedBaselines: 2,
+            totalReplays: 3,
+            completedReplays: 1,
+        });
+        expect(isRunComplete(c)).toBe(false);
+        expect(isRunComplete({ ...c, completedReplays: 3 })).toBe(true);
+    });
+
+    it("backward compat: a run with NO replay counts (undefined) completes on attacks+baselines", () => {
+        // Pre-T13 rows / normal single-identity scans have no replay columns set.
+        const c = run({ totalAttacks: 3, completedAttacks: 3 });
+        expect(isRunComplete(c)).toBe(true);
+    });
+});

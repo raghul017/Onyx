@@ -146,6 +146,11 @@ model TestRun {
   // once both attacks AND baselines are done (see isRunComplete).
   totalBaselines     Int       @default(0)
   completedBaselines Int       @default(0)
+  // Replay (BOLA cross-identity) job accounting (T13a), tracked separately like
+  // baselines so attack progress stays clean. The run completes only once
+  // attacks AND baselines AND replays are all done (see isRunComplete).
+  totalReplays       Int       @default(0)
+  completedReplays   Int       @default(0)
   enqueuedAt         DateTime? // set once ALL attack jobs are enqueued; guards premature completion
   // Denormalized score, computed once when the run reaches a terminal state so
   // the history list doesn't have to load every log to re-derive it. Nullable:
@@ -310,20 +315,27 @@ model VerifiedTarget {
 // Attack Log — individual payload execution results
 // ---------------------------------------------------------------------------
 model AttackLog {
-  id              String   @id @default(uuid())
-  testRunId       String
-  endpointId      String
-  method          String
-  path            String
-  payload         String   @db.Text
-  statusCode      Int?
-  latencyMs       Int?
-  responseSnippet String?  @db.Text
-  attackType      String   @default("UNKNOWN")
-  owaspCategory   String? // T9: OWASP API Top 10 (2023) code, or null = Unmapped
-  identityId      String? // T12: the RunIdentity this attack was fired as (scan → primary)
-  error           String?
-  createdAt       DateTime @default(now())
+  id                   String   @id @default(uuid())
+  testRunId            String
+  endpointId           String
+  method               String
+  path                 String
+  payload              String   @db.Text
+  statusCode           Int?
+  latencyMs            Int?
+  responseSnippet      String?  @db.Text
+  attackType           String   @default("UNKNOWN")
+  owaspCategory        String? // T9: OWASP API Top 10 (2023) code, or null = Unmapped
+  identityId           String? // T12: the RunIdentity this attack was fired as (scan → primary)
+  // BOLA machinery (T13a). Set on the paired A/B rows of a cross-identity replay
+  // so T13b can group them by (endpointId, bolaObjectId) and diff A vs B.
+  //   bolaObjectId         = the object id (acquired as A) that was requested.
+  //   bolaSourceIdentityId = identity A (the resource owner). On the B (replay)
+  //   row this points at A; on A's own capture row it equals identityId.
+  bolaObjectId         String?
+  bolaSourceIdentityId String?
+  error                String?
+  createdAt            DateTime @default(now())
 
   testRun  TestRun        @relation(fields: [testRunId], references: [id], onDelete: Cascade)
   endpoint TargetEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
