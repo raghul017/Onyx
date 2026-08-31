@@ -1047,3 +1047,43 @@ report and a public, read-only report page for logged-out visitors.
 - **Changed:** `client/src/pages/Report.tsx` (render ReportBody + mount ShareReportControl; trimmed now-unused imports/derived state), `client/src/services/api.ts` (create/get/revoke share bindings + the bare-axios public `getSharedReport`), `client/src/App.tsx` (public `/shared/:token` route outside ProtectedRoute); docs/UPDATES.md.
 - **Tests:** client 68 pass (10 files; +4) — the public fetch uses bare axios with no auth headers and URL-encodes the token, and the three owner bindings exist. `npm run build` clean (prerender 10/10).
 - **Schema/migration:** none. **Backend:** untouched.
+
+## 2026-08-31 — T15a: framework-specific remediation snippets
+
+CLIENT-ONLY, **no LLM** — a curated library only, so a finding can never show
+hallucinated security advice. Purely a display enhancement: no backend, no
+schema, no new attack traffic.
+
+- **Library** (`client/src/data/remediation.ts`): a lookup keyed by
+  **(finding category × framework)** for Express, FastAPI, Spring, Django. Keys
+  match the backend's `category` strings **verbatim** (grepped from
+  `finding-analysis.ts` plus the BOLA/BFLA/mass-assignment/data-exposure verdict
+  services) — a typo would silently degrade every cell to the generic fallback,
+  so a test asserts every key is a real backend category.
+- **Coverage — 36 of 48 cells filled across 12 categories.** Every snippet uses a
+  canonical, real API: parameterized queries (`pg` `$1`, `mysql2` `?`, SQLAlchemy
+  bound params, Django ORM / `%s`), template auto-escaping + CSP, `path.resolve`
+  containment and `Path.is_relative_to`, router-level auth middleware /
+  `APIRouter(dependencies=…)` / `SecurityFilterChain` deny-by-default / DRF
+  `DEFAULT_PERMISSION_CLASSES`, ownership-scoped queries and DRF `get_queryset`,
+  `@PreAuthorize` method security, allow-listed DTOs / Pydantic request models /
+  DRF `fields` + `read_only_fields`, FastAPI `response_model`, Spring record DTOs,
+  central error handlers + `server.error.include-stacktrace=never` + `DEBUG=False`.
+  **12 cells were deliberately OMITTED** rather than guessed (they fall back to
+  the generic text): XSS and time-based injection for FastAPI/Spring, Path
+  Traversal for Spring/Django, BOLA and Mass Assignment for Spring, Sensitive Data
+  Exposure for FastAPI/Spring, Unhandled Server Error for Spring/Django.
+- **UI** (`FindingDetailPanel`): the "How to fix" section gains a compact
+  framework picker (Generic · Express · FastAPI · Spring · Django) in the existing
+  light-mono chip style; frameworks with no snippet for that finding render muted
+  with a tooltip. **Generic is the default and the finding's existing remediation
+  text is ALWAYS shown** — a snippet is additive, in the light code-block style
+  (JetBrains Mono on `#f5f5f5`, hairline border, language label + Copy button,
+  `overflow-x-auto`). Choosing a framework with no cell shows "No
+  framework-specific snippet — generic guidance shown." The choice persists in
+  `localStorage` (wrapped in try/catch) so the user picks their stack once.
+
+- **Added:** `client/src/data/remediation.ts`, `client/src/test/remediation.test.ts`.
+- **Changed:** `client/src/components/FindingDetailPanel.tsx` (new `RemediationSection` with the picker + snippet + Copy, replacing the plain remediation `Section`); docs/UPDATES.md.
+- **Tests:** client 78 pass (11 files; +10) — every library key is a real backend category, the exploitable categories are covered, known pairs return a snippet, unknown/`generic`/null return null (generic fallback), an intentionally-omitted pair returns null without throwing, every snippet has real summary/code/language, and only declared framework ids are used.
+- **Schema/migration:** none. **Backend:** untouched. **LLM:** none.
