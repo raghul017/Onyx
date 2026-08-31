@@ -78,6 +78,9 @@ const attackTypeEnum = z.enum([
     // every replay job failed validation in the worker and was dropped.
     "BOLA_REPLAY",
     "BFLA_PROBE",
+    // T14b — mass-assignment probe (API3). Rides the normal "attack" kind, so it
+    // uses the existing attack counters/gate; the payload IS the merged JSON body.
+    "MASS_ASSIGNMENT",
     "UNKNOWN",
 ]);
 

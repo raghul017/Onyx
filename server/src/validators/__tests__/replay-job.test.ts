@@ -53,6 +53,18 @@ describe("replay job validation", () => {
         expect(r.success).toBe(true);
     });
 
+    it("accepts a MASS_ASSIGNMENT probe job (T14b)", () => {
+        // Regression guard: a new attackType missing from the enum means the
+        // worker's safeParse drops the job silently (the T14a BOLA bug).
+        const r = attackJobDataSchema.safeParse({
+            ...base,
+            kind: "attack",
+            attackType: "MASS_ASSIGNMENT",
+            payload: '{"name":"test","role":"onyx_admin_probe"}',
+        });
+        expect(r.success).toBe(true);
+    });
+
     it("rejects an unknown attackType", () => {
         const r = attackJobDataSchema.safeParse({ ...base, attackType: "NOT_A_TYPE" });
         expect(r.success).toBe(false);

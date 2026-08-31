@@ -27,6 +27,11 @@ export type AttackType =
     | "OVERSIZED_PAYLOAD"
     | "TYPE_CONFUSION"
     | "RATE_LIMIT"
+    // Cross-identity + property-level probes (T13a/T14a/T14b). These carry no
+    // attack payload in the classic sense; they ride the replay/attack jobs.
+    | "BOLA_REPLAY"
+    | "BFLA_PROBE"
+    | "MASS_ASSIGNMENT"
     | "UNKNOWN";
 
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";

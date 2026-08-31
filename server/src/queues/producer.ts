@@ -8,6 +8,10 @@ import type {
     ParsedParameterInput,
 } from "../validators/schemas.js";
 import { logger } from "../lib/logger.js";
+import {
+    isMassAssignmentCandidate,
+    buildMassAssignmentBody,
+} from "../services/mass-assignment.js";
 
 const log = logger.child({ component: "producer" });
 
@@ -206,5 +210,65 @@ export async function enqueueReplayJobs(
 
     log.info({ testRunId, count: jobs.length }, "Enqueued replay jobs");
 
+    return jobs.length;
+}
+
+// ---------------------------------------------------------------------------
+// Mass-assignment probes (T14b, API3)
+// ---------------------------------------------------------------------------
+
+export interface MassAssignmentEndpoint {
+    endpointId: string;
+    method: string;
+    path: string;
+    parameters?: ParsedParameterInput[];
+    requestBodySchema?: Record<string, unknown> | null;
+}
+
+/**
+ * Enqueue ONE mass-assignment probe per write endpoint that has an object body
+ * schema. These are ordinary `kind: "attack"` jobs (attackType MASS_ASSIGNMENT),
+ * so they use the existing attack counters + completion gate and fire under the
+ * run's primary identity like every other attack — no new counters, no migration.
+ *
+ * The payload IS the merged JSON body (valid schema dummies + injected privileged
+ * fields); buildAttackRequest sends a JSON-like payload as the body verbatim.
+ * Returns the number enqueued (0 when a spec has no eligible write endpoints).
+ */
+export async function enqueueMassAssignmentJobs(
+    testRunId: string,
+    baseUrl: string,
+    endpoints: MassAssignmentEndpoint[],
+): Promise<number> {
+    const candidates = endpoints.filter((ep) =>
+        isMassAssignmentCandidate({ method: ep.method, requestBodySchema: ep.requestBodySchema }),
+    );
+    if (candidates.length === 0) return 0;
+
+    const jobs = candidates.map((ep) => {
+        const { body } = buildMassAssignmentBody(ep.requestBodySchema);
+        return {
+            name: `massassign-${testRunId}`,
+            data: {
+                testRunId,
+                endpointId: ep.endpointId,
+                method: ep.method,
+                path: ep.path,
+                baseUrl,
+                payload: body, // the merged JSON body
+                attackType: "MASS_ASSIGNMENT",
+                parameters: ep.parameters ?? [],
+                requestBodySchema: ep.requestBodySchema ?? null,
+                kind: "attack",
+            },
+            opts: {
+                // One probe per (run, endpoint) — idempotent re-enqueue.
+                jobId: `${testRunId}:${ep.endpointId}:massassign`,
+            },
+        };
+    });
+
+    await chaosQueue.addBulk(jobs);
+    log.info({ testRunId, count: jobs.length }, "Enqueued mass-assignment probes");
     return jobs.length;
 }

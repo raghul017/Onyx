@@ -15,7 +15,11 @@ import {
     OpenApiParserError,
 } from "../services/openapi-parser.js";
 import { generatePayloadsForEndpoint } from "../services/ai-payload.js";
-import { enqueueAttackJobs, enqueueBaselineJobs } from "../queues/producer.js";
+import {
+    enqueueAttackJobs,
+    enqueueBaselineJobs,
+    enqueueMassAssignmentJobs,
+} from "../queues/producer.js";
 import { orchestrateReplays } from "../services/bola-orchestrator.js";
 import { runBolaIdAcquisitionFetcher } from "../services/bola-fetcher.js";
 import { wsManager } from "../websockets/ws-manager.js";
@@ -561,6 +565,40 @@ async function processTestRunAsync(
         );
 
         totalJobs = results.reduce((a, n) => a + n, 0);
+
+        // ── Mass-assignment probes (T14b, API3) ── One extra ATTACK job per write
+        // endpoint that declares an object body schema: a valid body plus injected
+        // privileged fields, fired as the run's primary identity. Ordinary attack
+        // jobs, so they ride the existing attack counters + completion gate. Must
+        // run BEFORE enqueuedAt so totalAttacks includes them. Best-effort: a
+        // failure here never fails the scan, and a GET-only spec enqueues none.
+        try {
+            const massAssignCount = await enqueueMassAssignmentJobs(
+                testRunId,
+                baseUrl,
+                savedEndpoints.map((se) => {
+                    const parsed = endpoints.find(
+                        (ep) => ep.method === se.method && ep.path === se.path,
+                    );
+                    return {
+                        endpointId: se.id,
+                        method: se.method,
+                        path: se.path,
+                        parameters: (parsed?.parameters ?? []) as any,
+                        requestBodySchema: parsed?.requestBodySchema ?? null,
+                    };
+                }),
+            );
+            if (massAssignCount > 0) {
+                totalJobs += massAssignCount;
+                await prisma.testRun.update({
+                    where: { id: testRunId },
+                    data: { totalAttacks: { increment: massAssignCount } },
+                });
+            }
+        } catch (err) {
+            log.error({ testRunId, err }, "Mass-assignment enqueue failed");
+        }
 
         // ── BOLA replays (T13a) ── AFTER the primary scan enqueues, and ONLY when
         // the run has >=2 identities, acquire ids as A and enqueue cross-identity

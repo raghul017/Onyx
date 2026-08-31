@@ -863,3 +863,51 @@ privileged endpoints. If B succeeds where it should be denied, that's a confirme
 - **Schema/migration:** **none** — reuses `findingJson`, the replay counters, and existing columns. `prisma migrate status` → "Database schema is up to date!".
 - **Tests:** 317 pass (27 files; +31) — heuristic positives/negatives incl. substring guards, verdict (vulnerable/denied/non-privileged/absent/veto/judge-failure), planner fan-out + cap + all skip paths, and the job-validation regression. `npm run build`/tsc clean.
 - **Verification note:** end-to-end BFLA needs 2 identities configured against a real API, so verification here is via fixtures/unit tests.
+
+## 2026-08-31 — T14b: Mass Assignment (API3)
+
+Backend-only. Detects mass assignment / Broken Object Property Level
+Authorization: a client setting object properties it shouldn't by adding extra
+fields to a write request. Single-identity — runs under the run's PRIMARY
+identity (authed or anonymous) as part of the normal scan.
+
+- **Check placement:** implemented as an ordinary **`kind: "attack"` job with
+  `attackType: "MASS_ASSIGNMENT"`**, not a new job kind. It therefore rides the
+  existing attack counters + completion gate, fires under the primary identity
+  like every other attack, and needs **no new counters and no migration**. The
+  job's `payload` IS the merged JSON body — `buildAttackRequest` already sends a
+  JSON-like payload as the body verbatim, so no request-builder change was needed.
+- **Curated privileged-field list** (`mass-assignment.ts`, documented + tight):
+  privilege/authorization (`role`, `roles`, `isAdmin`, `is_admin`, `admin`,
+  `permissions`, `scope`, `scopes`), account state that gates access
+  (`isVerified`, `verified`, `isActive`), commercial value (`plan`, `isPremium`,
+  `balance`, `credit`, `price`), and ownership/tenancy (`ownerId`, `userId`,
+  `accountId`, `createdBy`). Ordinary client input (name, description, …) is
+  never flagged.
+- **Probe body:** schema-shaped valid dummies **plus** the privileged fields with
+  recognizable probe values (`onyx_admin_probe` / `true` / `999999`). A field the
+  schema **already declares is NOT injected** — an API openly accepting it isn't
+  mass assignment, and overwriting it would be a false positive.
+- **Candidates:** POST/PUT/PATCH with an object-shaped JSON `requestBodySchema`.
+  A GET-only spec enqueues nothing; existing scans are otherwise unchanged.
+- **Verdict:** 4xx (input validated/rejected) → SAFE. 2xx but the field isn't
+  reflected (server ignored it) → SAFE. 2xx **and** an injected privileged field
+  is reflected **with our exact probe value** → finding. Value-matching (not just
+  the key) is what keeps this safe: an API that merely mentions "role" in an error
+  string is not a finding. Optional Gemini **veto-only** judge (never raises alone;
+  a throw/null leaves the deterministic verdict standing). Severity HIGH,
+  confidence "firm" deterministically / "confirmed" when the judge corroborates.
+- **Persistence/surfacing:** stored in `findingJson` (the REDACTED finding) with
+  `owaspCategory: API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION`, so it flows
+  through the existing T13b `resolveFinding` read path, scoring, PDF, and **lights
+  up API3 coverage** with no extra work, and broadcasts like any attack result.
+- **Enum safety (T14a lesson):** `MASS_ASSIGNMENT` added to the job
+  `attackTypeEnum` — and `BOLA_REPLAY`/`BFLA_PROBE`/`MASS_ASSIGNMENT` added to the
+  shared `AttackType` union — with a regression test, so probes can't be silently
+  dropped by the worker's `safeParse`.
+
+- **Added:** `server/src/services/mass-assignment.ts`, `server/src/services/__tests__/mass-assignment.test.ts`.
+- **Changed:** `validators/schemas.ts` (MASS_ASSIGNMENT in the job enum), `types/shared.ts` (probe types in AttackType), `queues/producer.ts` (`enqueueMassAssignmentJobs`), `queues/worker.ts` (verdict on MASS_ASSIGNMENT + persist findingJson), `controllers/test-run.controller.ts` (enqueue probes before enqueuedAt, count into totalAttacks), `validators/__tests__/replay-job.test.ts` (enum guard); docs/UPDATES.md.
+- **Schema/migration:** **none** — reuses `findingJson`, the attack counters, and existing columns. `prisma migrate status` → "Database schema is up to date!"; zero diff under `prisma/`.
+- **Tests:** 333 pass (28 files; +16) — candidate selection, probe-body construction (incl. not injecting schema-declared fields), reflection matching (nested, wrong value, key-only mention), and the verdict (2xx+reflected → API3; 4xx → none; ignored → none; non-privileged → none; judge veto/agree/throw/null).
+- **Deferred (T14c):** a follow-up GET to prove **persistence** rather than mere reflection.

@@ -40,6 +40,11 @@ import { loadRecipeCredential } from "../services/recipe-credential-loader.js";
 import { decideBolaVerdict, type BolaFinding } from "../services/bola-verdict.js";
 import { geminiBolaJudge } from "../services/bola-judge.js";
 import { decideBflaVerdict, type BflaFinding } from "../services/bfla-verdict.js";
+import {
+    decideMassAssignmentVerdict,
+    buildMassAssignmentBody,
+    type MassAssignmentFinding,
+} from "../services/mass-assignment.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
@@ -599,7 +604,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     // so SECRET_LEAK / FILE_LEAK / SQL_ERROR / XSS / STACK_TRACE fire exactly as
     // before. This is pure + microsecond-cheap, so running it before the DB
     // write costs nothing and lets us redact based on the classified finding.
-    const finding = analyzeFinding(
+    let finding = analyzeFinding(
         {
             attackType,
             method,
@@ -612,6 +617,34 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         },
         baseline,
     );
+
+    // T14b — mass assignment (API3). For MASS_ASSIGNMENT probes the payload IS
+    // the merged body we sent; if the write succeeded AND the response reflects
+    // one of our injected privileged fields with our probe value, that's a
+    // confirmed finding. It must be PERSISTED (findingJson) like BOLA/BFLA: the
+    // verdict depends on which fields we injected, which a single stored row
+    // can't re-derive. Null (the common case) leaves `finding` exactly as-is.
+    let massAssignmentFinding: MassAssignmentFinding | null = null;
+    if (attackType === "MASS_ASSIGNMENT") {
+        try {
+            const { injected } = buildMassAssignmentBody(requestBodySchema);
+            massAssignmentFinding = await decideMassAssignmentVerdict({
+                method,
+                path,
+                statusCode: statusCode ?? 0,
+                responseSnippet: responseSnippet ?? "",
+                requestBody: payload,
+                injectedFields: injected,
+            });
+        } catch (err) {
+            // A verdict failure must never fail the attack job.
+            log.error(
+                { testRunId, err: err instanceof Error ? err.message : String(err) },
+                "Mass-assignment verdict failed",
+            );
+        }
+    }
+    if (massAssignmentFinding) finding = massAssignmentFinding;
 
     // Redact ONLY what leaves the process (DB row + WS payload). The in-memory
     // `finding` above (severity/category/confidence) is untouched; we build a
@@ -650,6 +683,11 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
                 attackType,
                 owaspCategory: finding.owaspCategory ?? null, // T9
                 identityId: primaryIdentityId, // T12: attribute to primary
+                // T14b: persist the mass-assignment verdict (can't be re-derived
+                // from one row — it depends on which fields we injected).
+                ...(massAssignmentFinding
+                    ? { findingJson: safeFinding as unknown as object }
+                    : {}),
                 error: error?.replace(/\0/g, "\\u0000") ?? null,
             },
         }),
