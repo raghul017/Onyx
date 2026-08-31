@@ -25,6 +25,12 @@ import billingRouter from "./billing.routes.js";
 import orgRouter from "./org.routes.js";
 import authRecipeRouter from "./auth-recipe.routes.js";
 import apiTokenRouter from "./api-token.routes.js";
+import {
+    createShare,
+    getShare,
+    revokeShare,
+    getSharedReport,
+} from "../controllers/report-share.controller.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
 import { injectOrgContext } from "../middleware/org.middleware.js";
@@ -68,6 +74,28 @@ router.use("/billing", billingRouter);
 // ---------------------------------------------------------------------------
 // Org Routes
 // ---------------------------------------------------------------------------
+// Public shared-report reads (T16a). The token is ~256-bit and unguessable, but
+// rate-limit the endpoint anyway so it can never be used to probe or scrape.
+const sharedReportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 60, // 60 report loads per 15 min per IP — generous for real viewers
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "Rate limit exceeded",
+        message: "Too many requests. Please try again later.",
+    },
+});
+
+// ---------------------------------------------------------------------------
+// PUBLIC — shared read-only report (T16a). MUST be registered BEFORE the
+// sub-routers mounted at "/" below: each of those calls router.use(
+// authenticateToken), and Express runs a mounted router's use() middleware for
+// ANY path under its mount point — so registering this later would make the
+// public endpoint return 401. Verified empirically.
+// ---------------------------------------------------------------------------
+router.get("/shared/:token", sharedReportLimiter, getSharedReport);
+
 router.use("/", orgRouter);
 
 // ---------------------------------------------------------------------------
@@ -121,6 +149,20 @@ router.delete("/test-runs/:id", authenticateToken, injectOrgContext, deleteTestR
 
 /** Get paginated attack logs for a test run. */
 router.get("/test-runs/:id/logs", authenticateToken, injectOrgContext, getTestRunLogs);
+
+// ---------------------------------------------------------------------------
+// Report sharing (T16a)
+// ---------------------------------------------------------------------------
+
+/** Create (or return) the run's active read-only share link. */
+router.post("/test-runs/:id/share", authenticateToken, injectOrgContext, createShare);
+
+/** Current share status for the run (for the UI). */
+router.get("/test-runs/:id/share", authenticateToken, injectOrgContext, getShare);
+
+/** Revoke the run's share link(s) — takes effect immediately. */
+router.post("/test-runs/:id/share/revoke", authenticateToken, injectOrgContext, revokeShare);
+
 
 /** Export a completed test run as a PDF report (Pro/Team only). */
 router.get("/test-runs/:id/export/pdf", authenticateToken, async (req, res) => {

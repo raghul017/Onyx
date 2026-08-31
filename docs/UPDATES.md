@@ -987,3 +987,25 @@ the honesty check keeps failing if the grid drifts from what the engine emits.
 - **Changed:** `client/src/components/OwaspCoverage.tsx` (API1 + API5 → `detected: true`; comments now list which ticket each detected code comes from), `client/src/test/owasp-coverage.test.ts` (expected detected set + header note); docs/UPDATES.md.
 - **Tests:** client 64 pass (9 files). `npm run build` clean (prerender 10/10).
 - **Schema/migration:** none. **Backend:** untouched.
+
+## 2026-08-31 — T16a: shareable report links (backend)
+
+Backend-only. A run's owner can mint a tokenized public link that renders the
+report read-only without login, and revoke it immediately.
+
+- **Endpoints:**
+  - `POST /api/test-runs/:id/share` — create-or-return the active share (**idempotent**: a second call returns the same token, so a shared link stays stable). Responds `{ token, url, createdAt, revokedAt }`.
+  - `GET /api/test-runs/:id/share` — current status (`{ shared: false }` or the token + URL) for the UI.
+  - `POST /api/test-runs/:id/share/revoke` — revoke; effective immediately.
+  - `GET /api/shared/:token` — **PUBLIC, no auth**, rate-limited; returns the report payload. Unknown **and** revoked both 404, so a revoked link is indistinguishable from one that never existed.
+  The three owner routes enforce the **same** access rule as viewing the run (owner or a member of the owning org).
+- **Payload reuse:** extracted `buildReportPayload()` from `getTestRun` so the public endpoint serves the **identical** shape — `{ summary: {…, overallScore, scoreLabel, severityBreakdown}, logs: AttackResult[] }` with per-row `finding` via `resolveFinding` (OWASP category included, so coverage renders). **Report-only by construction:** it reads a TestRun + its AttackLogs and emits summary metrics, scores, and finding rows only — it never touches `userId`, `orgId`, `authRecipeId`, RunIdentity credentials, or ApiToken, so nothing can leak the sharer's identity or Onyx-internal secrets. Response snippets were already T3-redacted at write time. A test asserts the serialized public payload contains no user/org/recipe identifiers.
+- **Token model:** the token is a **capability URL** — possession alone grants read access to that one report — so it is stored **plaintext and indexed** for an O(1) lookup rather than hashed (hashing would break the lookup while buying little: no account to impersonate, no privilege to escalate, report-only payload). 43 base62 chars ≈ **2^256**, rejection-sampled for uniform distribution, so the space isn't enumerable; the public route is additionally rate-limited (60 / 15 min / IP) and implausible token lengths short-circuit before any DB query.
+- **Share URL base:** `SHARE_BASE_URL` → `APP_BASE_URL` → the request origin (`x-forwarded-proto`/`host`), so a self-hosted deployment works with no extra config.
+- **ROUTING GOTCHA (found + fixed):** `orgRouter`/`authRecipeRouter`/`apiTokenRouter` are mounted at `"/"` and each calls `router.use(authenticateToken)`. Express runs a mounted router's `use()` middleware for **any** path under its mount point, so registering `/shared/:token` after them made the public endpoint return **401**. Verified empirically with a probe, then moved the route (and its limiter) **above** those mounts; re-probed the real router → 404-not-found (public), not 401.
+
+- **Added:** `server/src/services/report-share.service.ts`, `server/src/controllers/report-share.controller.ts`, `server/src/services/__tests__/report-share.service.test.ts`, `server/src/controllers/__tests__/report-share.controller.test.ts`, migration `20260831092305_t16a_report_share/`.
+- **Changed:** `prisma/schema.prisma` (ReportShare model + TestRun relation), `src/controllers/test-run.controller.ts` (extracted + exported `buildReportPayload`), `src/routes/index.ts` (4 routes + public rate limiter, ordered before the "/"-mounted sub-routers); docs/UPDATES.md.
+- **Schema/migration:** `20260831092305_t16a_report_share` — applied via `migrate deploy`; `migrate status` → "Database schema is up to date!". Purely additive (one new table); no existing column touched.
+- **Tests:** 382 pass (32 files; +22) — token entropy/uniqueness/format, URL base precedence, idempotent create, revoke-all, resolve (live / unknown / revoked / implausible-length short-circuit), owner-route auth + ownership (owner, org member, non-owner 403, unauthenticated 403, missing run 404), public route with **no** auth, and the payload-excludes-secrets assertion.
+- **New env (optional):** `SHARE_BASE_URL` — only needed if you want share links to use a domain other than the request origin.

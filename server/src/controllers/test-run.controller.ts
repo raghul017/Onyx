@@ -738,6 +738,48 @@ export async function getTestRun(
             return;
         }
 
+        res.json(buildReportPayload(testRun));
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// buildReportPayload (T16a) — the REPORT-SAFE response body, extracted from
+// getTestRun so the public share endpoint can serve the identical shape without
+// duplicating logic.
+//
+// REPORT-ONLY BY CONSTRUCTION: it reads a TestRun + its AttackLogs and emits only
+// summary metrics, scores, and per-finding rows (method/path/status/latency/
+// payload/redacted snippet/finding). It never touches userId, orgId,
+// authRecipeId, RunIdentity credentials, ApiToken, or any secret — so nothing
+// here can leak the sharer's identity or Onyx-internal material. Response
+// snippets were already T3-redacted at write time.
+// ---------------------------------------------------------------------------
+export function buildReportPayload(testRun: {
+    id: string;
+    specUrl: string;
+    status: string;
+    totalEndpoints: number;
+    totalAttacks: number;
+    completedAttacks: number;
+    createdAt: Date;
+    completedAt: Date | null;
+    logs: Array<{
+        id: string;
+        testRunId: string;
+        method: string;
+        path: string;
+        statusCode: number | null;
+        latencyMs: number | null;
+        payload: string;
+        responseSnippet: string | null;
+        attackType: string;
+        createdAt: Date;
+        findingJson?: unknown;
+    }>;
+}): GetTestRunResponse {
+    {
         // Compute aggregate metrics
         const logs = testRun.logs;
         const criticalFailures = logs.filter(
@@ -816,7 +858,7 @@ export async function getTestRun(
         };
         const overallScore = getOverallScore(attackResults);
 
-        const response: GetTestRunResponse = {
+        return {
             summary: {
                 ...summaryBase,
                 overallScore,
@@ -825,10 +867,6 @@ export async function getTestRun(
             },
             logs: attackResults,
         };
-
-        res.json(response);
-    } catch (err) {
-        next(err);
     }
 }
 

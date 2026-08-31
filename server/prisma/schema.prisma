@@ -178,6 +178,7 @@ model TestRun {
   logs       AttackLog[]
   baselines  BaselineResponse[]
   identities RunIdentity[]
+  shares     ReportShare[]
 
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
@@ -350,4 +351,32 @@ model AttackLog {
   @@index([endpointId])
   @@index([identityId])
   @@map("attack_logs")
+}
+
+// ---------------------------------------------------------------------------
+// ReportShare (T16a) — a tokenized, read-only public link to a run's report.
+//
+// The token is a CAPABILITY URL, not a password: possession alone grants access
+// to that one report, so it is stored in plaintext and indexed for O(1) lookup
+// (hashing would prevent the lookup without buying much — there is no user to
+// impersonate and nothing to escalate to). Entropy is ~256 bits, so the token is
+// not enumerable. Revocation is immediate via revokedAt.
+//
+// A run may have many share rows over time, but at most ONE active (revokedAt
+// null) at a time — the create endpoint returns the existing active share rather
+// than minting a second one.
+// ---------------------------------------------------------------------------
+model ReportShare {
+  id              String    @id @default(uuid())
+  testRunId       String
+  token           String    @unique // ~256-bit base62 capability token
+  createdByUserId String?
+  orgId           String?
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+
+  testRun TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId])
+  @@map("report_shares")
 }
