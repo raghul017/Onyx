@@ -5,8 +5,16 @@
 // =============================================================================
 
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
-import type { FindingDetail } from "@/services/api";
+import { useMutation } from "@tanstack/react-query";
+import { Check, Copy, RefreshCw, ShieldCheck, Loader2 } from "lucide-react";
+import { rescanFinding, type FindingDetail, type RescanResult } from "@/services/api";
+import {
+    badgeStateFor,
+    badgeStateForOutcome,
+    isRescanSupported,
+    relativeTime,
+    type BadgeState,
+} from "@/lib/rescan-state";
 import OwaspBadge from "@/components/OwaspBadge";
 import {
     FRAMEWORKS,
@@ -190,14 +198,130 @@ function Section({
     );
 }
 
+
+/**
+ * Re-scan control (T15c) — verify whether a finding still reproduces.
+ *
+ * Rendered only when the caller supplies the run + log ids (the live Dashboard
+ * has no persisted run yet, so it simply omits them and this stays hidden).
+ * Safety rule: ONLY an explicit "resolved" outcome may show the Resolved badge —
+ * "unsupported" and "error" never imply a fix.
+ */
+function RescanControl({
+    testRunId,
+    logId,
+    attackType,
+    resolvedAt,
+    lastCheckedAt,
+}: {
+    testRunId: string;
+    logId: string;
+    attackType?: string;
+    resolvedAt?: string | null;
+    lastCheckedAt?: string | null;
+}) {
+    // Local view of the state so one finding updates without refetching the report.
+    const [badge, setBadge] = useState<BadgeState>(() =>
+        badgeStateFor({ resolvedAt, lastCheckedAt }),
+    );
+    const [checkedAt, setCheckedAt] = useState<string | null>(
+        resolvedAt ?? lastCheckedAt ?? null,
+    );
+    const [note, setNote] = useState<string | null>(null);
+
+    const supported = isRescanSupported(attackType);
+
+    const rescan = useMutation({
+        mutationFn: (): Promise<RescanResult> => rescanFinding(testRunId, logId),
+        onMutate: () => setNote(null),
+        onSuccess: (res) => {
+            const next = badgeStateForOutcome(res.outcome);
+            // "unsupported"/"error" leave the existing badge untouched.
+            if (next !== "none") {
+                setBadge(next);
+                setCheckedAt(res.checkedAt);
+            }
+            if (res.outcome === "unsupported") {
+                setNote("Re-scan isn't supported for this finding type yet.");
+            } else if (res.outcome === "error") {
+                setNote("Couldn't re-scan just now — please try again.");
+            }
+        },
+        onError: () => setNote("Couldn't re-scan just now — please try again."),
+    });
+
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            {badge === "resolved" && (
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 border border-[#86efac] text-[#16a34a] bg-[#f0fdf4]">
+                    <ShieldCheck size={11} /> Resolved
+                    {checkedAt && (
+                        <span className="normal-case text-[#16a34a]/70">
+                            · {relativeTime(checkedAt)}
+                        </span>
+                    )}
+                </span>
+            )}
+            {badge === "still_present" && (
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 border border-[#fdba74] text-[#ea580c] bg-[#fff7ed]">
+                    Still present
+                    {checkedAt && (
+                        <span className="normal-case text-[#ea580c]/70">
+                            · re-checked {relativeTime(checkedAt)}
+                        </span>
+                    )}
+                </span>
+            )}
+
+            {supported ? (
+                <button
+                    onClick={() => rescan.mutate()}
+                    disabled={rescan.isPending}
+                    className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide px-2 py-0.5 border border-[#e6e6e6] text-[#666] hover:border-black hover:text-black transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]"
+                >
+                    {rescan.isPending ? (
+                        <Loader2 size={11} className="animate-spin" />
+                    ) : (
+                        <RefreshCw size={11} />
+                    )}
+                    {rescan.isPending ? "Checking…" : "Verify fix"}
+                </button>
+            ) : (
+                // BOLA/BFLA need a live second identity — say so instead of
+                // offering a button that can only fail.
+                <span
+                    className="font-mono text-[10px] text-[#999]"
+                    title="Cross-identity findings need a live second identity to re-verify"
+                >
+                    Re-scan not supported for cross-identity findings
+                </span>
+            )}
+
+            {note && <span className="text-[11px] text-[#999]">{note}</span>}
+        </div>
+    );
+}
+
 export default function FindingDetailPanel({
     finding,
     payload,
     responseSnippet,
+    testRunId,
+    logId,
+    attackType,
+    resolvedAt,
+    lastCheckedAt,
 }: {
     finding: FindingDetail;
     payload?: string;
     responseSnippet?: string;
+    /** T15c — supply the run + log ids to enable the re-scan control. Omitted by
+     *  the live Dashboard, where the run isn't a persisted report yet. */
+    testRunId?: string;
+    logId?: string;
+    attackType?: string;
+    resolvedAt?: string | null;
+    lastCheckedAt?: string | null;
 }) {
     const c = SEV_COLOR[finding.severity] ?? SEV_COLOR.INFO;
     // T13c: a BOLA finding (API1) compares TWO identities, so its evidence holds
@@ -231,6 +355,16 @@ export default function FindingDetailPanel({
                     <span className="font-mono text-[10px] uppercase tracking-wide text-[#3b82f6] border border-[#93c5fd] px-1.5 py-0.5">
                         Cross-user
                     </span>
+                )}
+                {/* T15c — re-scan + resolved/still-present state. */}
+                {testRunId && logId && (
+                    <RescanControl
+                        testRunId={testRunId}
+                        logId={logId}
+                        attackType={attackType}
+                        resolvedAt={resolvedAt}
+                        lastCheckedAt={lastCheckedAt}
+                    />
                 )}
             </div>
 

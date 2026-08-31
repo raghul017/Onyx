@@ -427,6 +427,17 @@ export default function ReportBody({
                                         </span>
                                         <span className="flex items-center gap-1.5 min-w-0">
                                             {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
+                                            {/* T15c — re-scan state at a glance,
+                                                without expanding the row. */}
+                                            {log.resolvedAt ? (
+                                                <span className="font-mono text-[9px] uppercase tracking-wide px-1 py-0.5 border border-[#86efac] text-[#16a34a] bg-[#f0fdf4]">
+                                                    Resolved
+                                                </span>
+                                            ) : log.lastCheckedAt ? (
+                                                <span className="font-mono text-[9px] uppercase tracking-wide px-1 py-0.5 border border-[#fdba74] text-[#ea580c] bg-[#fff7ed]">
+                                                    Still present
+                                                </span>
+                                            ) : null}
                                             <span className="text-[#999] text-[11px] truncate flex-1" title={payloadStr}>
                                                 {log.finding?.category ?? payloadStr}
                                             </span>
@@ -461,6 +472,17 @@ export default function ReportBody({
                                         </div>
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             {log.finding && <OwaspBadge code={log.finding.owaspCategory} />}
+                                            {/* T15c — re-scan state at a glance,
+                                                without expanding the row. */}
+                                            {log.resolvedAt ? (
+                                                <span className="font-mono text-[9px] uppercase tracking-wide px-1 py-0.5 border border-[#86efac] text-[#16a34a] bg-[#f0fdf4]">
+                                                    Resolved
+                                                </span>
+                                            ) : log.lastCheckedAt ? (
+                                                <span className="font-mono text-[9px] uppercase tracking-wide px-1 py-0.5 border border-[#fdba74] text-[#ea580c] bg-[#fff7ed]">
+                                                    Still present
+                                                </span>
+                                            ) : null}
                                             <span className="text-[#999] text-[10px] truncate">
                                                 {log.finding?.title ?? payloadStr}
                                             </span>
@@ -473,6 +495,12 @@ export default function ReportBody({
                                             finding={log.finding}
                                             payload={payloadStr}
                                             responseSnippet={log.responseSnippet}
+                                            // T15c — enable the re-scan control.
+                                            testRunId={summary?.id}
+                                            logId={log.id}
+                                            attackType={log.attackType}
+                                            resolvedAt={log.resolvedAt}
+                                            lastCheckedAt={log.lastCheckedAt}
                                         />
                                     )}
                                 </motion.div>

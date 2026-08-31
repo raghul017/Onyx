@@ -203,6 +203,10 @@ export interface AttackResult {
     timestamp: string;
     severity: SeverityLevel;
     finding?: FindingDetail;
+    /** T15b — set when a re-scan found this finding no longer reproduces. */
+    resolvedAt?: string | null;
+    /** T15b — when this finding was last re-verified (resolved or not). */
+    lastCheckedAt?: string | null;
 }
 
 export interface GetTestRunResponse {
@@ -683,3 +687,34 @@ export async function getSharedReport(token: string): Promise<GetTestRunResponse
     });
     return res.data;
 }
+
+// ---------------------------------------------------------------------------
+// Re-scan a single finding (T15c)
+// ---------------------------------------------------------------------------
+
+export type RescanOutcome = "resolved" | "still_present" | "unsupported" | "error";
+
+export interface RescanResult {
+    outcome: RescanOutcome;
+    resolved: boolean;
+    checkedAt: string | null;
+    severity: string | null;
+    category: string | null;
+    message: string;
+}
+
+/**
+ * Re-run the check behind ONE finding. The backend re-fires the original request
+ * and re-applies the same verdict logic, then returns the outcome. "unsupported"
+ * and "error" are normal 200 responses — never treat them as resolved.
+ */
+export async function rescanFinding(
+    testRunId: string,
+    logId: string,
+): Promise<RescanResult> {
+    const res = await api.post(`/test-runs/${testRunId}/logs/${logId}/rescan`);
+    return res.data;
+}
+
+/** Attack types the backend cannot re-scan yet (needs a live second identity). */
+export const RESCAN_UNSUPPORTED_TYPES = new Set(["BOLA_REPLAY", "BFLA_PROBE"]);

@@ -1169,3 +1169,41 @@ leaky 4xx (`Verbose Error / Info Disclosure`) correctly remains a finding.
 
 - **Changed:** `prisma/schema.prisma` (TargetEndpoint.parameters), `src/controllers/test-run.controller.ts` (persist ep.parameters at endpoint creation), `src/services/rescan.service.ts` (select + use stored parameters; corrected the still-present threshold); docs/UPDATES.md.
 - **Tests:** 419 pass (37 files; +15) — the re-fired URL carries the stored query param with the ORIGINAL payload; a still-vulnerable query-param finding is not falsely resolved while a genuinely fixed one is; stored header params are applied; legacy `null` and malformed `parameters` fall back without crashing; endpoint creation persists `parameters` and rescan no longer hardcodes `[]`; and regression guards that "Input Rejected" / 403 count as FIXED while a verbose 4xx does not.
+
+## 2026-08-31 — T15c: re-scan button + resolved badge
+
+CLIENT-ONLY (T15b/T15b-fix backend untouched). Adds a "Verify fix" control and a
+Resolved / Still-present badge to a finding.
+
+- **Log id availability:** `FindingDetailPanel` previously received only
+  `finding`/`payload`/`responseSnippet` — no ids. The run id and log id live on
+  the parent `AttackResult` (`summary.id` + `log.id`), so the panel gained
+  **optional** `testRunId`/`logId`/`attackType`/`resolvedAt`/`lastCheckedAt`
+  props. `ReportBody` supplies them; the **live Dashboard omits them** (its run
+  isn't a persisted report yet), so the control simply doesn't render there and
+  that call site needed no change.
+- **Badge on load** (`lib/rescan-state.ts`, pure + tested): `resolvedAt` set →
+  green **Resolved**; `lastCheckedAt` only → amber **Still present · re-checked
+  {relative time}**; neither → no badge. The same badge also appears on the
+  **collapsed finding row** (both row variants) so state is visible without
+  expanding.
+- **Verify fix button:** a TanStack Query mutation calls
+  `POST /test-runs/:id/logs/:logId/rescan` and updates **just that finding's**
+  local state — no report refetch. Outcome mapping: `resolved` → green badge;
+  `still_present` → amber badge; `unsupported` → note "Re-scan isn't supported
+  for this finding type yet"; `error` (or a thrown request) → "Couldn't re-scan
+  just now — please try again."
+- **Safety rule, enforced in a pure function and tested:** only an explicit
+  `resolved` outcome may show Resolved. `unsupported` and `error` map to `none`
+  and leave the existing badge untouched, so a failed re-scan can never make a
+  live finding look fixed.
+- **Cross-identity findings** (`BOLA_REPLAY`/`BFLA_PROBE`) are detected client-side
+  and the button is **replaced up front** with "Re-scan not supported for
+  cross-identity findings" (plus a tooltip) rather than offering an action that
+  can only fail — the backend's `unsupported` response is still handled as a
+  belt-and-braces fallback.
+
+- **Added:** `client/src/lib/rescan-state.ts`, `client/src/test/rescan-state.test.ts`.
+- **Changed:** `client/src/services/api.ts` (`resolvedAt`/`lastCheckedAt` on `AttackResult`, `rescanFinding` binding, `RescanResult` type), `client/src/components/FindingDetailPanel.tsx` (new `RescanControl` + optional props), `client/src/components/ReportBody.tsx` (passes the props; row badge on both variants); docs/UPDATES.md.
+- **Tests:** client 89 pass (12 files; +11) — badge state from persisted fields (resolved / still-present / none / resolvedAt wins), outcome mapping incl. **unsupported and error never resolving**, cross-identity support detection, and relative-time formatting with null/invalid-safe handling.
+- **Schema/migration:** none. **Backend:** untouched.
