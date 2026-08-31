@@ -461,6 +461,9 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
     let responseSnippet: string | null = null;
     let attackBodyLength = 0; // full response body length, for baseline diffing
     let error: string | null = null;
+    // True only when the request was aborted by REQUEST_TIMEOUT_MS. Feeds the
+    // time-based-injection rule (a delay payload whose sleep outran our timeout).
+    let timedOut = false;
 
     // Build the concrete request: resolve path placeholders and inject the
     // payload into the correct location(s) (path/query/header/body) based on the
@@ -581,6 +584,9 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
         const classified = classifyNetworkError(err);
         statusCode = classified.statusCode;
         error = classified.error;
+        // A timeout (vs any other transport failure) is a detection signal when
+        // the payload is a delay payload — the sleep outran our timeout.
+        timedOut = classified.timedOut;
     }
 
     // Baseline diffing (T6): look up this endpoint's benign baseline (cached).
@@ -601,6 +607,7 @@ async function processAttackJob(job: Job<AttackJobData>): Promise<void> {
             payload,
             responseSnippet: responseSnippet ?? "", // RAW — never persisted as-is
             bodyLength: attackBodyLength,
+            timedOut,
         },
         baseline,
     );
@@ -749,18 +756,37 @@ async function executeAttack(
 
 /** Map a fetch/network error to the status code + message the app records.
  *  Shared by the attack path and baseline fires so both classify identically. */
-function classifyNetworkError(err: unknown): { statusCode: number; error: string } {
+function classifyNetworkError(err: unknown): {
+    statusCode: number;
+    error: string;
+    /** True ONLY for the request-timeout abort — never for other transport errors.
+     *  A timeout on a delay payload is evidence of time-based injection (see
+     *  finding-analysis), so it must be distinguishable from ECONNREFUSED/DNS. */
+    timedOut: boolean;
+} {
     const raw = err instanceof Error ? err.message : String(err);
     if (raw.includes("AbortError") || raw.includes("timeout")) {
-        return { statusCode: 408, error: `Request timed out after ${REQUEST_TIMEOUT_MS}ms` };
+        return {
+            statusCode: 408,
+            error: `Request timed out after ${REQUEST_TIMEOUT_MS}ms`,
+            timedOut: true,
+        };
     }
     if (raw.includes("ECONNREFUSED")) {
-        return { statusCode: 503, error: "Connection refused — target API is unreachable" };
+        return {
+            statusCode: 503,
+            error: "Connection refused — target API is unreachable",
+            timedOut: false,
+        };
     }
     if (raw.includes("ENOTFOUND")) {
-        return { statusCode: 502, error: "DNS resolution failed — target host not found" };
+        return {
+            statusCode: 502,
+            error: "DNS resolution failed — target host not found",
+            timedOut: false,
+        };
     }
-    return { statusCode: 0, error: raw };
+    return { statusCode: 0, error: raw, timedOut: false };
 }
 
 /** Median of a non-empty number list (even length → rounded mean of the two middles). */

@@ -43,6 +43,15 @@ export interface FindingInput {
     responseSnippet?: string;
     /** Full response body length (bytes) — used for baseline length-delta diffing. */
     bodyLength?: number;
+    /**
+     * True when the request was ABORTED by the client-side request timeout (as
+     * opposed to any other transport failure: ECONNREFUSED, DNS, reset, …).
+     * A timeout carries information a normal error doesn't: the endpoint took
+     * LONGER than the timeout to respond. Combined with a delay payload and a
+     * fast baseline, that's evidence of time-based injection whose sleep simply
+     * outran our timeout (so latencyMs is 0 and the latency-delta rule can't see it).
+     */
+    timedOut?: boolean;
 }
 
 /**
@@ -294,6 +303,13 @@ function analyzeBase(input: FindingInput): FindingDetail {
 // Time-based confirmation: attack must exceed the baseline by this delta AND be
 // slow in absolute terms, so normal jitter can't trip it.
 const TIME_BASED_DELTA_MS = 4000;
+// A timed-out delay payload only implicates the payload when the endpoint is
+// normally FAST. If the benign baseline is already slow, the timeout can't be
+// attributed to our injection, so we stay silent.
+const TIMEOUT_BASELINE_FAST_MS = 2000;
+// Mirrors the worker's REQUEST_TIMEOUT_MS — used only for evidence wording, so
+// this module stays pure (no import from the queue layer).
+const REQUEST_TIMEOUT_MS = 10_000;
 const TIME_BASED_MIN_ABSOLUTE_MS = 4000;
 
 // Blind/boolean: a body-length change this large (relative) vs baseline is
@@ -379,6 +395,37 @@ function applyBaselineDiff(
                 base.evidence,
                 "marker is NOT present in the baseline response, so the reflection is caused by our input",
             ),
+        };
+    }
+
+    // --- Time-based / blind injection via TIMEOUT ------------------------------
+    // A sleep payload can outrun our 10s request timeout (e.g. SLEEP(20)). The
+    // request is then ABORTED, so latencyMs is 0 and the latency-delta rule below
+    // structurally cannot see it. But "the delay payload made the endpoint exceed
+    // the timeout, while its benign baseline answered fast" is itself strong
+    // evidence. Conservative — ALL must hold, else fall through to today's
+    // transport/"Request Error" verdict:
+    //   • the request actually TIMED OUT (not ECONNREFUSED/DNS/reset)
+    //   • the payload IS a time-injection pattern (same matcher as below)
+    //   • a baseline EXISTS and was FAST
+    if (
+        input.timedOut === true &&
+        TIME_INJECTION_PAYLOAD.test(payload) &&
+        baseline.latencyMs != null &&
+        baseline.latencyMs < TIMEOUT_BASELINE_FAST_MS &&
+        !CONFIRMED_DISCLOSURE.has(base.category)
+    ) {
+        const injectionType = /INJECTION|SQLI/.test(at);
+        return {
+            severity: injectionType ? "CRITICAL" : "HIGH",
+            category: "Blind/Time-Based Injection",
+            title: "Time-based injection likely (delay payload exceeded the request timeout)",
+            // "firm", not "confirmed": we never observed the response, only that
+            // it outran the timeout — one step below the measured-delta case.
+            confidence: "firm",
+            evidence: `delay payload timed out (>${REQUEST_TIMEOUT_MS}ms); baseline responded in ${baseline.latencyMs}ms — consistent with time-based injection.`,
+            cause: "A time-injection payload (e.g. SLEEP/WAITFOR/pg_sleep) made the endpoint exceed the request timeout, while the same endpoint answered its benign baseline request quickly. That asymmetry indicates attacker input reaches a query/interpreter that executed the delay.",
+            remediation: "Use parameterized queries / prepared statements and reject untrusted input in query construction. Add server-side query timeouts and monitor for anomalous latency.",
         };
     }
 

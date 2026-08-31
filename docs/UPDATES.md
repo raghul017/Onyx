@@ -778,3 +778,36 @@ findings render clearly. Backend untouched.
 - **Changed:** `client/src/pages/Dashboard.tsx` (identities state + toggle + panel + payload), `client/src/services/api.ts` (createTestRun identities arg + RunIdentityInput type), `client/src/components/FindingDetailPanel.tsx` (cross-user tag + wide evidence); docs/UPDATES.md.
 - **Tests:** client 64 pass (9 files; +13 T13c) — backward-compat single-identity payload, multi-identity shape, anonymous omits authRecipeId, cap/trim, primary defaulting, BOLA-hint conditions, label validation. `npm run build` clean (prerender 10/10).
 - **Schema/migration:** none. **Env:** none. **Backend:** untouched.
+
+## 2026-08-31 — T-fix1: time-based injection on timeout
+
+Backend-only detection fix. A sleep payload can outrun the 10s request timeout
+(e.g. `SLEEP(20)`): the request is aborted, so the worker records `latencyMs 0`
+and the T6 latency-delta rule structurally cannot see it — Onyx missed the
+finding. A timeout on a DELAY payload, when the endpoint's benign baseline
+answered fast, is strong evidence of time-based injection.
+
+- **Worker** (`worker.ts`): `classifyNetworkError` now also returns a distinct
+  `timedOut` boolean — true ONLY for the `REQUEST_TIMEOUT_MS` abort, false for
+  ECONNREFUSED / DNS / other transport errors (which already mapped to 503/502/0).
+  The attack-path catch records it and passes `timedOut` into `analyzeFinding`
+  alongside the existing baseline. No other behavior changed.
+- **finding-analysis** (`finding-analysis.ts`): one new rule in the baseline-aware
+  layer, placed just before the existing latency-delta rule and reusing the SAME
+  `TIME_INJECTION_PAYLOAD` matcher (SLEEP / WAITFOR DELAY / pg_sleep / BENCHMARK /
+  DBMS_LOCK.SLEEP / delay marker). Fires only when ALL hold: `timedOut === true`
+  **and** the payload matches the delay pattern **and** a baseline exists **and**
+  the baseline was fast (`latencyMs < TIMEOUT_BASELINE_FAST_MS = 2000`) **and**
+  the base verdict isn't already a confirmed disclosure. Emits category
+  "Blind/Time-Based Injection", severity CRITICAL for `*INJECTION*`/SQLi else HIGH,
+  confidence **"firm"** (one step below the measured-delta rule's "confirmed",
+  since the response was never observed), owasp `API8_SECURITY_MISCONFIGURATION`,
+  evidence "delay payload timed out (>10000ms); baseline responded in {n}ms —
+  consistent with time-based injection."
+- **Unchanged:** non-timeout paths, the T6 latency-delta rule, the Request Error /
+  transport verdicts (a timeout with a non-delay payload still reads exactly as
+  today), scoring shape, every other finding.
+
+- **Changed:** `server/src/queues/worker.ts` (timedOut flag + threaded into analyzeFinding), `server/src/services/finding-analysis.ts` (`FindingInput.timedOut`, `TIMEOUT_BASELINE_FAST_MS`, the new rule), `server/src/services/__tests__/finding-analysis.test.ts` (appended only — 103 insertions, 0 deletions); docs/UPDATES.md.
+- **Tests:** 286 pass (23 files; +9) — timeout+sleep+fast baseline → CRITICAL/firm (and HIGH for non-SQLi), the other delay dialects, plus the conservative fallbacks: non-delay payload, no baseline, slow baseline, null baseline latency, non-timeout transport error, and `timedOut` omitted. `npm run build`/tsc clean.
+- **Schema/migration:** none. **Env:** none.

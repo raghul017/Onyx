@@ -542,3 +542,106 @@ describe("analyzeFinding — owaspCategory (T9, additive)", () => {
         expect(analyzeFinding({ attackType: "UNKNOWN", statusCode: 200, responseSnippet: "{}" }).owaspCategory).toBeNull();
     });
 });
+
+// =============================================================================
+// T-fix1 — time-based injection detected via the REQUEST TIMEOUT.
+//
+// A sleep payload can outrun the 10s request timeout (e.g. SLEEP(20)). The
+// request is aborted, so latencyMs is 0 and the T6 latency-delta rule can't fire.
+// A timeout on a DELAY payload, when the benign baseline was FAST, is strong
+// evidence — but every guard must hold or we fall back to today's behavior.
+// =============================================================================
+describe("T-fix1 — time-based injection on timeout", () => {
+    const fastBaseline = {
+        status: 200,
+        latencyMs: 120,
+        bodyLength: 400,
+        bodySnippet: "ok",
+    };
+    // A timed-out request as the worker records it: 408, latency 0.
+    const timedOutInput = (over: Partial<FindingInput> = {}): FindingInput => ({
+        attackType: "SQL_INJECTION",
+        method: "GET",
+        statusCode: 408,
+        latencyMs: 0,
+        payload: "1' AND SLEEP(20)-- ",
+        responseSnippet: "",
+        timedOut: true,
+        ...over,
+    });
+
+    it("timeout + sleep payload + fast baseline => time-based injection (CRITICAL for SQLi, firm)", () => {
+        const f = analyzeFinding(timedOutInput(), fastBaseline);
+        expect(f.category).toBe("Blind/Time-Based Injection");
+        expect(f.severity).toBe("CRITICAL"); // attackType is SQL_INJECTION
+        expect(f.confidence).toBe("firm");
+        expect(f.owaspCategory).toBe("API8_SECURITY_MISCONFIGURATION");
+        expect(f.evidence).toContain("timed out");
+        expect(f.evidence).toContain("120ms");
+        expect(f.remediation.length).toBeGreaterThan(0);
+    });
+
+    it("non-SQLi attack type with a delay payload => HIGH (not CRITICAL)", () => {
+        const f = analyzeFinding(
+            timedOutInput({ attackType: "BOUNDARY" }),
+            fastBaseline,
+        );
+        expect(f.category).toBe("Blind/Time-Based Injection");
+        expect(f.severity).toBe("HIGH");
+        expect(f.confidence).toBe("firm");
+    });
+
+    it("matches the other delay dialects (WAITFOR / pg_sleep / BENCHMARK)", () => {
+        for (const payload of [
+            "'; WAITFOR DELAY '0:0:20'--",
+            "1); SELECT pg_sleep(20)--",
+            "1 AND BENCHMARK(10000000,MD5('x'))",
+        ]) {
+            const f = analyzeFinding(timedOutInput({ payload }), fastBaseline);
+            expect(f.category).toBe("Blind/Time-Based Injection");
+        }
+    });
+
+    // ---- Conservative guards: each of these must fall back to today's result --
+
+    it("timeout + NON-delay payload => stays a Request Error (no injection finding)", () => {
+        const f = analyzeFinding(
+            timedOutInput({ payload: "' OR '1'='1" }), // injection, but no delay
+            fastBaseline,
+        );
+        expect(f.category).toBe("Request Error");
+        expect(f.category).not.toBe("Blind/Time-Based Injection");
+        expect(f.severity).not.toBe("CRITICAL");
+    });
+
+    it("timeout + sleep payload but NO baseline => no injection finding", () => {
+        const f = analyzeFinding(timedOutInput(), null);
+        expect(f.category).toBe("Request Error");
+    });
+
+    it("timeout + sleep payload but baseline ALSO slow => no injection finding", () => {
+        const slowBaseline = { ...fastBaseline, latencyMs: 5000 };
+        const f = analyzeFinding(timedOutInput(), slowBaseline);
+        expect(f.category).toBe("Request Error");
+    });
+
+    it("baseline latency null (unmeasured) => no injection finding", () => {
+        const f = analyzeFinding(timedOutInput(), { ...fastBaseline, latencyMs: null });
+        expect(f.category).toBe("Request Error");
+    });
+
+    it("NOT timed out (e.g. ECONNREFUSED 503) + sleep payload => no injection finding", () => {
+        const f = analyzeFinding(
+            timedOutInput({ statusCode: 503, timedOut: false }),
+            fastBaseline,
+        );
+        expect(f.category).toBe("Request Error");
+    });
+
+    it("timedOut omitted entirely (pre-fix callers) => unchanged behavior", () => {
+        const input = timedOutInput();
+        delete (input as { timedOut?: boolean }).timedOut;
+        const f = analyzeFinding(input, fastBaseline);
+        expect(f.category).toBe("Request Error");
+    });
+});
