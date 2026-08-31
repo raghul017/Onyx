@@ -87,7 +87,13 @@ describe("scoreAndPersistRun — persists computed score on the run", () => {
 
         expect(findMany).toHaveBeenCalledWith({
             where: { testRunId: "run-1234" },
-            select: { statusCode: true, attackType: true, responseSnippet: true },
+            // findingJson (T13b) lets persisted BOLA severities score correctly.
+            select: {
+                statusCode: true,
+                attackType: true,
+                responseSnippet: true,
+                findingJson: true,
+            },
         });
         expect(update).toHaveBeenCalledWith({
             where: { id: "run-1234" },

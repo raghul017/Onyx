@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { prisma } from "../lib/prisma.js";
-import { getSeverity, getOverallScore, getScoreLabel } from "../utils/severity.js";
+import { getSeverity, getOverallScore, getScoreLabel, type SeverityLevel } from "../utils/severity.js";
 import { logger } from "../lib/logger.js";
 
 /** True when an error is Prisma's "column does not exist" (P2022) for the
@@ -19,12 +19,32 @@ export function isMissingScoreColumn(e: unknown): boolean {
     return /overallScore|scoreLabel|column .* does not exist/i.test(msg);
 }
 
+/** Severity stored on a persisted finding (T13b), when the row carries one. */
+function storedSeverity(findingJson: unknown): SeverityLevel | null {
+    if (!findingJson || typeof findingJson !== "object") return null;
+    const sev = (findingJson as Record<string, unknown>).severity;
+    return typeof sev === "string" &&
+        ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].includes(sev)
+        ? (sev as SeverityLevel)
+        : null;
+}
+
 /** Compute overallScore + scoreLabel for a run from its logs. */
 export function computeScore(
-    logs: { statusCode: number | null; attackType: string; responseSnippet: string | null }[],
+    logs: {
+        statusCode: number | null;
+        attackType: string;
+        responseSnippet: string | null;
+        // T13b: rows with a PERSISTED finding (BOLA) contribute that severity,
+        // since it can't be re-derived from a single row. Optional → all other
+        // rows (and pre-T13b callers) score exactly as before.
+        findingJson?: unknown;
+    }[],
 ): { overallScore: number; scoreLabel: ReturnType<typeof getScoreLabel> } {
     const scored = logs.map((l) => ({
-        severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ""),
+        severity:
+            storedSeverity(l.findingJson) ??
+            getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ""),
     }));
     const overallScore = getOverallScore(scored);
     return { overallScore, scoreLabel: getScoreLabel(overallScore) };
@@ -39,7 +59,7 @@ export async function scoreAndPersistRun(testRunId: string): Promise<void> {
     try {
         const logs = await prisma.attackLog.findMany({
             where: { testRunId },
-            select: { statusCode: true, attackType: true, responseSnippet: true },
+            select: { statusCode: true, attackType: true, responseSnippet: true, findingJson: true },
         });
         const { overallScore, scoreLabel } = computeScore(logs);
         await prisma.testRun.update({

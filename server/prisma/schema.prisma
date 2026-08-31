@@ -334,6 +334,11 @@ model AttackLog {
   //   row this points at A; on A's own capture row it equals identityId.
   bolaObjectId         String?
   bolaSourceIdentityId String?
+  // Persisted finding (T13b). Most findings are recomputed from a single row by
+  // analyzeFinding, but a BOLA verdict needs BOTH identities' responses — which
+  // only exist together inside the replay job. So the verdict is computed once
+  // and stored here; the read path prefers this over recomputation when set.
+  findingJson          Json?
   error                String?
   createdAt            DateTime @default(now())
 

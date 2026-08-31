@@ -31,7 +31,7 @@ import type {
     WsServerMessage,
 } from "../types/shared.js";
 import { getOverallScore, getScoreLabel } from "../utils/severity.js";
-import { analyzeFinding } from "../services/finding-analysis.js";
+import { analyzeFinding, resolveFinding } from "../services/finding-analysis.js";
 import {
     scoreAndPersistRun,
     computeScore,
@@ -121,7 +121,12 @@ export async function getAllTestRuns(
         const needScore = runs.filter((r) => r.overallScore == null).map((r) => r.id);
         const logsByRun = new Map<
             string,
-            { statusCode: number | null; attackType: string; responseSnippet: string | null }[]
+            {
+                statusCode: number | null;
+                attackType: string;
+                responseSnippet: string | null;
+                findingJson?: unknown; // T13b: persisted BOLA severity
+            }[]
         >();
         if (needScore.length > 0) {
             const logs = await prisma.attackLog.findMany({
@@ -131,6 +136,7 @@ export async function getAllTestRuns(
                     statusCode: true,
                     attackType: true,
                     responseSnippet: true,
+                    findingJson: true, // T13b: BOLA rows score by stored severity
                 },
             });
             for (const l of logs) {
@@ -725,14 +731,18 @@ export async function getTestRun(
                 responseSnippet: string | null;
                 attackType: string;
                 createdAt: Date;
+                findingJson?: unknown;
             }) => {
-                const finding = analyzeFinding({
+                // T13b: prefer a PERSISTED finding (BOLA) — everything else is
+                // recomputed from the row exactly as before.
+                const finding = resolveFinding({
                     attackType: l.attackType,
                     method: l.method,
                     statusCode: l.statusCode ?? 0,
                     latencyMs: l.latencyMs ?? 0,
                     payload: l.payload,
                     responseSnippet: l.responseSnippet ?? "",
+                    findingJson: l.findingJson,
                 });
                 return {
                     id: l.id,
@@ -819,13 +829,15 @@ export async function getTestRunLogs(
         ]);
 
         const attackResults: AttackResult[] = logs.map((l) => {
-            const finding = analyzeFinding({
+            // T13b: stored finding (BOLA) wins; all other rows recompute as before.
+            const finding = resolveFinding({
                 attackType: l.attackType,
                 method: l.method,
                 statusCode: l.statusCode ?? 0,
                 latencyMs: l.latencyMs ?? 0,
                 payload: l.payload,
                 responseSnippet: l.responseSnippet ?? "",
+                findingJson: l.findingJson,
             });
             return {
                 id: l.id,

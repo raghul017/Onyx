@@ -700,3 +700,46 @@ primary), NO replay jobs are enqueued and a normal scan is byte-for-byte unchang
 - **Changed:** `prisma/schema.prisma` (replay columns/counters), `src/validators/schemas.ts` (kind "replay" + replay fields), `src/queues/producer.ts` (enqueueReplayJobs), `src/queues/worker.ts` (replay branch + processReplayJob + identity resolver wiring; loadRecipeCredential moved out), `src/services/run-completion.ts` (+replay counts), `src/controllers/test-run.controller.ts` (orchestrate replays after scan enqueue), `src/services/__tests__/run-completion.test.ts` (+replay cases); docs/UPDATES.md.
 - **Tests:** 255 pass (21 files; +~30 T13a cases). `npm run build`/tsc clean.
 - **Deferred to T13b:** the BOLA verdict — comparing each (A row, B row) pair to decide whether B accessed A's data, and emitting the finding.
+
+## 2026-08-31 — T13b: BOLA verdict + persisted API1 finding
+
+Phase 6. Completes BOLA **end-to-end at the engine level**: T13a produced the raw
+A-vs-B replay results; T13b judges them and emits a real OWASP **API1** finding.
+Backend-only. (Configuring 2+ identities is still API-only — the UI ticket is next.)
+
+- **Verdict** (`bola-verdict.ts`, conservative — no false positives). Deterministic
+  gates run FIRST and only ever reduce noise: B not 2xx → SAFE (access denied);
+  B 2xx but empty/error-shaped body → SAFE; A itself couldn't read the object →
+  SAFE (no ground truth); B's body clearly DIFFERS from A's → SAFE (API scoped B to
+  its own data); B's body substantially MATCHES A's → candidate. Matching combines
+  exact-body equality, shared identifying field values (id/_id/uuid + ≥2 fields),
+  and token similarity (≥0.85 strong).
+- **LLM interpretation** (`bola-judge.ts`, Gemini 2.5 Flash, JSON mode, temp 0 —
+  reuses the ai-payload client pattern). It is asked one focused yes/no and can only
+  **confirm or veto** a candidate — it never raises a finding alone. Strong match +
+  judge agrees → `confidence: "confirmed"` (CRITICAL); judge unavailable/errors/
+  unparseable → deterministic fallback at `confidence: "firm"` (HIGH). A judge
+  "no" vetoes the finding. The LLM can never crash or block the pipeline. Only
+  REDACTED, size-capped (2000 char) bodies are sent — no credentials/tokens/URLs.
+- **Finding**: category "Broken Object Level Authorization", `owaspCategory:
+  API1_BOLA`, evidence showing **BOTH** requests side-by-side with statuses +
+  similarity/shared fields, a plain-English cause ("User B [bLabel] requested user
+  A's [aLabel] object {id} and received A's data…"), and concrete remediation.
+- **Persistence**: new nullable `AttackLog.findingJson Json?` (migration
+  `20260831061359_t13b_finding_json`, applied via migrate deploy; status clean).
+  A BOLA verdict needs BOTH identities' responses — which only exist together
+  inside the replay job — so it's computed once there and stored, with
+  `owaspCategory` set to API1_BOLA on B's row, plus a live `ATTACK_RESULT` broadcast.
+- **Read path**: new `resolveFinding()` prefers a well-formed stored finding and
+  otherwise recomputes via `analyzeFinding` exactly as before. Wired into
+  `getTestRun`, `getTestRunLogs`, and the PDF (severity + OWASP coverage), so a
+  confirmed BOLA surfaces on the report and **lights up API1** in coverage.
+- **Scoring**: `computeScore` uses the stored severity for rows that have one
+  (BOLA) and is unchanged for every other row; `scoreAndPersistRun` + the history
+  list now select `findingJson`. A confirmed CRITICAL BOLA deducts 25 points.
+
+- **Added:** `server/src/services/bola-verdict.ts`, `bola-judge.ts`; tests `bola-verdict.test.ts`, `resolve-finding.test.ts`; migration `20260831061359_t13b_finding_json/`.
+- **Changed:** `prisma/schema.prisma` (findingJson), `src/queues/worker.ts` (verdict in processReplayJob: A row, B row + findingJson/API1, WS broadcast), `src/services/finding-analysis.ts` (+resolveFinding), `src/services/run-score.ts` (stored severity), `src/services/pdf.service.ts` (resolveFinding for severity + coverage), `src/controllers/test-run.controller.ts` (both read paths + score select), `src/services/__tests__/run-score.test.ts` (select assertion); docs/UPDATES.md.
+- **Tests:** 277 pass (23 files; +22 T13b cases) — vulnerable→CONFIRMED, secure (403/404/empty/error-shaped), B-gets-own-data, judge veto, judge missing/throwing/null→firm fallback, stored-vs-recomputed read path, BOLA scoring. `npm run build`/tsc clean.
+- **Verification note:** a real end-to-end BOLA needs 2 identities configured, which is only possible via the API until the UI ticket — so T13b is verified via fixtures/unit tests, not a live 2-identity scan.
+- **Next:** UI to configure identities + surface BOLA findings.

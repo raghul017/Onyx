@@ -37,6 +37,8 @@ import {
     type IdentityRef,
 } from "../services/identity-credential-resolver.js";
 import { loadRecipeCredential } from "../services/recipe-credential-loader.js";
+import { decideBolaVerdict, type BolaFinding } from "../services/bola-verdict.js";
+import { geminiBolaJudge } from "../services/bola-judge.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
@@ -963,31 +965,102 @@ async function processReplayJob(data: AttackJobData): Promise<void> {
     const bResult = await fireAs(targetIdentityId);
     const aResult = await fireAs(sourceIdentityId);
 
-    // Record both as AttackLogs (BOLA_REPLAY). identityId = who fired it;
-    // bolaSourceIdentityId = A (owner); bolaObjectId = the id under test. T13b
-    // groups by (endpointId, bolaObjectId) and compares the A row vs the B row.
-    const rows = [
-        bResult && { identityId: targetIdentityId, r: bResult },
-        aResult && { identityId: sourceIdentityId, r: aResult },
-    ].filter(Boolean) as Array<{ identityId: string; r: NonNullable<Awaited<ReturnType<typeof fireAs>>> }>;
-
-    if (rows.length > 0) {
-        await prisma.attackLog.createMany({
-            data: rows.map(({ identityId, r }) => ({
+    // Record A's row first (the owner's own result for this id — context for the
+    // verdict + the report). identityId = who fired it; bolaSourceIdentityId = A.
+    if (aResult) {
+        await prisma.attackLog.create({
+            data: {
                 testRunId,
                 endpointId,
                 method,
                 path: injectedPath,
-                payload: "", // replay carries no payload
-                statusCode: r.statusCode,
-                latencyMs: r.latencyMs,
-                responseSnippet: r.snippet,
+                payload: "",
+                statusCode: aResult.statusCode,
+                latencyMs: aResult.latencyMs,
+                responseSnippet: aResult.snippet,
                 attackType: "BOLA_REPLAY",
-                identityId,
+                identityId: sourceIdentityId,
                 bolaObjectId: objectId,
                 bolaSourceIdentityId: sourceIdentityId,
-            })),
+            },
         });
+    }
+
+    if (!bResult) {
+        await incrementCompletedReplay(testRunId);
+        return;
+    }
+
+    // ── BOLA verdict (T13b) ── Both responses are in memory here, so decide now
+    // and PERSIST the finding on B's row (it can't be recomputed from one row).
+    // Labels make the explanation human-readable ("userB requested userA's …").
+    const labels = await prisma.runIdentity.findMany({
+        where: { id: { in: [sourceIdentityId, targetIdentityId] } },
+        select: { id: true, label: true },
+    });
+    const labelOf = (id: string) => labels.find((l) => l.id === id)?.label ?? id;
+
+    let finding: BolaFinding | null = null;
+    try {
+        finding = await decideBolaVerdict(
+            {
+                endpoint: `${method} ${path}`,
+                objectId,
+                aLabel: labelOf(sourceIdentityId),
+                bLabel: labelOf(targetIdentityId),
+                aStatus: aResult?.statusCode ?? 0,
+                aBody: aResult?.snippet ?? "",
+                bStatus: bResult.statusCode,
+                bBody: bResult.snippet ?? "",
+            },
+            geminiBolaJudge,
+        );
+    } catch (err) {
+        // A verdict failure must never fail the replay job.
+        log.error({ testRunId, err: err instanceof Error ? err.message : String(err) }, "BOLA verdict failed");
+    }
+
+    const bLog = await prisma.attackLog.create({
+        data: {
+            testRunId,
+            endpointId,
+            method,
+            path: injectedPath,
+            payload: "",
+            statusCode: bResult.statusCode,
+            latencyMs: bResult.latencyMs,
+            responseSnippet: bResult.snippet,
+            attackType: "BOLA_REPLAY",
+            identityId: targetIdentityId,
+            bolaObjectId: objectId,
+            bolaSourceIdentityId: sourceIdentityId,
+            // Confirmed/firm BOLA → persist the finding + light up API1 coverage.
+            ...(finding
+                ? { findingJson: finding as unknown as object, owaspCategory: "API1_BOLA" }
+                : {}),
+        },
+    });
+
+    // Broadcast so a confirmed BOLA shows live in the console like any result.
+    if (finding) {
+        const wsMessage: WsServerMessage = {
+            type: "ATTACK_RESULT",
+            data: {
+                id: bLog.id,
+                testRunId,
+                method: method as AttackResult["method"],
+                endpoint: injectedPath,
+                statusCode: bResult.statusCode,
+                responseTime: bResult.latencyMs,
+                payload: "",
+                responseSnippet: bResult.snippet ?? "",
+                attackType: "BOLA_REPLAY" as AttackResult["attackType"],
+                timestamp: bLog.createdAt.toISOString(),
+                severity: finding.severity,
+                finding,
+            },
+        };
+        wsManager.broadcast(testRunId, wsMessage);
     }
 
     await incrementCompletedReplay(testRunId);

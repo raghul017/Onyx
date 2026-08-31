@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { prisma } from '../lib/prisma.js';
-import { getSeverity, getOverallScore, getScoreLabel, type SeverityLevel } from '../utils/severity.js';
-import { analyzeFinding } from './finding-analysis.js';
+import { getOverallScore, getScoreLabel, type SeverityLevel } from '../utils/severity.js';
+import { resolveFinding } from './finding-analysis.js';
 import { OWASP_API_CATEGORIES, OWASP_LABELS } from './owasp-mapping.js';
 
 // ---------------------------------------------------------------------------
@@ -126,9 +126,21 @@ export async function generateTestRunPDF(testRunId: string, userId: string): Pro
     const totalLatency = logs.reduce((s, l) => s + (l.latencyMs ?? 0), 0);
     const avgLatency = logs.length > 0 ? Math.round(totalLatency / logs.length) : 0;
 
+    // Severity for one log — prefers a PERSISTED finding (T13b BOLA), else the
+    // usual single-row derivation.
+    const severityOf = (l: (typeof logs)[number]): SeverityLevel =>
+        resolveFinding({
+            attackType: l.attackType,
+            statusCode: l.statusCode ?? 0,
+            responseSnippet: l.responseSnippet ?? '',
+            payload: l.payload ?? '',
+            latencyMs: l.latencyMs ?? 0,
+            findingJson: (l as { findingJson?: unknown }).findingJson,
+        }).severity;
+
     // Score + severity breakdown
     const scoredLogs = logs.map(l => ({
-        severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ''),
+        severity: severityOf(l),
         statusCode: l.statusCode ?? 0,
     }));
     const overallScore = getOverallScore(scoredLogs);
@@ -146,23 +158,25 @@ export async function generateTestRunPDF(testRunId: string, userId: string): Pro
     const sortedLogs = logs
         .map(l => ({
             ...l,
-            severity: getSeverity(l.attackType, l.statusCode ?? 0, l.responseSnippet ?? ''),
+            severity: severityOf(l),
         }))
         .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
     // OWASP API Top 10 coverage (T9): count each analyzed result by its mapped
-    // category. Computed via analyzeFinding so it's correct even for older logs
-    // written before the owaspCategory column existed.
+    // category. Uses resolveFinding so it's correct for older logs written before
+    // the owaspCategory column existed AND for T13b BOLA rows, whose finding is
+    // PERSISTED (findingJson) and can't be re-derived from a single row.
     const owaspCounts: Record<string, number> = {};
     for (const code of OWASP_API_CATEGORIES) owaspCounts[code] = 0;
     let owaspUnmapped = 0;
     for (const l of logs) {
-        const code = analyzeFinding({
+        const code = resolveFinding({
             attackType: l.attackType,
             statusCode: l.statusCode ?? 0,
             responseSnippet: l.responseSnippet ?? '',
             payload: l.payload ?? '',
             latencyMs: l.latencyMs ?? 0,
+            findingJson: (l as { findingJson?: unknown }).findingJson,
         }).owaspCategory;
         if (code) owaspCounts[code] += 1;
         else owaspUnmapped += 1;

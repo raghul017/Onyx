@@ -465,3 +465,39 @@ function applyBaselineDiff(
 
     return base;
 }
+
+// ---------------------------------------------------------------------------
+// resolveFinding (T13b) — the single read-path entry point for a log's finding.
+//
+// Most findings are DERIVED from one row and are recomputed on every read (so
+// rule improvements apply retroactively). A BOLA verdict, however, needs BOTH
+// identities' responses — which only exist together inside the replay job — so
+// it is computed once and PERSISTED in AttackLog.findingJson. This helper
+// prefers a stored finding when present and otherwise recomputes exactly as
+// before, keeping every non-BOLA row byte-for-byte backward compatible.
+// ---------------------------------------------------------------------------
+
+/** True when the value looks like a persisted FindingDetail we can trust. */
+function isStoredFinding(v: unknown): v is FindingDetail {
+    if (!v || typeof v !== "object") return false;
+    const f = v as Record<string, unknown>;
+    return (
+        typeof f.severity === "string" &&
+        typeof f.category === "string" &&
+        typeof f.title === "string" &&
+        typeof f.cause === "string" &&
+        typeof f.remediation === "string" &&
+        typeof f.confidence === "string"
+    );
+}
+
+/**
+ * Return the finding for a log row: the stored one (BOLA) when present and
+ * well-formed, else the recomputed one. `findingJson` is Prisma's Json? value.
+ */
+export function resolveFinding(
+    log: FindingInput & { findingJson?: unknown },
+): FindingDetail {
+    if (isStoredFinding(log.findingJson)) return log.findingJson;
+    return analyzeFinding(log);
+}
