@@ -92,6 +92,10 @@ export interface AttackResult {
     attackType: AttackType;
     timestamp: string;
     severity: SeverityLevel;
+    /** T15b — set when a re-scan found this finding no longer reproduces. */
+    resolvedAt?: string | null;
+    /** T15b — when this finding was last re-verified (resolved or not). */
+    lastCheckedAt?: string | null;
     /** Explained finding (category, cause, evidence, remediation). Present on
      *  the live stream and the report; omitted from the lightweight run list. */
     finding?: FindingDetail;

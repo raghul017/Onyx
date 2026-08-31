@@ -31,6 +31,7 @@ import {
     revokeShare,
     getSharedReport,
 } from "../controllers/report-share.controller.js";
+import { rescanFindingHandler } from "../controllers/rescan.controller.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { checkQuota } from "../middleware/quota.middleware.js";
 import { injectOrgContext } from "../middleware/org.middleware.js";
@@ -149,6 +150,28 @@ router.delete("/test-runs/:id", authenticateToken, injectOrgContext, deleteTestR
 
 /** Get paginated attack logs for a test run. */
 router.get("/test-runs/:id/logs", authenticateToken, injectOrgContext, getTestRunLogs);
+
+// Per-finding re-scans (T15b) — one real request to the target per call, so
+// rate-limit them like other outbound work.
+const rescanLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 60, // 60 re-scans per 15 min per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "Rate limit exceeded",
+        message: "Too many re-scans. Please try again later.",
+    },
+});
+
+/** Re-run the check behind ONE finding and report whether it still reproduces. */
+router.post(
+    "/test-runs/:id/logs/:logId/rescan",
+    authenticateToken,
+    injectOrgContext,
+    rescanLimiter,
+    rescanFindingHandler,
+);
 
 // ---------------------------------------------------------------------------
 // Report sharing (T16a)

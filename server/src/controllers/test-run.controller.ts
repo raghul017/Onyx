@@ -777,6 +777,8 @@ export function buildReportPayload(testRun: {
         attackType: string;
         createdAt: Date;
         findingJson?: unknown;
+        resolvedAt?: Date | null;
+        lastCheckedAt?: Date | null;
     }>;
 }): GetTestRunResponse {
     {
@@ -820,6 +822,8 @@ export function buildReportPayload(testRun: {
                 attackType: string;
                 createdAt: Date;
                 findingJson?: unknown;
+                resolvedAt?: Date | null;
+                lastCheckedAt?: Date | null;
             }) => {
                 // T13b: prefer a PERSISTED finding (BOLA) — everything else is
                 // recomputed from the row exactly as before.
@@ -845,6 +849,9 @@ export function buildReportPayload(testRun: {
                     timestamp: l.createdAt.toISOString(),
                     severity: finding.severity,
                     finding,
+                    // T15b — re-scan state so the client can show a Resolved badge.
+                    resolvedAt: l.resolvedAt?.toISOString() ?? null,
+                    lastCheckedAt: l.lastCheckedAt?.toISOString() ?? null,
                 };
             },
         );
@@ -936,6 +943,9 @@ export async function getTestRunLogs(
                 timestamp: l.createdAt.toISOString(),
                 severity: finding.severity,
                 finding,
+                // T15b — re-scan state (null until a finding is re-scanned).
+                resolvedAt: l.resolvedAt?.toISOString() ?? null,
+                lastCheckedAt: l.lastCheckedAt?.toISOString() ?? null,
             };
         });
 

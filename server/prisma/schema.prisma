@@ -340,6 +340,12 @@ model AttackLog {
   // only exist together inside the replay job. So the verdict is computed once
   // and stored here; the read path prefers this over recomputation when set.
   findingJson          Json?
+  // Re-scan state (T15b). resolvedAt is set when a re-run of THIS finding's
+  // originating check no longer reproduces it; lastCheckedAt records when the
+  // finding was last re-verified (set on every rescan, resolved or not).
+  // Both null for rows that have never been re-scanned — i.e. every existing row.
+  resolvedAt           DateTime?
+  lastCheckedAt        DateTime?
   error                String?
   createdAt            DateTime @default(now())
 

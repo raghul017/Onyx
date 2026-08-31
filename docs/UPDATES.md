@@ -1087,3 +1087,49 @@ schema, no new attack traffic.
 - **Changed:** `client/src/components/FindingDetailPanel.tsx` (new `RemediationSection` with the picker + snippet + Copy, replacing the plain remediation `Section`); docs/UPDATES.md.
 - **Tests:** client 78 pass (11 files; +10) — every library key is a real backend category, the exploitable categories are covered, known pairs return a snippet, unknown/`generic`/null return null (generic fallback), an intentionally-omitted pair returns null without throwing, every snippet has real summary/code/language, and only declared framework ids are used.
 - **Schema/migration:** none. **Backend:** untouched. **LLM:** none.
+
+## 2026-08-31 — T15b: re-scan a finding (backend)
+
+Backend-only. The owner can re-run the check behind ONE finding: if it no longer
+reproduces it's marked **resolved**; if it does, it's recorded as still-present
+and re-checked now. (A thin client button is the next ticket.)
+
+- **Endpoint:** `POST /api/test-runs/:id/logs/:logId/rescan` — auth + the same
+  ownership rule as viewing the run, **and** the log must belong to that run (a
+  valid log id from another run 404s, so this route can't be used to re-fire
+  arbitrary checks). Rate-limited (60 / 15 min / IP) since each call makes one
+  real request to the target. Returns
+  `{ outcome, resolved, checkedAt, severity, category, message }`.
+- **REUSE, NOT DUPLICATION:** `rescanFinding()` rebuilds the request with the same
+  `request-builder` and re-runs the **same exported verdict services** the scan
+  used — `analyzeFinding` (with the endpoint's baseline, so baseline-aware rules
+  behave identically), `decideMassAssignmentVerdict`, and
+  `analyzeResponseExposure`/`decideExposureVerdict`. A re-scan therefore cannot
+  drift from the scan that raised the finding. SSRF guard, 10s timeout and T3
+  redaction are all preserved.
+- **Why not the worker:** `processAttackJob`/`processReplayJob` take a BullMQ
+  `Job`, write NEW AttackLogs, advance run counters and broadcast progress — all
+  wrong for a re-check of one row. The service is standalone and touches exactly
+  one row; the firer is injectable so tests need no network.
+- **Supported:** normal attack findings (injection, XSS, path traversal, auth,
+  error-disclosure — anything `analyzeFinding` decides), **MASS_ASSIGNMENT**, and
+  **DATA_EXPOSURE**. **Deferred:** `BOLA_REPLAY` / `BFLA_PROBE` — re-verifying
+  those needs a live second identity and the originally-acquired object id, so
+  they return `outcome: "unsupported"` with a clear message instead of a possibly
+  wrong verdict, and never touch `resolvedAt`. A firing failure likewise returns
+  `outcome: "error"` and **never** marks a finding resolved.
+- **State:** `resolvedAt` is set when the check no longer reproduces;
+  `lastCheckedAt` is set on every successful re-scan. A finding that regresses has
+  `resolvedAt` cleared back to null.
+- **Read path:** `resolvedAt`/`lastCheckedAt` are surfaced on each log in
+  `getTestRun` and `getTestRunLogs` (null for every never-re-scanned row, so this
+  is fully backward compatible) for the client's Resolved badge.
+- **Run score deliberately UNCHANGED:** a single-finding re-check is not a re-scan
+  of the whole attack surface, so rewriting the run's score from it would
+  misrepresent the other, unverified findings. A full re-run is future work; a
+  test asserts the score is identical with and without re-scan state.
+
+- **Added:** `server/src/services/rescan.service.ts`, `server/src/controllers/rescan.controller.ts`, `server/src/services/__tests__/rescan.service.test.ts`, `server/src/controllers/__tests__/rescan.controller.test.ts`, `server/src/controllers/__tests__/report-payload-rescan.test.ts`, migration `20260831102558_t15b_finding_rescan/`.
+- **Changed:** `prisma/schema.prisma` (AttackLog.resolvedAt + lastCheckedAt), `src/controllers/test-run.controller.ts` (surface both fields on the read path), `src/types/shared.ts` (AttackResult gains the two optional fields), `src/routes/index.ts` (route + rescan rate limiter); docs/UPDATES.md.
+- **Schema/migration:** `20260831102558_t15b_finding_rescan` — applied via `migrate deploy`; `migrate status` → "Database schema is up to date!". Additive only (two nullable columns).
+- **Tests:** 404 pass (35 files; +22) — safe-now ⇒ resolved with resolvedAt set; still-vulnerable ⇒ lastCheckedAt set and resolvedAt cleared; mass-assignment and data-exposure both directions; BOLA/BFLA ⇒ unsupported with nothing updated; missing log and firing failure ⇒ error with nothing marked resolved; ownership (owner ✓, org member ✓, non-owner 403, unauthenticated 403, missing run 404, cross-run log 404); and the read path emitting nulls / ISO strings with the score unchanged.
