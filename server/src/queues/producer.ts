@@ -153,10 +153,14 @@ export interface ReplayJobSpec {
     path: string; // detail path, e.g. "/users/{id}"
     parameters?: ParsedParameterInput[];
     requestBodySchema?: Record<string, unknown> | null;
-    objectId: string; // A's acquired id
-    idParamName: string; // path param that carries the id
+    objectId: string; // A's acquired id ("" for BFLA — no object needed)
+    idParamName: string; // path param that carries the id ("" for BFLA)
     sourceIdentityId: string; // A
     targetIdentityId: string; // B
+    /** T14a: which cross-identity check this is. Defaults to "bola". */
+    checkType?: "bola" | "bfla";
+    /** T14a (BFLA only): why the endpoint was flagged privileged. */
+    privilegedReason?: string;
 }
 
 /**
@@ -180,7 +184,7 @@ export async function enqueueReplayJobs(
             path: s.path,
             baseUrl,
             payload: "", // replay carries no attack payload
-            attackType: "BOLA_REPLAY",
+            attackType: (s.checkType ?? "bola") === "bfla" ? "BFLA_PROBE" : "BOLA_REPLAY",
             parameters: s.parameters ?? [],
             requestBodySchema: s.requestBodySchema ?? null,
             kind: "replay",
@@ -188,10 +192,12 @@ export async function enqueueReplayJobs(
             idParamName: s.idParamName,
             sourceIdentityId: s.sourceIdentityId,
             targetIdentityId: s.targetIdentityId,
+            checkType: s.checkType ?? "bola",
+            privilegedReason: s.privilegedReason,
         },
         opts: {
-            // One replay per (run, endpoint, A-id, B) — idempotent re-enqueue.
-            jobId: `${testRunId}:${s.endpointId}:${s.objectId}:${s.targetIdentityId}:replay`,
+            // One check per (run, endpoint, A-id|checkType, B) — idempotent.
+            jobId: `${testRunId}:${s.endpointId}:${s.objectId || (s.checkType ?? "bola")}:${s.targetIdentityId}:replay`,
             priority: REPLAY_PRIORITY,
         },
     }));

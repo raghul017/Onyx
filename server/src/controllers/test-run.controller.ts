@@ -575,16 +575,24 @@ async function processTestRunAsync(
             if (runIdentities.length >= 2) {
                 const primary = runIdentities.find((i) => i.isPrimary);
                 if (primary) {
-                    // Enrich saved endpoints (DB ids) with parsed parameters.
-                    const paramsByKey = new Map(
-                        endpoints.map((ep) => [`${ep.method} ${ep.path}`, ep.parameters ?? []]),
+                    // Enrich saved endpoints (DB ids) with parsed details. T14a
+                    // also needs operationId + requestBodySchema so the
+                    // privileged-endpoint heuristic and the BFLA probe request
+                    // have everything they need.
+                    const parsedByKey = new Map(
+                        endpoints.map((ep) => [`${ep.method} ${ep.path}`, ep]),
                     );
-                    const orchestratorEndpoints = savedEndpoints.map((se) => ({
-                        endpointId: se.id,
-                        method: se.method,
-                        path: se.path,
-                        parameters: (paramsByKey.get(`${se.method} ${se.path}`) ?? []) as any,
-                    }));
+                    const orchestratorEndpoints = savedEndpoints.map((se) => {
+                        const parsed = parsedByKey.get(`${se.method} ${se.path}`);
+                        return {
+                            endpointId: se.id,
+                            method: se.method,
+                            path: se.path,
+                            parameters: (parsed?.parameters ?? []) as any,
+                            operationId: parsed?.operationId,
+                            requestBodySchema: parsed?.requestBodySchema ?? null,
+                        };
+                    });
                     await orchestrateReplays({
                         testRunId,
                         baseUrl,

@@ -811,3 +811,55 @@ answered fast, is strong evidence of time-based injection.
 - **Changed:** `server/src/queues/worker.ts` (timedOut flag + threaded into analyzeFinding), `server/src/services/finding-analysis.ts` (`FindingInput.timedOut`, `TIMEOUT_BASELINE_FAST_MS`, the new rule), `server/src/services/__tests__/finding-analysis.test.ts` (appended only — 103 insertions, 0 deletions); docs/UPDATES.md.
 - **Tests:** 286 pass (23 files; +9) — timeout+sleep+fast baseline → CRITICAL/firm (and HIGH for non-SQLi), the other delay dialects, plus the conservative fallbacks: non-delay payload, no baseline, slow baseline, null baseline latency, non-timeout transport error, and `timedOut` omitted. `npm run build`/tsc clean.
 - **Schema/migration:** none. **Env:** none.
+
+## 2026-08-31 — T14a: BFLA detection (API5)
+
+Backend-only. Adds Broken Function Level Authorization detection on top of the
+T12a/T13a multi-identity + replay machinery: with 2+ identities, the primary A is
+the higher-privilege context and each credentialed secondary B is probed against
+privileged endpoints. If B succeeds where it should be denied, that's a confirmed
+**OWASP API5** finding.
+
+- **Privileged-endpoint heuristic** (`privileged-endpoint.ts`, pure + tested).
+  Conservative, documented signals — ANY one suffices: an administrative PATH
+  SEGMENT (`/admin`, `/internal`, `/manage`, `/config`, `/settings`, `/roles`,
+  `/permissions`, `/audit`, `/system`, … matched WHOLE-SEGMENT so `/badminton` and
+  `/configurator` can't match); a WRITE (POST/PUT/PATCH/DELETE) on an
+  account-administration collection (`/users`, `/accounts`, `/members`, `/orgs`,
+  …) — reading those is common, mutating them is not; or an operationId naming an
+  administrative action (`deleteUser`, `impersonate`, `grantRole`, …). A plain GET
+  on an ordinary resource is never flagged.
+- **Planner** (`bfla-planner.ts`, pure): one probe per (privileged endpoint ×
+  credentialed secondary), reusing `MAX_REPLAY_JOBS`. Anonymous secondaries are
+  deliberately excluded — "no auth reaches an admin route" is the MISSING_AUTH
+  attack's job, and including it would double-report. Skips cleanly for <2
+  identities / no primary / no credentialed secondary / no privileged endpoints.
+- **Job model:** reused the existing `"replay"` job kind with a new
+  `checkType: "bola" | "bfla"` discriminator (defaulting to `"bola"`, so every
+  T13a job is unchanged) rather than adding a new kind. This means BFLA rides the
+  **existing replay counters** (`totalReplays`/`completedReplays`) and completion
+  gate — **no migration**.
+- **Worker** (`processBflaProbe`): fires the privileged endpoint AS B with
+  schema-valid dummy params and B's credential, plus A's result on the same
+  endpoint for context. Same SSRF guard, 10s timeout, credential-scrub + T3
+  redaction as the BOLA path.
+- **Verdict** (`bfla-verdict.ts`): B not 2xx → SAFE; endpoint not privileged →
+  SAFE; A also 404/501 (function absent) → SAFE; B 2xx on a privileged function →
+  finding. Severity HIGH, **CRITICAL for destructive methods** (DELETE);
+  confidence "confirmed" when the optional judge corroborates, else "firm". The
+  LLM may only **VETO** — never raise a finding alone — and its absence/failure
+  leaves the deterministic verdict standing (mirrors BOLA).
+- **Persistence/surfacing:** the finding is stored in `findingJson` on B's row with
+  `owaspCategory: API5_BFLA` and broadcast as `ATTACK_RESULT`. It flows through the
+  existing T13b `resolveFinding` read path, scoring, and PDF, so **API5 lights up in
+  OWASP coverage** with no extra work.
+- **BUG FIXED (pre-existing, blocking):** `BOLA_REPLAY` was missing from the job
+  `attackTypeEnum`, so **every T13a replay job failed the worker's `safeParse` and
+  was dropped before reaching the replay branch — BOLA never actually ran.** Added
+  `BOLA_REPLAY` + `BFLA_PROBE` to the enum and locked it with a regression test.
+
+- **Added:** `server/src/services/privileged-endpoint.ts`, `bfla-planner.ts`, `bfla-verdict.ts`; tests `privileged-endpoint.test.ts`, `bfla-planner.test.ts`, `bfla-verdict.test.ts`, `server/src/validators/__tests__/replay-job.test.ts`.
+- **Changed:** `validators/schemas.ts` (checkType + privilegedReason + the enum fix), `queues/producer.ts` (ReplayJobSpec checkType/privilegedReason; BFLA_PROBE attackType; checkType-aware jobId), `queues/worker.ts` (route checkType → new `processBflaProbe`), `services/bola-orchestrator.ts` (plan + enqueue BFLA alongside BOLA, one combined totalReplays), `controllers/test-run.controller.ts` (pass operationId + requestBodySchema to the orchestrator); docs/UPDATES.md.
+- **Schema/migration:** **none** — reuses `findingJson`, the replay counters, and existing columns. `prisma migrate status` → "Database schema is up to date!".
+- **Tests:** 317 pass (27 files; +31) — heuristic positives/negatives incl. substring guards, verdict (vulnerable/denied/non-privileged/absent/veto/judge-failure), planner fan-out + cap + all skip paths, and the job-validation regression. `npm run build`/tsc clean.
+- **Verification note:** end-to-end BFLA needs 2 identities configured against a real API, so verification here is via fixtures/unit tests.

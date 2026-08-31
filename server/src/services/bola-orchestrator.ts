@@ -31,6 +31,7 @@ import {
     type ResolvedPair,
 } from "./bola-planner.js";
 import { enqueueReplayJobs, type ReplayJobSpec } from "../queues/producer.js";
+import { planBflaProbes } from "./bfla-planner.js";
 
 const log = logger.child({ component: "bola-orchestrator" });
 
@@ -38,6 +39,9 @@ const log = logger.child({ component: "bola-orchestrator" });
 export interface OrchestratorEndpoint extends EndpointLike {
     endpointId: string; // DB id
     parameters: Array<ParsedParameterInput & { in: "query" | "header" | "path" | "cookie" }>;
+    /** T14a — used by the privileged-endpoint heuristic + the probe request. */
+    operationId?: string | undefined;
+    requestBodySchema?: Record<string, unknown> | null;
 }
 
 export interface OrchestrateReplaysInput {
@@ -81,13 +85,36 @@ export async function orchestrateReplays(input: OrchestrateReplaysInput): Promis
     }
 
     const { specs, skipReason } = planReplays(identities, resolved);
-    if (specs.length === 0) {
-        log.info({ testRunId, skipReason }, "No BOLA replays enqueued");
+
+    // T14a — BFLA probes ride the SAME replay job kind + counters, so plan them
+    // here and enqueue both sets together with one totalReplays update. BOLA and
+    // BFLA are independent: either can be empty and the other still runs.
+    const { specs: bflaSpecs, skipReason: bflaSkip } = planBflaProbes(
+        identities,
+        endpoints.map((e) => ({
+            endpointId: e.endpointId,
+            method: e.method,
+            path: e.path,
+            operationId: e.operationId,
+            parameters: e.parameters,
+            requestBodySchema: e.requestBodySchema,
+        })),
+    );
+
+    const allSpecs = [...specs, ...bflaSpecs];
+    if (allSpecs.length === 0) {
+        log.info(
+            { testRunId, skipReason, bflaSkip },
+            "No cross-identity checks enqueued",
+        );
         return 0;
     }
 
-    await input.setTotalReplays(testRunId, specs.length);
-    const count = await enqueue(testRunId, baseUrl, specs);
-    log.info({ testRunId, count }, "Enqueued BOLA replays");
+    await input.setTotalReplays(testRunId, allSpecs.length);
+    const count = await enqueue(testRunId, baseUrl, allSpecs);
+    log.info(
+        { testRunId, count, bola: specs.length, bfla: bflaSpecs.length },
+        "Enqueued cross-identity checks",
+    );
     return count;
 }

@@ -73,6 +73,11 @@ const attackTypeEnum = z.enum([
     "OVERSIZED_PAYLOAD",
     "TYPE_CONFUSION",
     "RATE_LIMIT",
+    // Cross-identity probes (T13a/T14a). These ride the "replay" job kind and
+    // carry no attack payload; they were previously missing from this enum, so
+    // every replay job failed validation in the worker and was dropped.
+    "BOLA_REPLAY",
+    "BFLA_PROBE",
     "UNKNOWN",
 ]);
 
@@ -145,6 +150,17 @@ export const attackJobDataSchema = z.object({
     targetIdentityId: z.string().uuid().optional(),
     /** The path param name that carries the object id (e.g. "id", "userId"). */
     idParamName: z.string().optional(),
+    /**
+     * Which cross-identity check this replay performs (T14a). "bola" re-requests
+     * A's object id AS B (needs objectId/idParamName); "bfla" calls a PRIVILEGED
+     * endpoint AS B to see whether a lower-privileged identity is wrongly allowed
+     * (needs no objectId). Defaults to "bola" so every T13a job keeps behaving
+     * exactly as before. Reusing the "replay" kind means the existing replay
+     * counters + completion gate cover BFLA with no schema change.
+     */
+    checkType: z.enum(["bola", "bfla"]).optional().default("bola"),
+    /** BFLA-only: why the endpoint was flagged privileged (for the finding). */
+    privilegedReason: z.string().optional(),
 });
 
 export type AttackJobData = z.infer<typeof attackJobDataSchema>;

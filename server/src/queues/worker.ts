@@ -39,6 +39,7 @@ import {
 import { loadRecipeCredential } from "../services/recipe-credential-loader.js";
 import { decideBolaVerdict, type BolaFinding } from "../services/bola-verdict.js";
 import { geminiBolaJudge } from "../services/bola-judge.js";
+import { decideBflaVerdict, type BflaFinding } from "../services/bfla-verdict.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { redactSecrets, REDACTED } from "../lib/redact.js";
 import { logger } from "../lib/logger.js";
@@ -927,6 +928,144 @@ async function incrementCompletedReplay(testRunId: string): Promise<void> {
 // accessor) and once AS identity A (the owner's own baseline for that id), and
 // record both as AttackLogs so T13b can diff them. NO verdict/finding here.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// BFLA probe (T14a) — call a PRIVILEGED endpoint AS the secondary identity B.
+// If B (an authenticated but lower-privileged user) succeeds where it should be
+// denied, that's Broken Function Level Authorization (OWASP API5). A's result on
+// the same endpoint is captured for context so we can distinguish "B was wrongly
+// allowed" from "this route doesn't exist at all". Mirrors the BOLA replay path:
+// same firing/redaction guarantees, verdict persisted in findingJson, broadcast.
+// ---------------------------------------------------------------------------
+async function processBflaProbe(
+    data: AttackJobData,
+    sourceIdentityId: string, // A — higher-privilege context
+    targetIdentityId: string, // B — should be denied
+): Promise<void> {
+    const {
+        testRunId,
+        endpointId,
+        method,
+        path,
+        baseUrl,
+        parameters,
+        requestBodySchema,
+        privilegedReason,
+    } = data;
+
+    // Fire the endpoint AS one identity with schema-valid dummy params.
+    const fireAs = async (identityId: string) => {
+        const resolved = await identityCredentialResolver.resolveForIdentity(identityId);
+        const request = buildBenignRequest({
+            method,
+            path,
+            baseUrl,
+            parameters: parameters ?? [],
+            requestBodySchema,
+            credential: resolved.value,
+        });
+        try {
+            await assertNotSSRF(request.url);
+        } catch {
+            return null; // SSRF-blocked → record nothing for this side
+        }
+        let res: AttackExecutionResult;
+        try {
+            res = await executeAttack(request);
+        } catch (err) {
+            return {
+                statusCode: classifyNetworkError(err).statusCode,
+                latencyMs: 0,
+                snippet: null as string | null,
+                bodyLength: 0,
+            };
+        }
+        const snippet = res.responseSnippet
+            ? redactSecrets(scrubCredential(res.responseSnippet, resolved.value)!)
+                  .replace(/\0/g, "\\u0000")
+                  .slice(0, RESPONSE_SNIPPET_MAX_LENGTH)
+            : null;
+        return { statusCode: res.statusCode, latencyMs: res.latencyMs, snippet, bodyLength: res.bodyLength };
+    };
+
+    // B first (the actual privilege probe), then A (privileged context).
+    const bResult = await fireAs(targetIdentityId);
+    const aResult = await fireAs(sourceIdentityId);
+
+    if (!bResult) {
+        await incrementCompletedReplay(testRunId);
+        return;
+    }
+
+    // Labels make the explanation human-readable.
+    const labels = await prisma.runIdentity.findMany({
+        where: { id: { in: [sourceIdentityId, targetIdentityId] } },
+        select: { id: true, label: true },
+    });
+    const labelOf = (id: string) => labels.find((l) => l.id === id)?.label ?? id;
+
+    let finding: BflaFinding | null = null;
+    try {
+        finding = await decideBflaVerdict({
+            method,
+            path,
+            privilegedReason: privilegedReason ?? "",
+            aLabel: labelOf(sourceIdentityId),
+            bLabel: labelOf(targetIdentityId),
+            aStatus: aResult?.statusCode ?? null,
+            bStatus: bResult.statusCode,
+            bBody: bResult.snippet ?? "",
+        });
+    } catch (err) {
+        // A verdict failure must never fail the probe job.
+        log.error(
+            { testRunId, err: err instanceof Error ? err.message : String(err) },
+            "BFLA verdict failed",
+        );
+    }
+
+    const bLog = await prisma.attackLog.create({
+        data: {
+            testRunId,
+            endpointId,
+            method,
+            path,
+            payload: "",
+            statusCode: bResult.statusCode,
+            latencyMs: bResult.latencyMs,
+            responseSnippet: bResult.snippet,
+            attackType: "BFLA_PROBE",
+            identityId: targetIdentityId,
+            bolaSourceIdentityId: sourceIdentityId, // A, for context
+            ...(finding
+                ? { findingJson: finding as unknown as object, owaspCategory: "API5_BFLA" }
+                : {}),
+        },
+    });
+
+    if (finding) {
+        const wsMessage: WsServerMessage = {
+            type: "ATTACK_RESULT",
+            data: {
+                id: bLog.id,
+                testRunId,
+                method: method as AttackResult["method"],
+                endpoint: path,
+                statusCode: bResult.statusCode,
+                responseTime: bResult.latencyMs,
+                payload: "",
+                responseSnippet: bResult.snippet ?? "",
+                attackType: "BFLA_PROBE" as AttackResult["attackType"],
+                timestamp: bLog.createdAt.toISOString(),
+                severity: finding.severity,
+                finding,
+            },
+        };
+        wsManager.broadcast(testRunId, wsMessage);
+    }
+
+    await incrementCompletedReplay(testRunId);
+}
+
 async function processReplayJob(data: AttackJobData): Promise<void> {
     const {
         testRunId,
@@ -942,8 +1081,21 @@ async function processReplayJob(data: AttackJobData): Promise<void> {
         targetIdentityId, // B
     } = data;
 
-    // Replay fields must be present (schema keeps them optional for the union).
-    if (!objectId || !idParamName || !sourceIdentityId || !targetIdentityId) {
+    // Both checks need the two identities.
+    if (!sourceIdentityId || !targetIdentityId) {
+        await incrementCompletedReplay(testRunId);
+        return;
+    }
+
+    // T14a — BFLA probe: call a PRIVILEGED endpoint as the secondary identity B
+    // (no object id involved). Handled by its own routine, then done.
+    if (data.checkType === "bfla") {
+        await processBflaProbe(data, sourceIdentityId, targetIdentityId);
+        return;
+    }
+
+    // BOLA replay needs the object id + its param name.
+    if (!objectId || !idParamName) {
         await incrementCompletedReplay(testRunId);
         return;
     }
