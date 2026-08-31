@@ -23,6 +23,60 @@ export interface ChangelogEntry {
 // Newest first. Dates mirror the real ship dates from the internal log.
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        date: "August 31, 2026",
+        iso: "2026-08-31",
+        title: "Authorization testing — the checks that actually matter",
+        tag: "New",
+        items: [
+            "Onyx now checks whether one user can read another user's data: it picks up an object as one user, asks for it as a different user, and compares what comes back.",
+            "It also tries privileged endpoints — admin routes, user management, destructive actions — as a lower-privileged user, to see whether the server actually enforces who may call what.",
+            "New writes are probed for privilege escalation: Onyx adds fields like \"role\" or \"isAdmin\" to an otherwise-valid request and reports when the server accepts them.",
+            "Responses are scanned for data you probably didn't mean to return — password hashes, tokens, card and SSN-shaped values, internal flags, and bulk personal data.",
+            "Every one of these lands as a named OWASP API Top 10 finding with both requests shown as evidence.",
+        ],
+    },
+    {
+        date: "August 31, 2026",
+        iso: "2026-08-31",
+        title: "Verify a fix without re-running the whole scan",
+        tag: "New",
+        items: [
+            "Each finding now has a \"Verify fix\" button that re-runs just that one check against your API.",
+            "If it no longer reproduces, the finding is marked Resolved; if it does, it's marked still present with the time it was last checked.",
+            "Cross-user findings can't be re-checked on their own yet — they need a second logged-in identity — and Onyx says so rather than guessing.",
+        ],
+    },
+    {
+        date: "August 31, 2026",
+        iso: "2026-08-31",
+        title: "Fix guidance for your framework",
+        tag: "New",
+        items: [
+            "Findings can now show a concrete fix for Express, FastAPI, Spring, or Django — a short, copy-paste snippet instead of generic advice.",
+            "The snippets are hand-written and reviewed, not generated, so you never get invented APIs. Where we don't have a vetted example, the general guidance is shown instead.",
+        ],
+    },
+    {
+        date: "August 31, 2026",
+        iso: "2026-08-31",
+        title: "Share a report with a link",
+        tag: "New",
+        items: [
+            "Generate a read-only link to any report and send it to a teammate, a client, or a vendor — no Onyx account needed to view it.",
+            "The shared page shows the score, findings and OWASP coverage only. It never exposes your credentials or who shared it.",
+            "Revoke the link at any time and it stops working immediately.",
+        ],
+    },
+    {
+        date: "August 31, 2026",
+        iso: "2026-08-31",
+        title: "Sharper detection",
+        tag: "Improved",
+        items: [
+            "A slow-injection payload that makes an endpoint hang past the timeout is now recognised as a likely time-based injection, instead of being written off as a network error.",
+        ],
+    },
+    {
         date: "July 29, 2026",
         iso: "2026-07-29",
         title: "Refreshed site & navigation",

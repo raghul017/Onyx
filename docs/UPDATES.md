@@ -1207,3 +1207,43 @@ Resolved / Still-present badge to a finding.
 - **Changed:** `client/src/services/api.ts` (`resolvedAt`/`lastCheckedAt` on `AttackResult`, `rescanFinding` binding, `RescanResult` type), `client/src/components/FindingDetailPanel.tsx` (new `RescanControl` + optional props), `client/src/components/ReportBody.tsx` (passes the props; row badge on both variants); docs/UPDATES.md.
 - **Tests:** client 89 pass (12 files; +11) — badge state from persisted fields (resolved / still-present / none / resolvedAt wins), outcome mapping incl. **unsupported and error never resolving**, cross-identity support detection, and relative-time formatting with null/invalid-safe handling.
 - **Schema/migration:** none. **Backend:** untouched.
+
+## 2026-08-31 — Docs sync (T-docs) + core product complete
+
+**Core product complete marker.** T1–T16 + T-fix1 are done and on `main`: scanning,
+authenticated scanning, evidence-based detection (baseline + diffing), the full
+authorization suite (BOLA API1, BFLA API5, mass assignment + excessive data
+exposure API3), OWASP API Top 10 mapping, framework-specific remediation, per-finding
+re-scan, shareable read-only reports, the CLI, and the GitHub Action.
+
+Documentation-only pass — **no application code, schema or tests were changed**
+(other than adding public changelog entries, which are content). Everything below
+was written from the code, not from memory:
+
+- **README.md** — rewritten for the current product. Accurate feature list
+  (detection table, the OWASP detected-vs-expanding split matching
+  `owasp-mapping.ts` + the homepage grid, framework fixes, re-scan, sharing, CLI,
+  Action), the real API surface grouped by area (read off `routes/index.ts` and the
+  five sub-routers), the real plan/quota table (`quota.middleware.ts` + Billing
+  prices), quick-start with the actual env vars (incl. `CREDENTIAL_ENC_KEY` and how
+  to generate it) and `prisma migrate deploy` (never `db push`), a Safety section,
+  and the tech stack from the package.json files. Honesty preserved: **not SOC 2 /
+  ISO certified** (roadmap only), and **BOLA/BFLA re-scan is not supported yet**.
+- **AGENTS.md** — added an "Architecture (current)" section so a future session
+  starts accurate: in-process worker, the job kinds (`attack`/`baseline`/`replay`
+  with `checkType: bola|bfla`, plus MASS_ASSIGNMENT as an attack job and
+  DATA_EXPOSURE as an analysis-only pass), the attack-type-enum trap that silently
+  dropped BOLA jobs, where verdict logic lives and that `rescan.service` reuses it,
+  `findingJson` persistence + `resolveFinding` as the single read path, the
+  RunIdentity model, secret handling, the public-route-before-`"/"`-mounts routing
+  trap, and the client's shared `ReportBody`/bare-axios public fetch. Also
+  **corrected a stale convention** that told agents to use `prisma db push` —
+  `docs/MIGRATIONS.md` forbids it — and documented the markdown/changelog conventions.
+  The existing Done/Next history was left untouched.
+- **client/src/data/changelog.ts** — five new user-facing entries (see below). The
+  leak-guard test still passes unchanged.
+- **docs/Onyx-Master-Implementation-Plan.md** — added a status line marking T1–T16 +
+  T-fix1 done; ticket bodies left as written.
+- **cli/README.md and action/README.md** — reviewed, already accurate (`--sarif-out`
+  and the CI/CD pointer are documented; all eight action inputs match `action.yml`).
+  No changes needed.

@@ -45,9 +45,91 @@
 - **Skills available** (in `.claude/skills/`): `ui-ux-pro-max`,
   `design-taste-frontend`, `gsap-scrolltrigger`, `make-interfaces-feel-better`.
   Use them for any UI polish work.
-- **Verify before shipping backend:** `cd server && npm run typecheck` and
-  `npm run build`; schema changes go via
-  `node -r dotenv/config node_modules/.bin/prisma db push` then `prisma generate`.
+- **Verify before shipping backend:** `cd server && npm run build` (runs
+  `prisma generate` + `tsc`) and `npm test`.
+- **Schema changes go via Prisma Migrate — NEVER `db push`.** Create with
+  `npx prisma migrate dev --create-only --name <slug>`, review the SQL (additive
+  only unless discussed), apply with `npx prisma migrate deploy`, then
+  `npx prisma generate` and confirm `npx prisma migrate status` is clean. The DB
+  is a shared Neon instance, so a destructive migration needs explicit approval.
+  See `docs/MIGRATIONS.md`.
+- **Markdown lives in `docs/`** — except `README.md`, `LICENSE` and this file
+  (`AGENTS.md`), which stay at the repo root, plus package-local READMEs
+  (`cli/README.md`, `action/README.md`).
+- **Two changelogs, different audiences:** `docs/UPDATES.md` is the INTERNAL
+  per-ticket dev log (ticket ids, file paths, test counts) and is never rendered
+  to users; `client/src/data/changelog.ts` is the PUBLIC, plain-English changelog
+  shown at `/changelog`. A test guards that internal artifacts don't leak into it.
+
+---
+
+---
+
+## Architecture (current — keep this accurate)
+
+**Layout.** `server/` (Express API + in-process BullMQ worker + Prisma),
+`client/` (React SPA: dashboard, report, and the marketing site), `cli/`
+(standalone `onyx scan`), `action.yml` + `action/` (composite GitHub Action),
+`docs/`.
+
+**The worker runs IN-PROCESS with the API** (`startOnyxWorker()`), so there is no
+separate worker service to boot. Concurrency 12, limiter ~30 req/s, 10s request
+timeout per fire.
+
+**Queue + job kinds** (`attackJobDataSchema` in `validators/schemas.ts`):
+- `kind: "attack"` — fires one payload. `attackType` is an enum; a NEW attack type
+  MUST be added to that enum or the worker's `safeParse` silently drops the job
+  (this actually happened: `BOLA_REPLAY` was missing and BOLA never ran).
+  Current: SQL_INJECTION, XSS, BOUNDARY, MISSING_AUTH, PATH_TRAVERSAL,
+  OVERSIZED_PAYLOAD, TYPE_CONFUSION, RATE_LIMIT, BOLA_REPLAY, BFLA_PROBE,
+  MASS_ASSIGNMENT, DATA_EXPOSURE, UNKNOWN.
+- `kind: "baseline"` — one benign control request per endpoint (paid plans),
+  stored as `BaselineResponse` (unique per run+endpoint).
+- `kind: "replay"` + `checkType: "bola" | "bfla"` — cross-identity probes. Both
+  ride the SAME replay counters/completion gate, so neither needed new columns.
+- MASS_ASSIGNMENT is an ordinary `attack` job (rides the attack counters);
+  DATA_EXPOSURE is analysis-only, written at run completion with no job at all.
+
+**Completion gate** (`run-completion.ts`, pure): a run completes only once
+attacks AND baselines AND replays are all accounted for and `enqueuedAt` is set.
+
+**Where verdict logic lives — reuse it, never duplicate it:**
+`finding-analysis.ts` (the ordered rule set + the T6 baseline-diff layer),
+`bola-verdict.ts`, `bfla-verdict.ts`, `mass-assignment.ts`, `data-exposure.ts`.
+`rescan.service.ts` re-fires a single check and calls these SAME functions, so a
+re-scan can't drift from the scan that raised the finding.
+
+**Finding persistence.** Most findings are DERIVED from one row and recomputed on
+every read by `analyzeFinding`, so rule improvements apply retroactively. Verdicts
+that need more than one row (BOLA/BFLA compare two identities; mass assignment
+depends on which fields were injected) are computed once and PERSISTED in
+`AttackLog.findingJson`. `resolveFinding()` is the single read-path entry point:
+stored finding wins, else recompute. It is wired into `getTestRun`,
+`getTestRunLogs`, the PDF, and scoring — add it anywhere else findings are read.
+
+**Identity model (T12).** A run has N `RunIdentity` rows, exactly one primary. The
+scan (baseline + attacks) runs ONLY as the primary — `TestRun.authRecipeId`
+mirrors it, so the single-identity path is unchanged. Secondaries exist so
+BOLA/BFLA can fire as another user; `IdentityCredentialResolver` resolves a
+credential for any identity (anonymous → none) over the shared, single-flight
+`CredentialResolver`.
+
+**Secrets.** Auth-recipe secrets: AES-256-GCM (`lib/crypto.ts`, needs
+`CREDENTIAL_ENC_KEY`). API tokens: SHA-256 hash only. Report-share tokens are
+capability URLs — stored plaintext + indexed, ~256-bit, revocable. Response
+snippets are redacted (`lib/redact.ts`) BEFORE storage or broadcast.
+
+**Routing trap (bitten once).** `orgRouter`/`authRecipeRouter`/`apiTokenRouter`
+are mounted at `"/"` and each calls `router.use(authenticateToken)`. Express runs
+a mounted router's `use()` middleware for ANY path under its mount, so a PUBLIC
+route (e.g. `GET /shared/:token`) MUST be registered BEFORE those mounts or it
+returns 401.
+
+**Client.** Report content lives in `components/ReportBody.tsx` so the authed
+report and the public shared report render identically. `FindingDetailPanel` is
+the shared finding view (evidence, OWASP badge, curated framework fixes, re-scan
+control). The public share fetch uses a BARE axios call — the shared `api`
+instance injects auth headers and force-logs-out on 401.
 
 ---
 

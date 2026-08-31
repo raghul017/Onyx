@@ -1,248 +1,289 @@
-<div align="center">
-  <h1>Onyx</h1>
-  <p><strong>AI-Powered API Security Testing Platform</strong></p>
-  <p>Feed it an OpenAPI spec. Watch Gemini synthesize attack payloads. Stream results live.</p>
+# Onyx
 
-  <img src="Onyx.png" alt="Onyx — break your API before they do" width="100%" />
+**AI-native API security testing.** Point Onyx at an OpenAPI/Swagger spec and it
+parses every endpoint, generates schema-aware attack payloads, fires them safely
+against a domain you've proven you own, and streams severity-scored findings back
+in real time — each mapped to the OWASP API Security Top 10 (2023), with evidence
+and a concrete fix.
 
-  [![CI](https://github.com/raghul017/Onyx/actions/workflows/ci.yml/badge.svg)](https://github.com/raghul017/Onyx/actions/workflows/ci.yml)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-  [![Node](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org/)
-  [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
-</div>
+> **Authorized testing only.** Onyx requires domain-ownership verification before
+> it will send a single payload. Scan APIs you own or are explicitly authorized to
+> test.
 
 ---
 
-## What is Onyx?
+## What it does
 
-Onyx is an AI-native API penetration testing platform that ingests an OpenAPI/Swagger specification URL and automatically generates schema-aware attack payloads using **Google Gemini 2.5 Flash**. It is built for security engineers and developers who want automated, context-sensitive coverage across OWASP Top 10 categories without writing test cases by hand.
-
-Unlike generic fuzzers, Onyx reads your actual API schema — request bodies, path parameters, query strings — and asks an LLM to reason about what would break each endpoint. Attacks run asynchronously through a **BullMQ/Redis** worker queue and results stream back to the browser in real time over **WebSockets**. A **plan-gated PDF export** lets teams share audit-ready reports from the dashboard.
+1. **Parse** — reads a public OpenAPI v3 / Swagger 2.0 spec URL and extracts every
+   endpoint, parameter (path/query/header/cookie) and request-body schema.
+2. **Authenticate** *(optional)* — attaches a credential so the scan reaches what's
+   behind the login.
+3. **Baseline** *(paid plans)* — captures one benign control response per endpoint.
+4. **Attack** — queues schema-aware payloads and fires them with bounded
+   concurrency, an SSRF guard, and a 10-second per-request timeout.
+5. **Analyze** — classifies each response into an explained finding (category,
+   cause, evidence, remediation, confidence), diffing against the baseline to cut
+   false positives.
+6. **Report** — live WebSocket stream, a scored report, OWASP coverage, PDF export,
+   and an optional public read-only share link.
 
 ---
 
 ## Features
 
-- **AI payload synthesis** — Gemini generates targeted payloads per endpoint across 8 attack categories (SQL injection, XSS, auth bypass, path traversal, boundary, oversized payload, type confusion, rate-limit), up to 20 payloads per endpoint
-- **Real-time attack telemetry** — WebSocket streaming pushes status codes, latency, and response snippets to the dashboard as each attack fires
-- **Explained findings** — every result is analyzed (rule-based, no extra requests) into a real finding: category, plain-English cause, the concrete evidence from the response (e.g. the leaked SQL error or reflected payload), a remediation, and a confidence level — surfaced as an expandable detail in the live dashboard and the report. Confirms reflected XSS, SQL/stack-trace disclosure, path-traversal file reads, secret leaks, auth bypass, and unhandled crashes rather than just logging a status code
-- **BullMQ job queue** — decoupled worker architecture prevents thread exhaustion and controls concurrency against the target API
-- **WAF bypass headers** — outbound requests spoof realistic browser headers to avoid WAF false-negatives during testing
-- **SSRF guard** — DNS-resolved IP blocking prevents attacks from routing back to private/internal infrastructure
-- **Plan-gated quotas** — middleware enforces Free / Pro / Team run limits per user at the route level
-- **PDF report export** — Pro and Team users can download a full attack log as a PDF (generated server-side via pdfkit)
-- **Razorpay subscriptions** — built-in billing with webhook-verified plan upgrades, no manual provisioning
-- **Graceful AI fallback** — if Gemini rate-limits or fails, static heuristics generate payloads so scans complete
-- **JWT auth** — signup/signin with bcrypt password hashing; all test-run routes are authenticated
+### Detection
 
----
-
-## Tech Stack
-
-| Layer | Technology |
+| Capability | What it does |
 |---|---|
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Framer Motion, Zustand, React Router v6, TanStack Query, Radix UI, Recharts |
-| **Backend** | Node.js 20, Express 4, TypeScript, WebSockets (`ws`), BullMQ, `express-rate-limit`, Helmet, Morgan, Zod |
-| **AI** | Google GenAI SDK — Gemini 2.5 Flash (`@google/genai`) |
-| **Database** | PostgreSQL (Neon serverless), Prisma ORM 7, `@prisma/adapter-pg` |
-| **Queue / Cache** | Redis, BullMQ 5, ioredis |
-| **Billing** | Razorpay subscriptions + webhook verification |
-| **PDF generation** | pdfkit (server-side) |
-| **Auth** | JSON Web Tokens (`jsonwebtoken`), bcrypt |
-| **Spec parsing** | `@scalar/swagger-parser`, `swagger-parser` |
-| **Testing** | Vitest, `@testing-library/react` |
-| **Infra / Deploy** | Docker Compose (local), Render (server), Vercel (client) |
+| **Injection & input handling** | SQL injection, XSS, path traversal, type confusion, boundary/oversized payloads, rate-limit probing |
+| **Evidence-based verdicts** | Each endpoint gets a benign **baseline**; attack responses are diffed against it (status, body length, latency, reflection) so a finding is attributable rather than guessed |
+| **Blind / time-based injection** | Confirmed by a measured latency delta vs. baseline — **or** by a delay payload that exceeds the request timeout while the baseline answered fast |
+| **Authenticated scanning** | Scans behind the login using a bearer token, API key, custom header, cookie, **OAuth2 client-credentials**, or a full **login-request** flow, with automatic re-auth on a mid-scan 401 |
+| **Missing-auth probes** | Deliberately strips credentials to prove access control holds |
+| **BOLA (API1)** | Acquires an object id as user A, replays the request as user B, and compares the responses to prove cross-user data access |
+| **BFLA (API5)** | Calls privileged/administrative endpoints as a lower-privileged identity to prove function-level authorization is missing |
+| **Mass assignment (API3)** | Adds privileged fields (`role`, `isAdmin`, `balance`, `ownerId`, …) to a valid write body and confirms the server accepted and reflected them |
+| **Excessive data exposure (API3)** | Inspects responses already collected for password hashes, tokens, SSN/card numbers, internal flags, and bulk PII |
+
+Detection is deliberately **conservative** — a finding is only raised when the
+evidence supports it. Where an AI model is consulted (BOLA interpretation), it can
+only *confirm or veto* a verdict the deterministic rules already reached; it can
+never raise a finding on its own, and the pipeline works with the model
+unavailable.
+
+### OWASP API Security Top 10 (2023)
+
+Every finding is labeled with its category, and the report + PDF include a coverage
+matrix.
+
+| Actively detected | Mapped — coverage expanding |
+|---|---|
+| **API1** Broken Object Level Authorization | API6 Unrestricted Access to Sensitive Business Flows |
+| **API2** Broken Authentication | API7 Server Side Request Forgery |
+| **API3** Broken Object Property Level Authorization | API9 Improper Inventory Management |
+| **API4** Unrestricted Resource Consumption | API10 Unsafe Consumption of APIs |
+| **API5** Broken Function Level Authorization | |
+| **API8** Security Misconfiguration | |
+
+### Workflow
+
+- **Framework-specific fixes** — each finding's remediation can be shown as a
+  concrete snippet for **Express, FastAPI, Spring, or Django**. The library is
+  hand-curated (no generated security advice); where no vetted snippet exists for a
+  finding type, the generic guidance is shown instead.
+- **Verify a fix (re-scan)** — re-run the exact check behind a single finding. If it
+  no longer reproduces it's marked **Resolved**; if it does, it's recorded as still
+  present. *Cross-identity findings (BOLA/BFLA) can't be re-scanned yet* — they need
+  a live second identity — and say so instead of guessing.
+- **Shareable reports** — mint a tokenized public link that renders the report
+  read-only without a login, and revoke it instantly. The public payload contains
+  only the report (scores, findings, coverage) — never credentials or the sharer's
+  identity.
+- **PDF export** *(paid plans)* — full report with the OWASP coverage section.
+- **Multi-tenancy** — organizations with roles (owner/admin/viewer) and invites.
+
+### CI/CD
+
+- **CLI** — `onyx scan --spec <url> --fail-on high --format sarif`. Table, JSON, or
+  SARIF 2.1.0 output; exit code gates the build. See **[cli/README.md](cli/README.md)**.
+- **GitHub Action** — runs the scan on pull requests, uploads SARIF to the Security
+  tab, comments findings on the PR, and fails the check on your threshold. See
+  **[action/README.md](action/README.md)**.
 
 ---
 
-## Getting Started
+## Safety
+
+Onyx is an offensive tool, so the guardrails are part of the product:
+
+- **Domain-ownership verification** — a probe file (`/.well-known/onyx-verify.txt`)
+  or a DNS TXT record is required before any target can be scanned.
+- **SSRF guard** — every target URL is DNS-resolved and checked; loopback, private,
+  link-local, CGNAT, cloud-metadata and IPv4-mapped-IPv6 addresses are blocked, and
+  re-vetted on a short TTL to defeat DNS rebinding.
+- **Bounded blast radius** — 10s request timeout, bounded worker concurrency and an
+  evenly-paced rate limiter, IP rate limits on auth/scan endpoints, per-plan quotas.
+- **Secrets** — auth-recipe credentials are encrypted at rest (AES-256-GCM); API
+  tokens are stored only as SHA-256 hashes; response evidence is redacted before it
+  is stored or streamed; credentials are kept out of logs.
+- **Compliance** — Onyx is **not** SOC 2 or ISO certified. Any such certification is
+  roadmap, not fact.
+
+---
+
+## Tech stack
+
+**Server** — Node + TypeScript, Express, Prisma 7 / PostgreSQL, BullMQ on Redis,
+`ws` WebSockets, Zod, Google Gemini (payload generation), PDFKit, Pino, Sentry.
+
+**Client** — React 18 + TypeScript, Vite, Tailwind (light-mono design system),
+TanStack Query, Zustand, React Router, Framer Motion, three.js.
+
+**CLI** — standalone TypeScript package, Node ≥ 20, zero runtime dependencies.
+
+---
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js 18+
-- Docker (for local Redis + PostgreSQL via `docker-compose`)
-- Google AI Studio API key ([aistudio.google.com](https://aistudio.google.com))
-- Razorpay account (for billing; optional for local dev)
+- Node.js ≥ 20
+- Docker (for local PostgreSQL + Redis), or your own instances
+- A Google Gemini API key (optional — Onyx falls back to a static payload set)
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
 git clone https://github.com/raghul017/Onyx.git
 cd Onyx
-```
-
-```bash
-# Install server dependencies
-cd server && npm install
-
-# Install client dependencies
-cd ../client && npm install
+(cd server && npm install)
+(cd client && npm install)
 ```
 
 ### 2. Start infrastructure
 
 ```bash
-# From the project root — boots PostgreSQL and Redis via Docker
-docker compose up -d
+docker compose up -d      # PostgreSQL + Redis
 ```
 
-### 3. Configure environment variables
+### 3. Configure the server
 
-**Server** — copy `server/.env.server.example` to `server/.env`:
+Create `server/.env`:
 
-```env
-PORT=3000
-CLIENT_URL=http://localhost:8080
+```bash
+# Required
+DATABASE_URL="postgresql://onyx:onyx@localhost:5432/onyx"
+JWT_SECRET="a-long-random-string"
+# 32-byte key (64 hex chars) used to encrypt auth-recipe secrets at rest.
+# Generate: openssl rand -hex 32
+CREDENTIAL_ENC_KEY="<64-hex-chars>"
 
-DATABASE_URL=                        # PostgreSQL connection string
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_PASSWORD=                      # leave blank for local Docker
-REDIS_TLS=                           # set to 'true' for Upstash/managed Redis
+# Redis (either REDIS_URL, or host/port)
+REDIS_URL="redis://localhost:6379"
 
-JWT_SECRET=                          # generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-GEMINI_API_KEY=                      # from Google AI Studio
+# Optional
+GEMINI_API_KEY=""                  # omit to use the static fallback payloads
+CLIENT_URL="http://localhost:8080"
+SERVER_URL="http://localhost:3000"
+SHARE_BASE_URL=""                  # base for public share links (defaults to the request origin)
+SKIP_DOMAIN_VERIFY="false"         # dev only — NEVER enable against real targets
+SENTRY_DSN=""
+LOG_LEVEL="info"
 
-# Razorpay (optional for local dev — billing flows will error without these)
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
-RAZORPAY_WEBHOOK_SECRET=
-RAZORPAY_PRO_PLAN_ID=
-RAZORPAY_TEAM_PLAN_ID=
+# OAuth sign-in (optional)
+GOOGLE_CLIENT_ID=""; GOOGLE_CLIENT_SECRET=""
+GITHUB_CLIENT_ID=""; GITHUB_CLIENT_SECRET=""
+
+# Billing (optional — billing routes error without these)
+RAZORPAY_KEY_ID=""; RAZORPAY_KEY_SECRET=""; RAZORPAY_WEBHOOK_SECRET=""
+RAZORPAY_PRO_PLAN_ID=""; RAZORPAY_TEAM_PLAN_ID=""
 ```
 
-**Client** — copy `client/.env.client.example` to `client/.env`:
+### 4. Apply migrations
 
-```env
-VITE_API_URL=                        # leave blank to use Vite proxy (recommended locally)
-VITE_WS_URL=                         # leave blank to use Vite proxy (recommended locally)
-VITE_RAZORPAY_PRO_PLAN_ID=
-VITE_RAZORPAY_TEAM_PLAN_ID=
-```
-
-> For local development `VITE_API_URL` and `VITE_WS_URL` can be left empty — Vite proxies `/api` and `/ws` to `localhost:3001` automatically.
-
-### 4. Set up the database
+Onyx uses **Prisma Migrate** as the single source of truth. Never use `db push`.
 
 ```bash
 cd server
-npx prisma migrate deploy   # apply migration history to the database
-npx prisma generate         # generate the Prisma client
+npx prisma migrate deploy    # apply pending migrations
+npx prisma generate
+npx prisma migrate status    # should say "Database schema is up to date!"
 ```
 
-> Onyx uses Prisma **migrations** (not `db push`). See [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
+`npm start` runs `prisma migrate deploy` before booting, so deploys self-apply.
+See **[docs/MIGRATIONS.md](docs/MIGRATIONS.md)**.
 
-### 5. Run the development servers
+### 5. Run
 
 ```bash
-# Terminal 1 — backend (hot-reloads via tsx watch)
-cd server && npm run dev
-
-# Terminal 2 — frontend (Vite dev server)
-cd client && npm run dev
+cd server && npm run dev     # API + worker + WebSocket on :3000
+cd client && npm run dev     # UI on :8080
 ```
 
-The client is served at `http://localhost:8080` by default.
+The BullMQ worker runs **in-process** with the API server — there is no separate
+worker process to start.
 
 ---
 
-## Architecture
+## API reference
+
+All routes are under `/api`. Everything requires a JWT (`Authorization: Bearer …`)
+or an Onyx API token, except where noted. An `x-org-id` header scopes a request to
+an organization.
+
+**Auth** — `POST /auth/signup` · `POST /auth/signin` · `GET /auth/:provider` ·
+`GET /auth/:provider/callback` *(public)*
+
+**Test runs** — `GET /test-runs` · `POST /test-runs` · `GET /test-runs/:id` ·
+`DELETE /test-runs/:id` · `GET /test-runs/:id/logs` · `POST /test-runs/:id/abort` ·
+`POST /attack` · `GET /test-runs/:id/export/pdf` *(paid)*
+
+**Findings** — `POST /test-runs/:id/logs/:logId/rescan` (verify a fix)
+
+**Sharing** — `POST /test-runs/:id/share` · `GET /test-runs/:id/share` ·
+`POST /test-runs/:id/share/revoke` · `GET /shared/:token` *(**public**, no auth)*
+
+**Domain verification** — `POST /verify-target` · `POST /verify-target/check` ·
+`GET /verify-target` · `DELETE /verify-target/:id`
+
+**Auth recipes** — `POST|GET /auth-recipes` · `GET|PATCH|DELETE /auth-recipes/:id`
+
+**API tokens** — `POST|GET /api-tokens` · `POST /api-tokens/:id/revoke`
+
+**Organizations** — `GET|POST /orgs` · `GET|PATCH|DELETE /orgs/:orgId` ·
+`GET /orgs/:orgId/members` · `PATCH|DELETE /orgs/:orgId/members/:userId` ·
+`POST|GET /orgs/:orgId/invites` · `DELETE /orgs/:orgId/invites/:inviteId` ·
+`POST /invites/accept`
+
+**Billing** — `POST /billing/subscribe` · `POST /billing/verify` ·
+`POST /billing/cancel` · `POST /billing/webhook`
+
+**Misc** — `GET /user/me` · `PATCH /user/me` · `GET /health` *(public)* ·
+`GET /openapi.json` *(public)*
+
+**WebSocket** — connect and `SUBSCRIBE` to a `testRunId` to receive
+`ATTACK_RESULT` and `TEST_RUN_STATUS` messages live.
+
+---
+
+## Plans
+
+Priced in USD, billed in INR.
+
+| | **Free** — $0 | **Pro** — $9/mo | **Team** — $18/mo |
+|---|---|---|---|
+| Test runs / month | 5 | 100 | 500 |
+| Endpoints per run | 10 | 50 | Unlimited |
+| Attack types | 5 | All | All |
+| Authenticated scanning | ✓ | ✓ | ✓ |
+| OWASP mapping + live console | ✓ | ✓ | ✓ |
+| Baseline capture & diffing | — | ✓ | ✓ |
+| PDF report export | — | ✓ | ✓ |
+| Multi-user workspaces | — | — | ✓ |
+| Support | Community | Priority | SLA |
+
+Quotas are enforced server-side (`quota.middleware.ts`); PDF export and baseline
+capture are the paid-only gates.
+
+---
+
+## Repository layout
 
 ```
-User submits OpenAPI URL
-        │
-        ▼
-POST /api/attack  (authenticateToken → attackLimiter → checkQuota)
-        │
-        ▼
-Spec fetch + parse  (@scalar/swagger-parser)
-        │
-        ▼
-Gemini AI payload generation  (per endpoint, per attack type)
-        │
-        ▼
-BullMQ job queue  (Redis-backed, controls concurrency)
-        │
-        ▼
-Worker fires HTTP attacks  (axios, spoofed headers, SSRF guard)
-        │
-     ┌──┴──┐
-     ▼     ▼
-Prisma    WebSocket broadcast
-(persist) (stream to browser)
+server/    Express API + BullMQ worker + Prisma schema/migrations
+client/    React SPA (dashboard, report, marketing site)
+cli/       `onyx scan` — standalone CLI (table/JSON/SARIF)
+action.yml + action/   GitHub Action (composite) + its README
+docs/      Internal docs: MIGRATIONS, UPDATES (dev log), plans
 ```
 
-Attack logs, status codes, and latency metrics are written to PostgreSQL via Prisma and simultaneously broadcast to all connected WebSocket clients subscribed to the test run. Plan quota is enforced as Express middleware before the queue is populated.
+## Docs
 
----
-
-## API Reference
-
-All routes are prefixed with `/api`. Protected routes require `Authorization: Bearer <jwt>`.
-
-### Auth
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Create account (email + password) |
-| `POST` | `/api/auth/signin` | Sign in, returns JWT |
-
-### Test Runs
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/attack` | Submit an OpenAPI URL to start a new attack run |
-| `POST` | `/api/test-runs` | Alias — create a test run directly |
-| `GET` | `/api/test-runs` | List all test runs for the authenticated user |
-| `GET` | `/api/test-runs/:id` | Get a test run's summary and all attack logs |
-| `GET` | `/api/test-runs/:id/logs` | Get paginated attack logs for a test run |
-| `POST` | `/api/test-runs/:id/abort` | Abort an in-progress run (drains BullMQ jobs) |
-| `DELETE` | `/api/test-runs/:id` | Delete a historical test run |
-| `GET` | `/api/test-runs/:id/export/pdf` | Download PDF report (Pro/Team only) |
-
-### Billing
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/billing/subscribe` | Create a Razorpay subscription for a plan |
-| `POST` | `/api/billing/cancel` | Cancel the active subscription |
-| `POST` | `/api/billing/webhook` | Razorpay webhook receiver (signature-verified) |
-
-### User & Health
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/user/me` | Get current user (id, email, plan, planExpiresAt) |
-| `GET` | `/api/health` | Health check — returns `{ status: "ok" }` |
-
-### WebSocket
-
-Connect to `ws://<host>/ws` after authenticating. The server broadcasts attack-log events as JSON for each test run in progress.
-
----
-
-## Contributing
-
-1. Fork the repository and create a feature branch (`git checkout -b feat/my-feature`)
-2. Make your changes — keep commits focused and descriptive
-3. Run type checks before pushing:
-   ```bash
-   cd server && npm run typecheck
-   cd ../client && npx tsc --noEmit
-   ```
-4. Open a pull request against `main` using the PR template
-
-For bugs, use the **Bug Report** issue template. For new ideas, use **Feature Request**.
-
-A running log of substantive changes and the near-term backlog lives in
-[AGENTS.md](AGENTS.md); detailed release notes are in [docs/changelog.md](docs/changelog.md).
-
----
+- **[docs/MIGRATIONS.md](docs/MIGRATIONS.md)** — migration policy and history
+- **[docs/UPDATES.md](docs/UPDATES.md)** — internal per-ticket dev log
+- **[cli/README.md](cli/README.md)** · **[action/README.md](action/README.md)**
+- **[AGENTS.md](AGENTS.md)** — architecture context and repo conventions
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-*Built by [Raghul AR](https://github.com/raghul017).*
+See [LICENSE](LICENSE).

@@ -4,6 +4,14 @@ _File-level, sequenced build plan tailored to the actual codebase. Funding exclu
 
 Last updated: July 2026
 
+> **STATUS (2026-08-31): T1–T16 + T-fix1 are DONE and on `main`.** The core
+> product is complete end to end — scanning, authenticated scanning, evidence-based
+> detection, the full authorization suite (BOLA/BFLA/mass assignment/excessive data
+> exposure), OWASP API Top 10 mapping, framework-specific fixes, per-finding
+> re-scan, shareable read-only reports, the CLI and the GitHub Action. The ticket
+> bodies below are kept as-written for history; see `docs/UPDATES.md` for what
+> actually shipped per ticket (including scope refinements made during the build).
+
 ---
 
 ## How we'll work (read this first)
