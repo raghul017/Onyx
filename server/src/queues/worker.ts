@@ -18,6 +18,7 @@ import {
     type BaselineComparison,
 } from "../services/finding-analysis.js";
 import { scoreAndPersistRun } from "../services/run-score.js";
+import { scanForDataExposure } from "../services/data-exposure-scan.js";
 import {
     buildAttackRequest,
     buildBenignRequest,
@@ -323,6 +324,13 @@ async function finalizeIfComplete(
 
     if (count > 0) {
         lastProgressBroadcast.delete(testRunId); // stop tracking a finished run
+        // T14c — excessive data exposure (API3). Pure ANALYSIS of responses the
+        // scan already collected (baseline per endpoint, else one representative
+        // 2xx attack response), so it adds no traffic and touches no counters.
+        // Awaited BEFORE scoring so its findings are included in the run score.
+        // The updateMany guard above means this runs exactly once per run, and
+        // it never throws (failures are swallowed and logged inside).
+        await scanForDataExposure(testRunId);
         // Persist the final score so the history list needn't reload every log.
         void scoreAndPersistRun(testRunId);
         const completionMessage: WsServerMessage = {

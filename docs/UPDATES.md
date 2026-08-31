@@ -911,3 +911,57 @@ identity (authed or anonymous) as part of the normal scan.
 - **Schema/migration:** **none** — reuses `findingJson`, the attack counters, and existing columns. `prisma migrate status` → "Database schema is up to date!"; zero diff under `prisma/`.
 - **Tests:** 333 pass (28 files; +16) — candidate selection, probe-body construction (incl. not injecting schema-declared fields), reflection matching (nested, wrong value, key-only mention), and the verdict (2xx+reflected → API3; 4xx → none; ignored → none; non-privileged → none; judge veto/agree/throw/null).
 - **Deferred (T14c):** a follow-up GET to prove **persistence** rather than mere reflection.
+
+## 2026-08-31 — T14c: Excessive Data Exposure (API3)
+
+Backend-only. Detects endpoints that return sensitive/internal properties a
+client should never see (password hashes, tokens, SSN/card, internal flags, bulk
+PII). **Analysis-only — no new attack traffic:** it inspects responses the scan
+has already collected.
+
+- **Where analyzed:** each endpoint's **BASELINE** response (T5) — one benign 2xx
+  per endpoint, and the table is unique on `(testRunId, endpointId)`, so **dedupe
+  is structural**: an endpoint can never produce one finding per payload. When no
+  baseline exists (FREE plan skips baseline capture) it falls back to **one
+  representative 2xx AttackLog** for that endpoint. Either way exactly one
+  response per endpoint is analyzed.
+- **Detector** (`data-exposure.ts`, pure + value-aware): credential-grade
+  (`password`, `passwordHash`, `pwd`, `hash`, `salt`, `token`, `accessToken`,
+  `refreshToken`, `secret`, `apiKey`, `privateKey`, `ssn`, `creditCard`,
+  `cardNumber`, `cvv`, `pin`), internal flags (`isAdmin`, `internalNotes`,
+  `internal`, `debug`), and PII (`email`, `phone`, `dob`). Keys match
+  **whole-key, case-insensitive, `_`/`-` insensitive** (so `passwordHint` and
+  `tokenCount` don't match), and each field must carry a **plausible value** —
+  bcrypt/argon/hex for hashes, JWT-or-long-opaque for tokens, SSN/card/CVV
+  regexes, real-looking emails/phones — so `{"error":"password required"}` and
+  `***REDACTED***` placeholders are never flagged.
+- **PII is deliberately conservative:** a single record's own `email`/`phone` (the
+  "GET /me" case) is NOT flagged; PII only counts **in bulk** (a list of ≥3
+  records) or alongside a stronger credential/internal signal.
+- **Complements SECRET_LEAK (T1), never duplicates it:** a body already matching
+  the SECRET_LEAK pattern (`api_key`/`secret`/`password`/`access_token`/private
+  key) returns no exposure finding, so one response never yields two findings.
+  Exposure catches what SECRET_LEAK misses — `passwordHash`, SSN/card, internal
+  flags, bulk PII.
+- **Finding:** category "Excessive Data Exposure", severity **CRITICAL** for
+  credential-grade fields else **HIGH**, confidence "firm", owaspCategory
+  `API3_BROKEN_OBJECT_PROPERTY_LEVEL_AUTHORIZATION`. Evidence names the exposed
+  **field names** + the **already-T3-redacted** body shape — never a raw secret.
+  Optional Gemini **veto-only** judge, consulted **only for PII-only** findings
+  (never for credential-grade), and a throw/null leaves the verdict standing.
+- **Persistence/surfacing:** written as its own AttackLog row with `findingJson`
+  (like BOLA/BFLA/mass-assignment) + `owaspCategory`, so it flows through the
+  existing T13b `resolveFinding` read path, scoring, and PDF, and **lights up API3
+  coverage** exactly once per endpoint.
+- **Placement:** runs in the worker's run-completion block, guarded by the same
+  `updateMany` that flips the run COMPLETED (so exactly once per run), **awaited
+  before `scoreAndPersistRun`** so its findings count toward the run score. It
+  touches no counters, so the **completion gate is unaffected**. It never throws.
+- **Enum safety (T14a lesson):** `DATA_EXPOSURE` added to the job `attackTypeEnum`
+  and the shared `AttackType` union, with a regression guard.
+
+- **Added:** `server/src/services/data-exposure.ts`, `server/src/services/data-exposure-scan.ts`, `server/src/services/__tests__/data-exposure.test.ts`, `server/src/services/__tests__/data-exposure-scan.test.ts`.
+- **Changed:** `validators/schemas.ts` + `types/shared.ts` (DATA_EXPOSURE), `queues/worker.ts` (run the pass at completion, before scoring), `validators/__tests__/replay-job.test.ts` (enum guard); docs/UPDATES.md.
+- **Schema/migration:** **none** — reuses `findingJson`, `owaspCategory`, and existing columns. `prisma migrate status` → "Database schema is up to date!"; zero diff under `prisma/`.
+- **Tests:** 360 pass (30 files; +27) — detector positives (hash/JWT/SSN/card/nested/internal flags), negatives (ordinary fields, key-only error mentions, implausible + placeholder values, partial keys, non-2xx/non-JSON), PII conservatism (single record vs bulk vs alongside a strong signal), SECRET_LEAK complement (no double-flag, and the passwordHash case SECRET_LEAK misses), verdict severity/evidence/judge behavior, and the scan pass (one finding per endpoint, clean/no-response cases, never throws).
+- **Deferred:** analyzing non-JSON bodies, and per-field allow-listing for APIs that legitimately return e.g. `email` to its owner.

@@ -32,6 +32,7 @@ export type AttackType =
     | "BOLA_REPLAY"
     | "BFLA_PROBE"
     | "MASS_ASSIGNMENT"
+    | "DATA_EXPOSURE"
     | "UNKNOWN";
 
 export type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";

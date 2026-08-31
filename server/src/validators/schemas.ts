@@ -81,6 +81,9 @@ const attackTypeEnum = z.enum([
     // T14b — mass-assignment probe (API3). Rides the normal "attack" kind, so it
     // uses the existing attack counters/gate; the payload IS the merged JSON body.
     "MASS_ASSIGNMENT",
+    // T14c — excessive data exposure (API3). Analysis-only: recorded from
+    // responses the scan already collected, never enqueued as a job.
+    "DATA_EXPOSURE",
     "UNKNOWN",
 ]);
 

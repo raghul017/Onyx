@@ -65,6 +65,17 @@ describe("replay job validation", () => {
         expect(r.success).toBe(true);
     });
 
+    it("accepts DATA_EXPOSURE (T14c) — recorded, never enqueued", () => {
+        // Analysis-only rows are written directly, but keeping the type in the
+        // enum keeps schema + AttackType honest and guards future enqueues.
+        const r = attackJobDataSchema.safeParse({
+            ...base,
+            kind: "attack",
+            attackType: "DATA_EXPOSURE",
+        });
+        expect(r.success).toBe(true);
+    });
+
     it("rejects an unknown attackType", () => {
         const r = attackJobDataSchema.safeParse({ ...base, attackType: "NOT_A_TYPE" });
         expect(r.success).toBe(false);
