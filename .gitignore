@@ -37,3 +37,9 @@ DESIGN_SYSTEM.md
 
 # internal project report / improvement brief — keep local only
 PROJECT_REPORT.md
+
+# local AI-agent tooling, skills and briefs (per-machine, never committed)
+.claude/
+.agents/
+.codex/
+PUBLISH-CLI-BRIEF.md
