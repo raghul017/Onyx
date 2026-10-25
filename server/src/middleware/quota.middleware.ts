@@ -1,16 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
-import { Plan } from "@prisma/client";
 import { getEffectivePlan } from "../services/org.service.js";
+import { PLAN_LIMITS } from "../lib/plan-limits.js";
 
-const PLAN_LIMITS: Record<Plan, { testRunsPerMonth: number; endpointsPerRun: number }> = {
-    FREE:       { testRunsPerMonth: 5,      endpointsPerRun: 10 },
-    PRO:        { testRunsPerMonth: 100,    endpointsPerRun: 50 },
-    TEAM:       { testRunsPerMonth: 500,    endpointsPerRun: 999999 },
-    ENTERPRISE: { testRunsPerMonth: 999999, endpointsPerRun: 999999 },
-};
-
-export function checkQuota(resource: "testRun" | "endpoints") {
+export function checkQuota(resource: "testRun") {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         const userId = req.user?.id;
         if (!userId) {

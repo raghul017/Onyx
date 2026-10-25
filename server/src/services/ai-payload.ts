@@ -5,7 +5,7 @@
 // Uses @google/genai SDK; model + thinking level come from lib/gemini.ts.
 // System prompt instructs the model to act as a Senior Penetration Tester.
 // Returns strictly typed MaliciousPayload[] JSON.
-// Falls back to 35 built-in payloads on any failure.
+// Falls back to 36 built-in payloads on any failure.
 // =============================================================================
 
 import { GoogleGenAI } from "@google/genai";
@@ -199,6 +199,12 @@ Return ONLY the JSON array now:`;
 // generatePayloadsForEndpoint — Main Entry Point
 // ---------------------------------------------------------------------------
 
+export interface PayloadGeneration {
+    payloads: GeneratedPayload[];
+    /** True when the built-in set was used instead of AI-generated payloads. */
+    usedFallback: boolean;
+}
+
 /**
  * Generates malicious payloads for a given parsed endpoint via Gemini.
  * Validates the LLM response with Zod before returning.
@@ -207,10 +213,21 @@ Return ONLY the JSON array now:`;
 export async function generatePayloadsForEndpoint(
     endpoint: ParsedEndpoint,
 ): Promise<GeneratedPayload[]> {
+    return (await generatePayloadsWithSource(endpoint)).payloads;
+}
+
+/** Same as generatePayloadsForEndpoint, but reports whether the fallback was used. */
+export async function generatePayloadsWithSource(
+    endpoint: ParsedEndpoint,
+): Promise<PayloadGeneration> {
     const prompt = buildPayloadPrompt(endpoint);
+    const fallback: PayloadGeneration = { payloads: FALLBACK_PAYLOADS, usedFallback: true };
 
     try {
         const rawResponse = await generateAIResponse(prompt);
+        // generateAIResponse returns the serialized built-in set when Gemini
+        // is unconfigured, errors, or returns nothing.
+        if (rawResponse === JSON.stringify(FALLBACK_PAYLOADS)) return fallback;
 
         // Extract JSON from the response (Gemini with responseMimeType should
         // return clean JSON, but guard against markdown wrapping just in case)
@@ -223,20 +240,20 @@ export async function generatePayloadsForEndpoint(
                 { method: endpoint.method, path: endpoint.path, count: validated.data.length },
                 "Generated payloads",
             );
-            return validated.data;
+            return { payloads: validated.data, usedFallback: false };
         }
 
         log.warn(
             { method: endpoint.method, path: endpoint.path, issues: validated.error.issues.slice(0, 3) },
             "Payload validation failed — using fallback",
         );
-        return FALLBACK_PAYLOADS;
+        return fallback;
     } catch (err) {
         log.error(
             { method: endpoint.method, path: endpoint.path, err },
             "Payload generation failed — using fallback",
         );
-        return FALLBACK_PAYLOADS;
+        return fallback;
     }
 }
 

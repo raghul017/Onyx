@@ -309,8 +309,8 @@ describe("a patched endpoint that now rejects input resolves", () => {
         const fire = vi.fn().mockResolvedValue({
             statusCode: 400,
             latencyMs: 8,
-            snippet: '{"error":"invalid input at line 42 of QueryBuilder"}',
-            bodyLength: 52,
+            snippet: '{"error":"java.lang.NumberFormatException: For input string: \\"abc\\""}',
+            bodyLength: 70,
         });
         const res = await rescanFinding("log-1", { fire });
         expect(res.outcome).toBe("still_present");

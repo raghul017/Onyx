@@ -110,6 +110,8 @@ export interface TestRunSummary {
     completedAttacks: number;
     criticalFailures: number;
     avgLatencyMs: number;
+    /** Endpoints that used the built-in fallback payloads instead of AI ones. */
+    aiFallbackEndpoints: number;
     createdAt: string;
     completedAt: string | null;
     overallScore: number;

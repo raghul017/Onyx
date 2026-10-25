@@ -14,7 +14,12 @@ import {
     parseOpenApiSpec,
     OpenApiParserError,
 } from "../services/openapi-parser.js";
-import { generatePayloadsForEndpoint } from "../services/ai-payload.js";
+import { generatePayloadsWithSource } from "../services/ai-payload.js";
+import {
+    endpointCapFor,
+    mapWithConcurrency,
+    PAYLOAD_GENERATION_CONCURRENCY,
+} from "../lib/plan-limits.js";
 import {
     enqueueAttackJobs,
     enqueueBaselineJobs,
@@ -39,6 +44,7 @@ import { analyzeFinding, resolveFinding } from "../services/finding-analysis.js"
 import {
     scoreAndPersistRun,
     computeScore,
+    isStoredScoreFresh,
     isMissingScoreColumn,
 } from "../services/run-score.js";
 import { logger } from "../lib/logger.js";
@@ -100,6 +106,7 @@ export async function getAllTestRuns(
                 status: string;
                 overallScore: number | null;
                 scoreLabel: string | null;
+                scoreVersion: number | null;
             }
         >;
         let hasScoreColumns = true;
@@ -107,7 +114,7 @@ export async function getAllTestRuns(
             runs = (await prisma.testRun.findMany({
                 where,
                 orderBy: { createdAt: "desc" },
-                select: { ...baseSelect, overallScore: true, scoreLabel: true },
+                select: { ...baseSelect, overallScore: true, scoreLabel: true, scoreVersion: true },
             })) as any;
         } catch (e) {
             if (!isMissingScoreColumn(e)) throw e;
@@ -117,12 +124,13 @@ export async function getAllTestRuns(
                 orderBy: { createdAt: "desc" },
                 select: baseSelect,
             });
-            runs = bare.map((r) => ({ ...r, overallScore: null, scoreLabel: null }));
+            runs = bare.map((r) => ({ ...r, overallScore: null, scoreLabel: null, scoreVersion: null }));
         }
 
-        // Only runs without a stored score need their logs loaded (in-progress
-        // runs, plus older/terminal runs not yet backfilled).
-        const needScore = runs.filter((r) => r.overallScore == null).map((r) => r.id);
+        // A stored score is only trusted when it was computed by the current
+        // scoring rules; anything else (in-progress, never backfilled, or scored
+        // under an older rule set) is recomputed from its logs.
+        const needScore = runs.filter((r) => !isStoredScoreFresh(r)).map((r) => r.id);
         const logsByRun = new Map<
             string,
             {
@@ -151,8 +159,8 @@ export async function getAllTestRuns(
         }
 
         const testRuns = runs.map((run) => {
-            const { overallScore: stored, scoreLabel: storedLabel, ...rest } = run;
-            if (stored != null && storedLabel != null) {
+            const { overallScore: stored, scoreLabel: storedLabel, scoreVersion: _v, ...rest } = run;
+            if (isStoredScoreFresh(run)) {
                 return { ...rest, overallScore: stored, scoreLabel: storedLabel };
             }
             const { overallScore, scoreLabel } = computeScore(logsByRun.get(run.id) ?? []);
@@ -365,7 +373,7 @@ export async function createTestRun(
         res.status(201).json(response);
 
         // Process asynchronously (non-blocking)
-        processTestRunAsync(testRun.id, specUrl, captureBaseline).catch((err: unknown) => {
+        processTestRunAsync(testRun.id, specUrl, captureBaseline, endpointCapFor(plan)).catch((err: unknown) => {
             log.error({ testRunId: testRun.id, err }, "Async processing failed");
             captureException(err, { testRunId: testRun.id, phase: "processTestRunAsync" });
         });
@@ -382,6 +390,7 @@ async function processTestRunAsync(
     testRunId: string,
     specUrl: string,
     captureBaseline: boolean,
+    endpointCap: number,
 ): Promise<void> {
     const runLog = log.child({ testRunId });
     try {
@@ -433,6 +442,17 @@ async function processTestRunAsync(
             return;
         }
 
+        // Enforce the plan's endpoints-per-run limit ONCE, before anything is
+        // saved, so payload generation, baselines, mass assignment and the
+        // BOLA/BFLA planners all see the same capped list.
+        if (endpoints.length > endpointCap) {
+            runLog.warn(
+                { total: endpoints.length, cap: endpointCap },
+                "Spec exceeds the plan's endpoints-per-run limit — truncating",
+            );
+            endpoints = endpoints.slice(0, endpointCap);
+        }
+
         // Save parsed endpoints
         const savedEndpoints = await Promise.all(
             endpoints.map((ep) =>
@@ -478,16 +498,9 @@ async function processTestRunAsync(
         // Extract base URL from spec URL
         const baseUrl = extractBaseUrl(specUrl);
 
-        // Cap endpoints to prevent excessive Gemini API usage
-        const MAX_ENDPOINTS = 20;
-        const cappedEndpoints = endpoints.slice(0, MAX_ENDPOINTS);
-        const cappedSavedEndpoints = savedEndpoints.slice(0, MAX_ENDPOINTS);
-        if (endpoints.length > MAX_ENDPOINTS) {
-            runLog.warn(
-                { total: endpoints.length, cap: MAX_ENDPOINTS },
-                "Endpoint count exceeds cap — truncating",
-            );
-        }
+        // Already capped to the plan limit right after parsing.
+        const cappedEndpoints = endpoints;
+        const cappedSavedEndpoints = savedEndpoints;
 
         // Flip to ATTACKING immediately so the worker starts firing the first
         // endpoint's jobs while later endpoints are still generating. This
@@ -533,14 +546,19 @@ async function processTestRunAsync(
             runLog.info({ baselineCount }, "Baseline jobs enqueued");
         }
 
-        // Generate payloads for all endpoints CONCURRENTLY. Each endpoint is an
-        // independent Gemini call (with a static fallback), so there's no reason
-        // to serialize them. As each one resolves, its jobs are enqueued right
-        // away and totalAttacks grows — the worker picks them up continuously.
-        const results = await Promise.all(
-            cappedEndpoints.map(async (endpoint, i) => {
+        // Generate payloads per endpoint, a few Gemini calls at a time. Each
+        // endpoint is an independent call (with a built-in fallback); as each
+        // resolves, its jobs are enqueued right away and totalAttacks grows, so
+        // the worker picks them up continuously. Bounded concurrency keeps the
+        // free tier from rate-limiting a large run into silent fallbacks.
+        let fallbackEndpoints = 0;
+        const results = await mapWithConcurrency(
+            cappedEndpoints,
+            PAYLOAD_GENERATION_CONCURRENCY,
+            async (endpoint, i) => {
                 const savedEndpoint = cappedSavedEndpoints[i]!;
-                const payloads = await generatePayloadsForEndpoint(endpoint);
+                const { payloads, usedFallback } = await generatePayloadsWithSource(endpoint);
+                if (usedFallback) fallbackEndpoints++;
                 const jobCount = await enqueueAttackJobs(payloads, {
                     testRunId,
                     endpointId: savedEndpoint.id,
@@ -556,7 +574,10 @@ async function processTestRunAsync(
                 // so the progress denominator updates live in the dashboard.
                 const updated = await prisma.testRun.update({
                     where: { id: testRunId },
-                    data: { totalAttacks: { increment: jobCount } },
+                    data: {
+                        totalAttacks: { increment: jobCount },
+                        ...(usedFallback ? { aiFallbackEndpoints: { increment: 1 } } : {}),
+                    },
                 });
                 wsManager.broadcast(testRunId, {
                     type: "TEST_RUN_STATUS",
@@ -568,10 +589,16 @@ async function processTestRunAsync(
                     },
                 });
                 return jobCount;
-            }),
+            },
         );
 
         totalJobs = results.reduce((a, n) => a + n, 0);
+        runLog.info(
+            { endpoints: cappedEndpoints.length, fallbackEndpoints },
+            fallbackEndpoints > 0
+                ? "Some endpoints used the built-in fallback payloads"
+                : "All endpoints used AI-generated payloads",
+        );
 
         // ── Mass-assignment probes (T14b, API3) ── One extra ATTACK job per write
         // endpoint that declares an object body schema: a valid body plus injected
@@ -770,6 +797,7 @@ export function buildReportPayload(testRun: {
     totalEndpoints: number;
     totalAttacks: number;
     completedAttacks: number;
+    aiFallbackEndpoints?: number;
     createdAt: Date;
     completedAt: Date | null;
     logs: Array<{
@@ -812,6 +840,7 @@ export function buildReportPayload(testRun: {
             completedAttacks: testRun.completedAttacks,
             criticalFailures,
             avgLatencyMs,
+            aiFallbackEndpoints: testRun.aiFallbackEndpoints ?? 0,
             createdAt: testRun.createdAt.toISOString(),
             completedAt: testRun.completedAt?.toISOString() ?? null,
         };
@@ -1125,19 +1154,8 @@ export async function abortTestRun(
  */
 async function drainTestRunJobs(testRunId: string): Promise<number> {
     const { chaosQueue } = await import("../queues/chaos-queue.js");
-    const jobs = await chaosQueue.getJobs(["waiting", "prioritized", "delayed"]);
-    let removed = 0;
-    for (const job of jobs) {
-        if (job.data?.testRunId === testRunId) {
-            try {
-                await job.remove();
-                removed++;
-            } catch {
-                // Job may have been picked up by the worker in the meantime.
-            }
-        }
-    }
-    return removed;
+    const { drainRunJobs } = await import("../queues/drain.js");
+    return drainRunJobs(chaosQueue, testRunId);
 }
 
 function extractBaseUrl(specUrl: string): string {

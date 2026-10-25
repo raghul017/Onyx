@@ -10,13 +10,30 @@ import { prisma } from "../lib/prisma.js";
 import { getSeverity, getOverallScore, getScoreLabel, type SeverityLevel } from "../utils/severity.js";
 import { logger } from "../lib/logger.js";
 
+/**
+ * Version of the scoring rules. Bump when a rule change moves severities, so
+ * scores persisted under the old rules are recomputed on the next read.
+ *   1 — healthy 4xx / 401 / 403 results are INFO (no deduction); a 4xx is only
+ *       MEDIUM when it leaks real internals.
+ */
+export const SCORE_VERSION = 1;
+
+/** A stored score is only trusted when the current rules produced it. */
+export function isStoredScoreFresh(run: {
+    overallScore: number | null;
+    scoreLabel: string | null;
+    scoreVersion: number | null;
+}): boolean {
+    return run.overallScore != null && run.scoreLabel != null && run.scoreVersion === SCORE_VERSION;
+}
+
 /** True when an error is Prisma's "column does not exist" (P2022) for the
  *  not-yet-migrated score columns. Treated as "feature off", never a failure. */
 export function isMissingScoreColumn(e: unknown): boolean {
     const anyErr = e as { code?: string; message?: string };
     if (anyErr?.code === "P2022") return true;
     const msg = anyErr?.message ?? String(e);
-    return /overallScore|scoreLabel|column .* does not exist/i.test(msg);
+    return /overallScore|scoreLabel|scoreVersion|column .* does not exist/i.test(msg);
 }
 
 /** Severity stored on a persisted finding (T13b), when the row carries one. */
@@ -64,7 +81,7 @@ export async function scoreAndPersistRun(testRunId: string): Promise<void> {
         const { overallScore, scoreLabel } = computeScore(logs);
         await prisma.testRun.update({
             where: { id: testRunId },
-            data: { overallScore, scoreLabel },
+            data: { overallScore, scoreLabel, scoreVersion: SCORE_VERSION },
         });
     } catch (e) {
         if (isMissingScoreColumn(e)) return; // columns not pushed yet — compute on read

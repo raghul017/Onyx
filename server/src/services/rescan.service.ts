@@ -54,8 +54,8 @@ const UNSUPPORTED_ATTACK_TYPES = new Set(["BOLA_REPLAY", "BFLA_PROBE"]);
 
 /**
  * analyzeFinding categories that mean the attack did NOT succeed — i.e. the
- * finding no longer reproduces. "Input Rejected" is LOW (not INFO) severity but
- * explicitly means input validation worked, so it MUST count as fixed.
+ * finding no longer reproduces. "Input Rejected" explicitly means input
+ * validation worked, so it MUST count as fixed.
  */
 const NOT_REPRODUCED = new Set([
     "Handled",
@@ -336,10 +336,9 @@ export async function rescanFinding(
             //
             // The categories below all mean the attack did NOT succeed, so the
             // original issue no longer reproduces:
-            //   Handled / Access Control Enforced / Request Error → INFO
-            //   Input Rejected  → LOW + confidence "info" ("validation is doing
-            //                     its job") — the textbook FIXED outcome, which a
-            //                     severity-only check would wrongly call unresolved.
+            //   Handled / Access Control Enforced / Request Error /
+            //   Input Rejected → INFO + confidence "info". Input Rejected is the
+            //   textbook FIXED outcome ("validation is doing its job").
             // Every one of these carries confidence "info", so we key on the
             // category set plus that marker rather than on severity alone.
             stillPresent = !(NOT_REPRODUCED.has(finding.category) || finding.confidence === "info");

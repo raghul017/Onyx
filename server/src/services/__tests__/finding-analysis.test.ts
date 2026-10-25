@@ -14,6 +14,7 @@ import {
     type FindingInput,
     type FindingDetail,
 } from "../finding-analysis.js";
+import { computeScore } from "../run-score.js";
 
 interface Case {
     name: string;
@@ -180,27 +181,36 @@ const CASES: Case[] = [
     {
         name: "9 · 401 rejected => access control enforced",
         input: { attackType: "MISSING_AUTH", statusCode: 401, responseSnippet: "" },
-        expect: { category: "Access Control Enforced", severity: "LOW", confidence: "info" },
+        expect: { category: "Access Control Enforced", severity: "INFO", confidence: "info" },
     },
     {
         name: "9 · 403 rejected => access control enforced",
         input: { attackType: "MISSING_AUTH", statusCode: 403, responseSnippet: "" },
-        expect: { category: "Access Control Enforced", severity: "LOW", confidence: "info" },
+        expect: { category: "Access Control Enforced", severity: "INFO", confidence: "info" },
     },
 
-    // Rule 10 — other 4xx: plain => LOW; with error words => MEDIUM
+    // Rule 10 — other 4xx: generic message => healthy INFO; real internals => MEDIUM
     {
-        name: "10 · Plain 4xx (400) with no internal detail => input rejected (LOW)",
+        name: "10 · Plain 4xx (400) with no internal detail => input rejected (INFO)",
         input: { attackType: "BOUNDARY", statusCode: 400, responseSnippet: "Bad Request" },
-        expect: { category: "Input Rejected", severity: "LOW", confidence: "info" },
+        expect: { category: "Input Rejected", severity: "INFO", confidence: "info" },
     },
     {
-        name: "10 · 4xx (422) leaking error words => verbose error (MEDIUM)",
+        name: "10 · 4xx (422) with a generic 'invalid' message => input rejected (INFO)",
         input: { attackType: "BOUNDARY", statusCode: 422, responseSnippet: "invalid parameter format" },
+        expect: { category: "Input Rejected", severity: "INFO", confidence: "info" },
+    },
+    {
+        name: "10 · 4xx (400) leaking an exception class => verbose error (MEDIUM)",
+        input: {
+            attackType: "TYPE_CONFUSION",
+            statusCode: 400,
+            responseSnippet: '{"error":"System.FormatException: Input string was not in a correct format."}',
+        },
         expect: {
             category: "Verbose Error / Info Disclosure",
             severity: "MEDIUM",
-            confidence: "tentative",
+            confidence: "firm",
         },
     },
 
@@ -224,6 +234,49 @@ describe("analyzeFinding — 11 detection rules (behavior lock)", () => {
             expect(out.category).toBe(c.expect.category);
             expect(out.severity).toBe(c.expect.severity);
             expect(out.confidence).toBe(c.expect.confidence);
+        });
+    }
+});
+
+describe("rule 10 — generic 4xx bodies are not findings", () => {
+    const healthy = [
+        {
+            name: "ASP.NET ProblemDetails 400",
+            input: {
+                attackType: "TYPE_CONFUSION",
+                statusCode: 400,
+                responseSnippet: '{"title":"One or more validation errors occurred.","status":400}',
+            },
+        },
+        {
+            name: "plain 404 error body",
+            input: { attackType: "BOUNDARY", statusCode: 404, responseSnippet: '{"error":"Not found"}' },
+        },
+    ];
+
+    for (const c of healthy) {
+        it(`${c.name} => Input Rejected, INFO, no score deduction`, () => {
+            const out = analyzeFinding(c.input);
+            expect(out.category).toBe("Input Rejected");
+            expect(out.severity).toBe("INFO");
+            expect(computeScore([c.input]).overallScore).toBe(100);
+        });
+    }
+
+    // The leak direction reuses the behavior-lock fixtures above, re-run as a 400.
+    const fixture = (name: string): Case => {
+        const c = CASES.find((x) => x.name.startsWith(name));
+        if (!c) throw new Error(`fixture not found: ${name}`);
+        return c;
+    };
+
+    for (const name of ["3 · SQL_ERROR", "8 · Stack trace"]) {
+        it(`${name} fixture is still flagged on a 400`, () => {
+            const c = fixture(name);
+            const out = analyzeFinding({ ...c.input, statusCode: 400 });
+            expect(out.category).toBe(c.expect.category);
+            expect(out.severity).toBe(c.expect.severity);
+            expect(["MEDIUM", "HIGH", "CRITICAL"]).toContain(out.severity);
         });
     }
 });

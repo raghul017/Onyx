@@ -21,6 +21,8 @@ import {
     computeScore,
     isMissingScoreColumn,
     scoreAndPersistRun,
+    isStoredScoreFresh,
+    SCORE_VERSION,
 } from "../run-score.js";
 
 type Log = { statusCode: number | null; attackType: string; responseSnippet: string | null };
@@ -46,14 +48,14 @@ describe("computeScore — derives overallScore + scoreLabel from logs", () => {
         expect(computeScore(logs)).toEqual({ overallScore: 75, scoreLabel: "MEDIUM" });
     });
 
-    it("mixed run: CRITICAL + HIGH + a healthy 401 (LOW)", () => {
-        // CRITICAL(-25, SQL error) + HIGH(-15, 5xx non-injection) + LOW(-3, 401) = -43 => 57 / MEDIUM
+    it("mixed run: CRITICAL + HIGH + a healthy 401 (INFO, no deduction)", () => {
+        // CRITICAL(-25, SQL error) + HIGH(-15, 5xx non-injection) + INFO(0, 401) = -40 => 60 / MEDIUM
         const logs: Log[] = [
             { statusCode: 200, attackType: "SQL_INJECTION", responseSnippet: "You have an error in your SQL syntax" },
             { statusCode: 500, attackType: "BOUNDARY", responseSnippet: "" },
             { statusCode: 401, attackType: "MISSING_AUTH", responseSnippet: "" },
         ];
-        expect(computeScore(logs)).toEqual({ overallScore: 57, scoreLabel: "MEDIUM" });
+        expect(computeScore(logs)).toEqual({ overallScore: 60, scoreLabel: "MEDIUM" });
     });
 
     it("tolerates null statusCode / responseSnippet (coerced to 0 / \"\")", () => {
@@ -97,7 +99,7 @@ describe("scoreAndPersistRun — persists computed score on the run", () => {
         });
         expect(update).toHaveBeenCalledWith({
             where: { id: "run-1234" },
-            data: { overallScore: 75, scoreLabel: "MEDIUM" },
+            data: { overallScore: 75, scoreLabel: "MEDIUM", scoreVersion: SCORE_VERSION },
         });
     });
 
@@ -105,5 +107,18 @@ describe("scoreAndPersistRun — persists computed score on the run", () => {
         findMany.mockResolvedValue([]);
         update.mockRejectedValue({ code: "P2022" });
         await expect(scoreAndPersistRun("run-x")).resolves.toBeUndefined();
+    });
+});
+
+describe("isStoredScoreFresh — stale scores from older rules are recomputed", () => {
+    it("trusts a score stored by the current rules", () => {
+        expect(isStoredScoreFresh({ overallScore: 80, scoreLabel: "LOW", scoreVersion: SCORE_VERSION })).toBe(true);
+    });
+    it("rejects a score stored by an older rule set", () => {
+        expect(isStoredScoreFresh({ overallScore: 0, scoreLabel: "CRITICAL", scoreVersion: 0 })).toBe(false);
+    });
+    it("rejects a missing score or version", () => {
+        expect(isStoredScoreFresh({ overallScore: null, scoreLabel: null, scoreVersion: SCORE_VERSION })).toBe(false);
+        expect(isStoredScoreFresh({ overallScore: 90, scoreLabel: "LOW", scoreVersion: null })).toBe(false);
     });
 });

@@ -86,7 +86,14 @@ const FILE_LEAK =
 const SECRET_LEAK =
     /(-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|aws_secret_access_key|"(?:api[_-]?key|secret|password|passwd|access[_-]?token|private[_-]?key)"\s*:\s*"[^"]{6,})/i;
 
-const MINOR_ERROR_WORDS = /(error|exception|stack|invalid|unexpected|traceback)/i;
+// Internals leaked in a 4xx body. A 4xx is only a finding when it exposes HOW
+// the server is built: server-side file paths, namespaced / runtime exception
+// class names, or framework debug pages. Generic messages ("Not found",
+// "invalid id", ASP.NET ProblemDetails "One or more validation errors
+// occurred.") are normal validation, not disclosure. Stack traces and SQL errors
+// are caught earlier by STACK_TRACE / SQL_ERROR.
+const INTERNALS_LEAK =
+    /((?:^|[\s"'(=:])\/(?:var|usr|home|opt|srv|app|root|www)\/[\w.\-/]+\.(?:js|mjs|cjs|ts|py|rb|php|java|cs|go)\b|[A-Za-z]:\\{1,2}(?:[\w.\- ]+\\{1,2})+[\w.\-]+\.(?:cs|dll|php|py|js|java|aspx?)\b|node_modules[\\/]|\b(?:java|javax|org|com|System|Microsoft|django|sqlalchemy|werkzeug)\.[\w.]*(?:Exception|Error)\b|\b(?:NullPointerException|NullReferenceException|ArgumentNullException|InvalidCastException|IllegalArgumentException|IllegalStateException|NumberFormatException|ClassCastException|InvalidOperationException|FormatException|NoMethodError|AttributeError|KeyError|UnboundLocalError|ZeroDivisionError)\b|Django Version:|Whoops! There was an error|Symfony\\{1,2}Component|Laravel\\{1,2}|<b>(?:Fatal error|Warning|Parse error)<\/b>:|Server Error in '\/' Application|DEBUG\s*=\s*True)/i;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -247,10 +254,11 @@ function analyzeBase(input: FindingInput): FindingDetail {
         };
     }
 
-    // 9) 401 / 403 — attack correctly rejected (INFO, good behavior)
+    // 9) 401 / 403 — attack correctly rejected (INFO, good behavior). INFO, not
+    //    LOW: healthy results must not cost score points or appear as CI findings.
     if (statusCode === 401 || statusCode === 403) {
         return {
-            severity: "LOW",
+            severity: "INFO",
             category: "Access Control Enforced",
             title: `Attack rejected with ${statusCode}`,
             confidence: "info",
@@ -260,21 +268,29 @@ function analyzeBase(input: FindingInput): FindingDetail {
         };
     }
 
-    // 10) Other 4xx — input rejected; flag if the error leaks internals
+    // 10) Other 4xx — input rejected. Only a finding when the body leaks real
+    //     internals (file paths, exception classes, framework debug output);
+    //     a generic error message is healthy validation (INFO).
     if (statusCode >= 400 && statusCode < 500) {
-        const leaks = MINOR_ERROR_WORDS.test(resp);
+        if (INTERNALS_LEAK.test(resp)) {
+            return {
+                severity: "MEDIUM",
+                category: "Verbose Error / Info Disclosure",
+                title: `Payload rejected with ${statusCode}, but internals leaked`,
+                confidence: "firm",
+                evidence: evidenceFor(resp, INTERNALS_LEAK),
+                cause: "The endpoint rejected the payload (4xx), but the error exposes internal details (file paths, exception classes, or framework internals) that help an attacker map the system.",
+                remediation: "Keep rejecting bad input, but return a generic 4xx message. Disable debug/verbose errors in production and log details server-side only.",
+            };
+        }
         return {
-            severity: leaks ? "MEDIUM" : "LOW",
-            category: leaks ? "Verbose Error / Info Disclosure" : "Input Rejected",
+            severity: "INFO",
+            category: "Input Rejected",
             title: `Payload rejected with ${statusCode}`,
-            confidence: leaks ? "tentative" : "info",
-            evidence: leaks ? evidenceFor(resp, MINOR_ERROR_WORDS) : null,
-            cause: leaks
-                ? "The endpoint rejected the payload (4xx), but the error message exposes some internal detail."
-                : "The endpoint rejected the malformed / malicious input with a 4xx — input validation is doing its job.",
-            remediation: leaks
-                ? "Keep rejecting bad input, but return a generic 4xx message without internal details."
-                : "No action needed — this is good validation behavior.",
+            confidence: "info",
+            evidence: null,
+            cause: "The endpoint rejected the malformed / malicious input with a 4xx — input validation is doing its job.",
+            remediation: "No action needed — this is good validation behavior.",
         };
     }
 

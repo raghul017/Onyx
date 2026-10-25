@@ -231,13 +231,38 @@ function effective(plan: Plan, planExpiresAt: Date | null): Plan {
     return plan;
 }
 
+const PLAN_RANK: Record<Plan, number> = { FREE: 0, PRO: 1, TEAM: 2, ENTERPRISE: 3 };
+
+/** The better of several plans (each already expiry-checked). */
+export function bestPlan(...plans: Plan[]): Plan {
+    return plans.reduce<Plan>((best, p) => (PLAN_RANK[p] > PLAN_RANK[best] ? p : best), "FREE");
+}
+
+/**
+ * Plan in effect for a request. In an org, it's the better of the org's own
+ * plan and its OWNERS' active paid plans: billing webhooks only ever update the
+ * user who paid, so without this a paying Team owner was on Free limits inside
+ * their own workspace. Expired plans count as FREE.
+ */
 export async function getEffectivePlan(userId: string, orgId?: string | null): Promise<Plan> {
     if (orgId) {
         const org = await prisma.organization.findUnique({
             where: { id: orgId },
-            select: { plan: true, planExpiresAt: true },
+            select: {
+                plan: true,
+                planExpiresAt: true,
+                members: {
+                    where: { role: "OWNER" },
+                    select: { user: { select: { plan: true, planExpiresAt: true } } },
+                },
+            },
         });
-        if (org) return effective(org.plan, org.planExpiresAt);
+        if (org) {
+            return bestPlan(
+                effective(org.plan, org.planExpiresAt),
+                ...org.members.map((m) => effective(m.user.plan, m.user.planExpiresAt)),
+            );
+        }
     }
     const user = await prisma.user.findUnique({
         where: { id: userId },
