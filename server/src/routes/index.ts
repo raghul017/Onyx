@@ -38,6 +38,8 @@ import { injectOrgContext } from "../middleware/org.middleware.js";
 import { getEffectivePlan } from "../services/org.service.js";
 import { generateTestRunPDF } from "../services/pdf.service.js";
 import { openApiSpec } from "../openapi.js";
+import { deployedCommit } from "../lib/deploy-info.js";
+import { issueWsTicket, WS_TICKET_TTL_SECONDS } from "../websockets/ws-auth.js";
 import { updateUserSchema } from "../validators/schemas.js";
 
 const router = Router();
@@ -46,10 +48,13 @@ const router = Router();
 // Health Check — MUST stay public and be registered before any router that
 // applies global auth (e.g. orgRouter calls router.use(authenticateToken)).
 // ---------------------------------------------------------------------------
+const DEPLOYED_COMMIT = deployedCommit();
+
 router.get("/health", (_req, res) => {
     res.json({
         status: "ok",
         service: "onyx-server",
+        commit: DEPLOYED_COMMIT,
         timestamp: new Date().toISOString(),
     });
 });
@@ -240,6 +245,19 @@ router.delete("/verify-target/:id", authenticateToken, deleteVerifiedTarget);
 // ---------------------------------------------------------------------------
 // User
 // ---------------------------------------------------------------------------
+
+// Short-lived WebSocket ticket (60s) so the session JWT never rides the WS URL.
+router.post("/ws-ticket", authenticateToken, (req, res) => {
+    const user = req.user;
+    if (!user?.id) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
+    res.json({
+        ticket: issueWsTicket({ id: user.id, email: user.email }, process.env.JWT_SECRET!),
+        expiresIn: WS_TICKET_TTL_SECONDS,
+    });
+});
 
 router.get("/user/me", authenticateToken, async (req, res) => {
     const userId = req.user!.id;

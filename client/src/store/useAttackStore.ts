@@ -4,7 +4,7 @@
 
 import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
-import type { FindingDetail } from "@/services/api";
+import { api, type FindingDetail } from "@/services/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,6 +56,25 @@ interface AttackActions {
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+// Bumped on every connect/disconnect so a ticket fetch that resolves late
+// can't open a socket for a run the user already left.
+let connectGeneration = 0;
+
+/**
+ * The WS handshake credential. Prefer a 60s ticket so the 7-day session JWT
+ * never rides the WebSocket URL (where proxy logs can record it). Falls back to
+ * the session token if the ticket endpoint isn't available (older server).
+ */
+export async function wsCredentialQuery(token: string | null): Promise<string> {
+    if (!token) return "";
+    try {
+        const { data } = await api.post<{ ticket: string }>("/ws-ticket");
+        if (data?.ticket) return `?ticket=${encodeURIComponent(data.ticket)}`;
+    } catch {
+        /* older server without /ws-ticket: fall through to the legacy token */
+    }
+    return `?token=${encodeURIComponent(token)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Store
@@ -94,122 +113,129 @@ export const useAttackStore = create<AttackState & AttackActions>(
             });
 
             const token = useAuthStore.getState().token;
+            const openSocket = (credentialQuery: string) => {
+                // Prefer explicit env URL, fallback to local backend port
+                let WS_BASE_URL =
+                    import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
 
-            // Prefer explicit env URL, fallback to local backend port
-            let WS_BASE_URL =
-                import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
-
-            // Ensure the WebSocket URL ends with /ws
-            if (WS_BASE_URL && !WS_BASE_URL.endsWith("/ws")) {
-                if (WS_BASE_URL.endsWith("/")) {
-                    WS_BASE_URL = WS_BASE_URL.slice(0, -1);
-                }
-                WS_BASE_URL += "/ws";
-            }
-
-            // Append JWT token for auth hook
-            const wsUrl = `${WS_BASE_URL}${token ? `?token=${token}` : ""}`;
-
-            const socket = new WebSocket(wsUrl);
-            ws = socket;
-
-            socket.onopen = () => {
-                set({ connectionStatus: "connected" });
-                console.log("[AttackStore] WebSocket connected");
-
-                // Subscribe to the test run channel
-                socket.send(JSON.stringify({ type: "SUBSCRIBE", testRunId }));
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-
-                    switch (msg.type) {
-                        case "ATTACK_RESULT": {
-                            const log: AttackLog = {
-                                id: msg.data.id,
-                                method: msg.data.method,
-                                endpoint: msg.data.endpoint,
-                                payload: msg.data.payload,
-                                statusCode: msg.data.statusCode,
-                                latencyMs:
-                                    msg.data.latencyMs ??
-                                    msg.data.responseTime ??
-                                    0,
-                                timestamp: msg.data.timestamp ?? Date.now(),
-                                responseSnippet: msg.data.responseSnippet,
-                                finding: msg.data.finding,
-                            };
-                            get().addLog(log);
-                            // Move to "attacking" on first result
-                            if (get().status === "idle") {
-                                set({ status: "attacking" });
-                            }
-                            break;
-                        }
-
-                        case "TEST_RUN_STATUS": {
-                            const s = msg.data.status as string;
-                            const total = msg.data.totalAttacks;
-                            if (total && total > 0) {
-                                set({ totalPayloads: total });
-                            }
-                            if (s === "COMPLETED" || s === "FAILED") {
-                                set({ status: "completed" });
-                            } else if (
-                                s === "ATTACKING" ||
-                                s === "GENERATING" ||
-                                s === "PARSING"
-                            ) {
-                                set({ status: "attacking" });
-                            }
-                            break;
-                        }
-
-                        case "ERROR": {
-                            set({
-                                error:
-                                    msg.data.message ?? "Unknown server error",
-                            });
-                            console.error(
-                                "[AttackStore] Server error:",
-                                msg.data,
-                            );
-                            break;
-                        }
+                // Ensure the WebSocket URL ends with /ws
+                if (WS_BASE_URL && !WS_BASE_URL.endsWith("/ws")) {
+                    if (WS_BASE_URL.endsWith("/")) {
+                        WS_BASE_URL = WS_BASE_URL.slice(0, -1);
                     }
-                } catch (err) {
-                    console.error(
-                        "[AttackStore] Failed to parse message:",
-                        err,
-                    );
+                    WS_BASE_URL += "/ws";
                 }
+
+                const wsUrl = `${WS_BASE_URL}${credentialQuery}`;
+
+                const socket = new WebSocket(wsUrl);
+                ws = socket;
+
+                socket.onopen = () => {
+                    set({ connectionStatus: "connected" });
+                    console.log("[AttackStore] WebSocket connected");
+
+                    // Subscribe to the test run channel
+                    socket.send(JSON.stringify({ type: "SUBSCRIBE", testRunId }));
+                };
+
+                socket.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        switch (msg.type) {
+                            case "ATTACK_RESULT": {
+                                const log: AttackLog = {
+                                    id: msg.data.id,
+                                    method: msg.data.method,
+                                    endpoint: msg.data.endpoint,
+                                    payload: msg.data.payload,
+                                    statusCode: msg.data.statusCode,
+                                    latencyMs:
+                                        msg.data.latencyMs ??
+                                        msg.data.responseTime ??
+                                        0,
+                                    timestamp: msg.data.timestamp ?? Date.now(),
+                                    responseSnippet: msg.data.responseSnippet,
+                                    finding: msg.data.finding,
+                                };
+                                get().addLog(log);
+                                // Move to "attacking" on first result
+                                if (get().status === "idle") {
+                                    set({ status: "attacking" });
+                                }
+                                break;
+                            }
+
+                            case "TEST_RUN_STATUS": {
+                                const s = msg.data.status as string;
+                                const total = msg.data.totalAttacks;
+                                if (total && total > 0) {
+                                    set({ totalPayloads: total });
+                                }
+                                if (s === "COMPLETED" || s === "FAILED") {
+                                    set({ status: "completed" });
+                                } else if (
+                                    s === "ATTACKING" ||
+                                    s === "GENERATING" ||
+                                    s === "PARSING"
+                                ) {
+                                    set({ status: "attacking" });
+                                }
+                                break;
+                            }
+
+                            case "ERROR": {
+                                set({
+                                    error:
+                                        msg.data.message ?? "Unknown server error",
+                                });
+                                console.error(
+                                    "[AttackStore] Server error:",
+                                    msg.data,
+                                );
+                                break;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(
+                            "[AttackStore] Failed to parse message:",
+                            err,
+                        );
+                    }
+                };
+
+                socket.onclose = () => {
+                    set({ connectionStatus: "disconnected" });
+                    console.log("[AttackStore] WebSocket disconnected");
+
+                    // Auto-reconnect after 3s if not completed
+                    const { status, testRunId: currentId } = get();
+                    if (status !== "completed" && currentId) {
+                        reconnectTimer = setTimeout(() => {
+                            console.log("[AttackStore] Reconnecting...");
+                            get().connectWebSocket(currentId);
+                        }, 3000);
+                    }
+                };
+
+                socket.onerror = () => {
+                    set({
+                        error: "WebSocket connection error",
+                        connectionStatus: "disconnected",
+                    });
+                };
             };
 
-            socket.onclose = () => {
-                set({ connectionStatus: "disconnected" });
-                console.log("[AttackStore] WebSocket disconnected");
-
-                // Auto-reconnect after 3s if not completed
-                const { status, testRunId: currentId } = get();
-                if (status !== "completed" && currentId) {
-                    reconnectTimer = setTimeout(() => {
-                        console.log("[AttackStore] Reconnecting...");
-                        get().connectWebSocket(currentId);
-                    }, 3000);
-                }
-            };
-
-            socket.onerror = () => {
-                set({
-                    error: "WebSocket connection error",
-                    connectionStatus: "disconnected",
-                });
-            };
+            const generation = ++connectGeneration;
+            void wsCredentialQuery(token).then((credentialQuery) => {
+                if (generation !== connectGeneration) return; // superseded
+                openSocket(credentialQuery);
+            });
         },
 
         disconnectWebSocket: () => {
+            connectGeneration++;
             if (reconnectTimer) {
                 clearTimeout(reconnectTimer);
                 reconnectTimer = null;

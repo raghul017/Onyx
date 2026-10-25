@@ -9,7 +9,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
-import jwt from "jsonwebtoken";
+import { verifyWsCredential } from "./websockets/ws-auth.js";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
@@ -118,20 +118,21 @@ server.on(
         );
 
         if (urlObj.pathname === "/ws") {
-            const token = urlObj.searchParams.get("token");
-            if (!token) {
-                socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-                socket.destroy();
-                return;
-            }
-
             try {
+                // Prefer a 60s ticket (POST /api/ws-ticket); the session JWT is
+                // still accepted during rollout. Both pinned to HS256.
                 // JWT_SECRET is guaranteed to exist — server crashes on
                 // startup via middleware/auth.ts if it's missing.
-                const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-                    id: string;
-                    email: string;
-                };
+                const { via, ...decoded } = verifyWsCredential(
+                    {
+                        ticket: urlObj.searchParams.get("ticket"),
+                        token: urlObj.searchParams.get("token"),
+                    },
+                    process.env.JWT_SECRET!,
+                );
+                if (via === "session") {
+                    logger.debug("WS handshake used the legacy session token");
+                }
 
                 wss.handleUpgrade(request, socket, head, (ws) => {
                     // Attach user to websocket instance

@@ -7,6 +7,7 @@ import type { IncomingMessage } from "node:http";
 import type { WsServerMessage, WsClientMessage } from "../types/shared.js";
 import { wsClientMessageSchema } from "../validators/schemas.js";
 import { prisma } from "../lib/prisma.js";
+import { canSubscribeToRun } from "./ws-auth.js";
 import { logger } from "../lib/logger.js";
 
 const log = logger.child({ component: "ws" });
@@ -143,7 +144,17 @@ class WsManager {
             const testRun = await prisma.testRun.findUnique({
                 where: { id: testRunId },
             });
-            if (!testRun || (testRun.userId && testRun.userId !== user.id)) {
+            // Same rule as the HTTP routes (canAccessTestRun): the run's owner,
+            // or a member of the org that owns it. A run with no owner and no
+            // org is NOT open to everyone.
+            const isOrgMember =
+                testRun?.orgId != null &&
+                testRun.userId !== user.id &&
+                (await prisma.orgMember.findUnique({
+                    where: { orgId_userId: { orgId: testRun.orgId, userId: user.id } },
+                    select: { id: true },
+                })) != null;
+            if (!testRun || !canSubscribeToRun(testRun, user.id, isOrgMember)) {
                 this.sendToClient(ws, {
                     type: "ERROR",
                     data: {
