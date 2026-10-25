@@ -40,7 +40,7 @@ Onyx is an **AI-powered API vulnerability testing engine**. You provide a link t
 
 1. **Verifies** you own the target domain before firing a single request.
 2. **Parses** every endpoint the API exposes (`POST /users/login`, `GET /products/{id}`, etc.).
-3. **Generates** malicious schema-aware payloads using Google Gemini 2.5 Flash — SQL injection, XSS, auth bypass, path traversal, oversized payloads, and more.
+3. **Generates** malicious schema-aware payloads using Google Gemini 3.5 Flash-Lite — SQL injection, XSS, auth bypass, path traversal, oversized payloads, and more.
 4. **Fires** those payloads at the target API via a highly concurrent, rate-limited distributed queue (BullMQ + Redis).
 5. **Scores** each result with CVSS-inspired severity (CRITICAL / HIGH / MEDIUM / LOW / INFO) and computes an overall API security score (0–100).
 6. **Streams** everything live to your dashboard via WebSockets, with PDF report export on Pro+ plans.
@@ -246,12 +246,12 @@ YOU (Browser)                     ONYX SERVER                      EXTERNAL
                                        │  8. Phase: GENERATING         │
                                        │     Ask Gemini for 20         │
                                        │     payloads per endpoint     │
-                                       │     (fallback: 35 static)     │
+                                       │     (fallback: 36 static)     │
                                        │                               │
                                        │  9. Phase: ATTACKING          │
                                        │     addBulk() → Redis queue   │
                                        │     BullMQ workers consume    │
-                                       │     (5 concurrent, 10/sec)    │
+                                       │     (12 concurrent, ~30/s)    │
                                        │                               │
                                        │  10. Worker fires payload ───►│
                                        │◄── HTTP response ─────────────│
@@ -498,12 +498,20 @@ addBulk(jobs) ──────► queue ──────────► proc
 ## 9. Gemini AI — The Payload Brain
 
 ### Model
-Google **Gemini 3.5 Flash-Lite** (default; `GEMINI_MODEL` overrides) via `@google/genai`
+Google **Gemini 3.5 Flash-Lite** (default; `GEMINI_MODEL` overrides) via `@google/genai`.
+The model id and thinking level live in `server/src/lib/gemini.ts`, shared by payload
+generation and the BOLA judge. Thinking is pinned to the lowest level (Gemini 3.x
+thought tokens count against `maxOutputTokens`).
+
+`gemini-3.8-flash` is newer but was overloaded on the free tier when tested
+(Oct 2026: 100s+ per call, 503s). Switch with `GEMINI_MODEL=gemini-3.8-flash`.
 
 ### Persona prompt
 > "You are a 15-year Senior Penetration Tester generating attack payloads for API security testing..."
 
 ### Output (strictly JSON)
+Enforced with a `responseJsonSchema` (constrained decoding), then re-validated with Zod.
+Without it the model wrote `"A".repeat(...)` inside the JSON and every endpoint fell back.
 20 payloads per endpoint, each with:
 ```json
 { "payload": "...", "attackType": "SQL_INJECTION", "description": "..." }
@@ -528,7 +536,7 @@ Google **Gemini 3.5 Flash-Lite** (default; `GEMINI_MODEL` overrides) via `@googl
 - Quota checked: FREE (10 endpoints), PRO (50), TEAM/ENTERPRISE (unlimited)
 
 ### Graceful degradation
-If Gemini is unavailable or `GEMINI_API_KEY` is missing: falls back to **35 hard-coded payloads** covering all attack types. The pipeline never stalls.
+If Gemini is unavailable or `GEMINI_API_KEY` is missing: falls back to **36 hard-coded payloads** covering all attack types. The pipeline never stalls.
 
 ---
 
@@ -691,9 +699,9 @@ graph TD
         DomainVerify[Domain Verify Controller\nfile probe + DNS TXT]:::server
         OrgCtrl[Org Controller\nCRUD · Members · Invites]:::server
         Parser[OpenAPI Parser\nWAF Bypass UA]:::server
-        Gemini[Gemini 2.5 Flash\n20 payloads/endpoint]:::server
+        Gemini[Gemini 3.5 Flash-Lite\n20 payloads/endpoint]:::server
         Queue[BullMQ Producer\naddBulk]:::server
-        Worker[BullMQ Worker\n5 concurrent · 10/sec · 10s timeout]:::server
+        Worker[BullMQ Worker\n12 concurrent · ~30/sec · 10s timeout]:::server
         WS[WebSocket Manager\nper-run isolation]:::server
         Severity[CVSS Scorer\n0-100 score]:::server
         Billing[Razorpay Service\nsubscribe/verify/webhook]:::server
@@ -726,7 +734,7 @@ graph TD
     subgraph External
         TargetAPI((Target API)):::external
         RazorpayAPI((Razorpay API)):::external
-        GeminiAPI((Google Gemini\n2.5 Flash)):::external
+        GeminiAPI((Google Gemini\n3.5 Flash-Lite)):::external
     end
 
     UI -->|Submit spec URL| API
@@ -778,7 +786,8 @@ JWT_SECRET=your-strong-secret-here
 REDIS_URL=redis://localhost:6379       # or REDIS_HOST + REDIS_PORT + REDIS_PASSWORD
 
 # AI
-GEMINI_API_KEY=AIza...                 # optional — falls back to 35 static payloads
+GEMINI_API_KEY=AIza...                 # optional — falls back to 36 static payloads
+GEMINI_MODEL=gemini-3.5-flash-lite     # optional — default shown
 
 # Billing (required for Pro/Team subscriptions)
 RAZORPAY_KEY_ID=rzp_live_...

@@ -57,9 +57,9 @@
 
 **Core attack engine**
 - `openapi-parser.ts` — Fetches and parses Swagger 2.0 + OpenAPI 3.x specs via `swagger-parser`. Extracts all endpoints (GET/POST/PUT/DELETE/PATCH) with request body schemas and parameters.
-- `ai-payload.ts` — Sends each endpoint to **Gemini 2.5 Flash** with a senior pentester persona prompt. Returns 20 schema-aware payloads per endpoint covering 8 attack types. Falls back to 35 hard-coded payloads if Gemini is unavailable.
+- `ai-payload.ts` — Sends each endpoint to **Gemini 3.5 Flash-Lite** (model set in `lib/gemini.ts`, `GEMINI_MODEL` overrides) with a senior pentester persona prompt. Output is constrained by a `responseJsonSchema` so it always parses. Returns 20 schema-aware payloads per endpoint covering 8 attack types. Falls back to 36 hard-coded payloads if Gemini is unavailable.
 - `chaos-queue.ts` / `producer.ts` — BullMQ queue backed by Redis. `addBulk()` dispatches all attack jobs atomically.
-- `worker.ts` — 5 concurrent workers, 10 jobs/sec rate limit, 10s job timeout. Fires HTTP payloads at target API, records status code + latency + response snippet.
+- `worker.ts` — 12 concurrent workers, ~30 jobs/sec rate limit, 10s job timeout. Fires HTTP payloads at target API, records status code + latency + response snippet.
 - `ws-manager.ts` — WebSocket singleton. Clients subscribe to a `testRunId` room; each completed attack is broadcast live.
 - `test-run.controller.ts` — Full async pipeline: validate → SSRF check → create DB record → return 201 → async: parse spec → generate payloads → enqueue → attack.
 
@@ -422,7 +422,7 @@ Onyx/
     │   ├── domain-verify.controller.ts  ← Jun 17: file + DNS probe
     │   └── org.controller.ts            ← Jun 17: 12 handlers for orgs/members/invites
     ├── services/
-    │   ├── ai-payload.ts            ← Gemini 2.5 Flash
+    │   ├── ai-payload.ts            ← Gemini 3.5 Flash-Lite
     │   ├── openapi-parser.ts        ← Swagger/OAS parsing
     │   ├── pdf.service.ts           ← PDFKit branded reports
     │   ├── billing.service.ts       ← Razorpay wrappers
@@ -432,7 +432,7 @@ Onyx/
     ├── queues/
     │   ├── chaos-queue.ts           ← BullMQ queue config
     │   ├── producer.ts              ← addBulk() dispatcher
-    │   └── worker.ts                ← 5 concurrent, 10/sec, 10s timeout
+    │   └── worker.ts                ← 12 concurrent, ~30/sec, 10s timeout
     ├── middleware/
     │   ├── auth.ts                  ← JWT verify
     │   ├── quota.middleware.ts      ← org-aware plan limits per calendar month

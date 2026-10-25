@@ -114,7 +114,7 @@ Onyx is an offensive tool, so the guardrails are part of the product:
 ## Tech stack
 
 **Server** — Node + TypeScript, Express, Prisma 7 / PostgreSQL, BullMQ on Redis,
-`ws` WebSockets, Zod, Google Gemini (payload generation), PDFKit, Pino, Sentry.
+`ws` WebSockets, Zod, Google Gemini 3.5 Flash-Lite (payload generation + BOLA judge), PDFKit, Pino, Sentry.
 
 **Client** — React 18 + TypeScript, Vite, Tailwind (light-mono design system),
 TanStack Query, Zustand, React Router, Framer Motion, three.js.
@@ -163,6 +163,7 @@ REDIS_URL="redis://localhost:6379"
 
 # Optional
 GEMINI_API_KEY=""                  # omit to use the static fallback payloads
+GEMINI_MODEL=""                    # defaults to gemini-3.5-flash-lite
 CLIENT_URL="http://localhost:8080"
 SERVER_URL="http://localhost:3000"
 SHARE_BASE_URL=""                  # base for public share links (defaults to the request origin)

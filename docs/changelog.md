@@ -7,6 +7,19 @@
 
 ---
 
+## 🤖 Gemini 3.5 Flash-Lite + AI payloads fixed (Oct 25, 2026)
+
+- **Model upgrade** — `gemini-2.5-flash` → `gemini-3.5-flash-lite` (free tier)
+  for payload generation and the BOLA judge, centralised in
+  `server/src/lib/gemini.ts` with a `GEMINI_MODEL` override. `gemini-3.8-flash`
+  was tested but was overloaded on the free tier (100s+ per call, 503s).
+- **AI payloads actually reach the scan now** — the model was writing
+  `"A".repeat(...)` inside its JSON, so parsing failed and every endpoint quietly
+  used the 36 built-in payloads. A `responseJsonSchema` now forces valid JSON;
+  verified 6/6 live calls return 20 tailored payloads each. (`f8b7977`)
+
+---
+
 ## ⚡ Backend performance + explained findings (Jul 13, 2026)
 
 A performance-and-depth pass on the server, all backward-compatible.
@@ -233,7 +246,7 @@ confirmed CRITICAL and HIGH defect in one pass. See
 | ---------- | ------------------------------------- |
 | Frontend   | React, TypeScript, Tailwind CSS, Vite |
 | Backend    | Node.js, Express, TypeScript          |
-| AI         | Gemini 2.5 Flash                      |
+| AI         | Gemini 3.5 Flash-Lite                 |
 | Queue      | BullMQ + Redis                        |
 | Database   | PostgreSQL (Neon) via Prisma ORM      |
 | Auth       | JWT                                   |

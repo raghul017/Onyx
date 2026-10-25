@@ -23,6 +23,16 @@ export interface ChangelogEntry {
 // Newest first. Dates mirror the real ship dates from the internal log.
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        date: "October 25, 2026",
+        iso: "2026-10-25",
+        title: "Sharper, faster AI-generated attacks",
+        tag: "Fixed",
+        items: [
+            "Onyx now runs on Google's newer Gemini 3.5 Flash-Lite model, so payload generation is faster.",
+            "Fixed a problem where the AI's payloads were being thrown away, so every endpoint got the same built-in set. Each endpoint now gets payloads written for its own parameters and fields.",
+        ],
+    },
+    {
         date: "August 31, 2026",
         iso: "2026-08-31",
         title: "Authorization testing — the checks that actually matter",
