@@ -47,7 +47,7 @@ const STEPS = [
         n: "03",
         verb: "Generate",
         sub: "attack payloads",
-        body: "Gemini 2.5 Flash crafts targeted, schema-aware payloads across 8 OWASP attack categories, tuned to each endpoint.",
+        body: "Gemini 3.5 Flash-Lite writes schema-aware test payloads tuned to each endpoint, alongside authorization and data-exposure checks.",
     },
     {
         n: "04",

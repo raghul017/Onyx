@@ -102,9 +102,9 @@ const AUTH_CHECKS = [
 const SEVERITY = [
     { label: "CRITICAL", color: "#dc2626", rule: "Confirmed cross-user data access, an injection or file read the response proves, an auth bypass, or a leaked credential", deduct: "-25" },
     { label: "HIGH", color: "#ea580c", rule: "Reflected XSS, accepted privileged fields, an unconfirmed authorization gap, or a server crash on test input", deduct: "-15" },
-    { label: "MEDIUM", color: "#ca8a04", rule: "Verbose errors or stack traces, or a likely blind injection worth a closer look", deduct: "-8" },
+    { label: "MEDIUM", color: "#ca8a04", rule: "An error response that leaks internals (stack trace, file path, exception class), or a likely blind injection worth a closer look", deduct: "-8" },
     { label: "LOW", color: "#3b82f6", rule: "A weak signal worth reviewing", deduct: "-3" },
-    { label: "INFO", color: "#64748b", rule: "The request was handled correctly. No deduction", deduct: "0" },
+    { label: "INFO", color: "#64748b", rule: "Handled correctly, or correctly rejected (a generic 4xx, or 401/403 on a protected route). No deduction", deduct: "0" },
 ];
 
 const FINDING_PARTS = [
@@ -150,7 +150,7 @@ const CLI_EXIT = [
 const PLANS = [
     { name: "Free", price: "$0", runs: "5 / mo", endpoints: "10 / run", pdf: false },
     { name: "Pro", price: "$9 / mo", runs: "100 / mo", endpoints: "50 / run", pdf: true },
-    { name: "Team", price: "$18 / mo", runs: "500 / mo", endpoints: "Unlimited", pdf: true },
+    { name: "Team", price: "$18 / mo", runs: "500 / mo", endpoints: "200 / run", pdf: true },
 ];
 
 const FLOW = [
@@ -225,7 +225,7 @@ const DOC_FAQ = [
     },
     {
         q: "How many requests will Onyx send?",
-        a: "Up to 20 payloads per endpoint, across a maximum of 20 endpoints per spec, so up to 400 test requests per run, plus a few baseline and cross-user checks. They run through a queue capped at 12 concurrent workers and about 30 requests a second.",
+        a: "Up to 20 payloads per endpoint, across as many endpoints as your plan allows per run (Free 10, Pro 50, Team 200), plus a few baseline and cross-user checks. A larger spec is truncated to that limit. Requests run through a queue capped at 12 concurrent workers and about 30 requests a second.",
     },
     {
         q: "Do I need two accounts for authorization testing?",
@@ -560,7 +560,7 @@ const Docs = () => {
                             {[
                                 ["12", "Check types"],
                                 ["6 / 10", "OWASP actively tested"],
-                                ["400", "Requests / run, max"],
+                                ["20", "Payloads / endpoint, max"],
                                 ["0-100", "Security score"],
                             ].map(([v, l]) => (
                                 <div key={l} className="border-r border-b border-[#e6e6e6] p-4">

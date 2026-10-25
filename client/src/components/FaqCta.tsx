@@ -56,7 +56,7 @@ const faqs = [
     },
     {
         q: "How are the attack payloads generated?",
-        a: "Gemini 2.5 Flash analyzes your specific endpoints and crafts targeted payloads (SQL injection, XSS, auth bypass, type confusion, and more), with a static fallback set if AI is unavailable.",
+        a: "Gemini 3.5 Flash-Lite reads each endpoint's schema and writes targeted payloads (SQL injection, XSS, auth bypass, type confusion, and more), with a built-in fallback set if AI is unavailable.",
     },
     {
         q: "Is it safe to run against production?",

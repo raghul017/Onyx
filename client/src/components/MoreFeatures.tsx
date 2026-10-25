@@ -90,9 +90,9 @@ const MoreFeatures = () => {
                     </p>
                     <ul className="space-y-3 mb-8">
                         {[
-                            "Gemini 2.5 Flash today, the next SOTA model tomorrow, zero re-config",
-                            "Static fallback payloads keep runs green even if the model is down",
-                            "Per-endpoint tuning is preserved across every model swap",
+                            "Gemini 3.5 Flash-Lite today; switching models is one setting, no code change",
+                            "Built-in fallback payloads keep runs going even if the model is down",
+                            "AI can confirm or veto a finding, never raise one on its own",
                         ].map((b) => (
                             <li
                                 key={b}

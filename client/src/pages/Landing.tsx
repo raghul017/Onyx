@@ -21,8 +21,8 @@ import { useHashScroll } from "../hooks/useHashScroll";
 // thin band directly below it (keeps the hero to headline + subtext + CTA).
 // ---------------------------------------------------------------------------
 const TRUST_STATS = [
-    { label: "Attack categories", value: "8" },
-    { label: "Payloads / run", value: "400+" },
+    { label: "Check types", value: "12" },
+    { label: "Payloads / endpoint", value: "Up to 20" },
     { label: "Spec formats", value: "OpenAPI · Swagger" },
 ];
 

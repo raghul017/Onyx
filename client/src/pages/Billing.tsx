@@ -51,7 +51,8 @@ const PLANS: PlanDef[] = [
         features: [
             "5 test runs / month",
             "10 endpoints per run",
-            "5 attack types",
+            "Every check type",
+            "Workspaces, API tokens & CLI",
             "Community support",
         ],
         envKey: null,
@@ -67,7 +68,7 @@ const PLANS: PlanDef[] = [
         features: [
             "100 test runs / month",
             "50 endpoints per run",
-            "All attack types",
+            "Baseline diffing",
             "PDF reports",
             "Priority support",
         ],
@@ -83,10 +84,8 @@ const PLANS: PlanDef[] = [
         tagline: "For teams that ship together.",
         features: [
             "500 test runs / month",
-            "Unlimited endpoints per run",
+            "200 endpoints per run",
             "Everything in Pro",
-            "Multi-user workspaces",
-            "API access",
             "SLA support",
         ],
         envKey: "VITE_RAZORPAY_TEAM_PLAN_ID",

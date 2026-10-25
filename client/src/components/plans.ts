@@ -3,14 +3,17 @@
 // PricingSection AND the standalone /pricing page, so tiers never drift.
 //
 // SOURCE OF TRUTH (verified, do not invent):
-//   • Quotas — server/src/middleware/quota.middleware.ts PLAN_LIMITS:
+//   • Quotas — server/src/lib/plan-limits.ts PLAN_LIMITS (enforced per run):
 //       FREE  5 runs/mo, 10 endpoints/run
 //       PRO   100 runs/mo, 50 endpoints/run
-//       TEAM  500 runs/mo, unlimited endpoints (999999)
-//       ENTERPRISE 999999/999999 — NOT sold via checkout, no client tier.
+//       TEAM  500 runs/mo, 200 endpoints/run (MAX_ENDPOINTS_PER_RUN)
+//       ENTERPRISE — NOT sold via checkout, no client tier.
 //   • Feature gates (server): PDF export is paid-only (routes/index.ts,
 //     plan === "FREE" → 403 PLAN_REQUIRED); baseline capture is paid-only
 //     (test-run.controller.ts, captureBaseline = plan !== "FREE").
+//   • NOT gated by plan: every check type, organizations/workspaces, and API
+//     tokens (CLI / CI) are available on every plan. Don't market them as
+//     paid-only unless the server starts enforcing it.
 //   • Prices/currency — client Billing.tsx + PricingSection: $0 / $9 (₹900) /
 //     $18 (₹1800); "Priced in USD, billed in INR".
 // =============================================================================
@@ -35,7 +38,8 @@ export const pricingPlans: PricingPlan[] = [
         features: [
             "5 test runs / month",
             "10 endpoints per run",
-            "5 attack types",
+            "Every check type",
+            "Workspaces, API tokens & CLI",
             "Community support",
         ],
         cta: "Start free scan",
@@ -50,7 +54,7 @@ export const pricingPlans: PricingPlan[] = [
         features: [
             "100 test runs / month",
             "50 endpoints per run",
-            "All attack types",
+            "Baseline diffing",
             "PDF reports",
             "Priority support",
         ],
@@ -65,10 +69,8 @@ export const pricingPlans: PricingPlan[] = [
         inrNote: "Billed in INR (₹1800/mo)",
         features: [
             "500 test runs / month",
-            "Unlimited endpoints",
+            "200 endpoints per run",
             "Everything in Pro",
-            "Multi-user workspaces",
-            "API access",
             "SLA support",
         ],
         cta: "Upgrade to Team",
@@ -95,15 +97,15 @@ export const PLAN_COLUMNS = ["Free", "Pro", "Team"] as const;
 
 export const COMPARE_ROWS: CompareRow[] = [
     { label: "Test runs / month", values: ["5", "100", "500"] },
-    { label: "Endpoints per run", values: ["10", "50", "Unlimited"] },
-    { label: "Attack types", values: ["5", "All", "All"] },
+    { label: "Endpoints per run", values: ["10", "50", "200"] },
+    { label: "Check types", values: ["All", "All", "All"] },
     { label: "Authenticated scanning", values: [true, true, true] },
     { label: "OWASP API Top 10 mapping", values: [true, true, true] },
     { label: "Live streaming console", values: [true, true, true] },
     // Paid-only gates (verified server-side).
     { label: "PDF report export", values: [false, true, true] },
     { label: "Baseline capture & diffing", values: [false, true, true] },
-    { label: "Multi-user workspaces", values: [false, false, true] },
-    { label: "API access", values: [false, false, true] },
+    { label: "Workspaces (organizations)", values: [true, true, true] },
+    { label: "API tokens, CLI & GitHub Action", values: [true, true, true] },
     { label: "Support", values: ["Community", "Priority", "SLA"] },
 ];

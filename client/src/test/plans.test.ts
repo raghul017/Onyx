@@ -1,6 +1,6 @@
 // =============================================================================
 // Guards the marketing plan/quota constants (T21d) against the server source of
-// truth (server/src/middleware/quota.middleware.ts PLAN_LIMITS + feature gates).
+// truth (server/src/lib/plan-limits.ts PLAN_LIMITS + feature gates).
 // If the server quotas change, this test should fail and force an update here.
 // =============================================================================
 import { describe, it, expect } from "vitest";
@@ -10,7 +10,7 @@ import { pricingPlans, COMPARE_ROWS, PLAN_COLUMNS } from "../components/plans";
 const SERVER_LIMITS = {
     Free: { runs: "5", endpoints: "10" },
     Pro: { runs: "100", endpoints: "50" },
-    Team: { runs: "500", endpoints: "Unlimited" },
+    Team: { runs: "500", endpoints: "200" },
 } as const;
 
 const rowByLabel = (label: string) => COMPARE_ROWS.find((r) => r.label === label)!;
@@ -48,6 +48,14 @@ describe("marketing plans", () => {
     it("paid-only gates: PDF export + baseline are Free✗ / Pro✓ / Team✓", () => {
         expect(rowByLabel("PDF report export").values).toEqual([false, true, true]);
         expect(rowByLabel("Baseline capture & diffing").values).toEqual([false, true, true]);
+    });
+
+    it("never markets an un-enforced gate: check types, workspaces and API tokens are on every plan", () => {
+        expect(rowByLabel("Check types").values).toEqual(["All", "All", "All"]);
+        expect(rowByLabel("Workspaces (organizations)").values).toEqual([true, true, true]);
+        expect(rowByLabel("API tokens, CLI & GitHub Action").values).toEqual([true, true, true]);
+        const allFeatures = pricingPlans.flatMap((p) => p.features).join(" | ");
+        expect(allFeatures).not.toMatch(/unlimited|5 attack types|API access|Multi-user/i);
     });
 
     it("every comparison row has exactly three cells (one per tier)", () => {

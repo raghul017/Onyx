@@ -25,6 +25,20 @@ export const CHANGELOG: ChangelogEntry[] = [
     {
         date: "October 25, 2026",
         iso: "2026-10-25",
+        title: "Far fewer false positives, and plan limits that match pricing",
+        tag: "Fixed",
+        items: [
+            "A normal error response, like a plain \"Not found\" or a standard validation error, is no longer reported as a finding. Onyx only flags an error response when it actually leaks internals, such as a stack trace, a database error, or a server file path.",
+            "Requests your API correctly rejected (bad input, or 401/403 on a protected route) now count as healthy results. They no longer lower your score or show up as findings in the CLI and GitHub Action, so a well-behaved API scores well.",
+            "Scores on older runs are recalculated with the new rules the next time you open your history.",
+            "Endpoints per run now follow your plan: 10 on Free, 50 on Pro, and 200 on Team. Previously every run stopped at 20.",
+            "Inside an organization, the owner's paid plan now applies, so Team owners keep their Team limits in their own workspace.",
+            "Teammates in an organization can now watch each other's scans live.",
+        ],
+    },
+    {
+        date: "October 25, 2026",
+        iso: "2026-10-25",
         title: "Sharper, faster AI-generated attacks",
         tag: "Fixed",
         items: [
