@@ -1247,3 +1247,25 @@ was written from the code, not from memory:
 - **cli/README.md and action/README.md** — reviewed, already accurate (`--sarif-out`
   and the CI/CD pointer are documented; all eight action inputs match `action.yml`).
   No changes needed.
+
+## 2026-10-25 — Gemini model upgrade + payload JSON fix
+
+- **Model:** `gemini-2.5-flash` → `gemini-3.5-flash-lite` (free tier) for both
+  payload generation (`ai-payload.ts`) and the BOLA judge (`bola-judge.ts`). The
+  id + thinking level now live in one place, `server/src/lib/gemini.ts`;
+  `GEMINI_MODEL` env var overrides it (documented in `.env.server.example`).
+- **Why not `gemini-3.8-flash`** (newest Flash): tested live on the free tier
+  it took 109–142s per call and returned 503 "high demand". Flash-Lite answered in
+  ~1–6s. Switch with `GEMINI_MODEL=gemini-3.8-flash` once that settles.
+- **Thinking pinned low.** Gemini 3.x thinks by default (3.8-flash spent 432
+  thought tokens on a trivial prompt) and thought tokens count against
+  `maxOutputTokens`, which would truncate the judge's 256-token cap. `gemini.ts`
+  sets `MINIMAL` (or `LOW` for models without MINIMAL); 2.x gets no override.
+- **Pre-existing bug fixed — AI payloads were always falling back.** The prompt
+  asks for "10MB strings", so the model wrote `"A".repeat(10485760)` inside the
+  JSON → `JSON.parse` failed → every endpoint silently used the 36 built-in
+  payloads. Reproduced on `gemini-2.5-flash` too (3/3 fallbacks). Fixed with a
+  `responseJsonSchema` (constrained decoding) plus a "literal JSON values only"
+  prompt rule. Verified: 6/6 live calls across POST/GET/PUT endpoints returned 20
+  validated payloads each; BOLA judge correct on same-object (true) and own-data
+  (false) cases. Build clean, 419/419 tests pass.

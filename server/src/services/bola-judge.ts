@@ -14,6 +14,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { logger } from "../lib/logger.js";
+import { GEMINI_MODEL, GEMINI_THINKING_CONFIG } from "../lib/gemini.js";
 import { MAX_BODY_CHARS, type BolaJudge, type BolaVerdictInput } from "./bola-verdict.js";
 
 const log = logger.child({ component: "bola-judge" });
@@ -73,10 +74,11 @@ export const geminiBolaJudge: BolaJudge = async (input: BolaVerdictInput) => {
 
     try {
         const response = await client.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: GEMINI_MODEL,
             contents: prompt,
             config: {
                 systemInstruction: SYSTEM_PROMPT,
+                thinkingConfig: GEMINI_THINKING_CONFIG,
                 temperature: 0, // deterministic judgement
                 maxOutputTokens: 256,
                 responseMimeType: "application/json",

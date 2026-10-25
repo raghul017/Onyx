@@ -498,7 +498,7 @@ addBulk(jobs) ──────► queue ──────────► proc
 ## 9. Gemini AI — The Payload Brain
 
 ### Model
-Google **Gemini 2.5 Flash** via `@google/genai`
+Google **Gemini 3.5 Flash-Lite** (default; `GEMINI_MODEL` overrides) via `@google/genai`
 
 ### Persona prompt
 > "You are a 15-year Senior Penetration Tester generating attack payloads for API security testing..."

@@ -1,8 +1,8 @@
 // =============================================================================
-// AI Payload Generation Service — Gemini 2.5 Flash (Live Integration)
+// AI Payload Generation Service — Gemini (Live Integration)
 // =============================================================================
 //
-// Uses @google/genai SDK with the gemini-2.5-flash model.
+// Uses @google/genai SDK; model + thinking level come from lib/gemini.ts.
 // System prompt instructs the model to act as a Senior Penetration Tester.
 // Returns strictly typed MaliciousPayload[] JSON.
 // Falls back to 35 built-in payloads on any failure.
@@ -15,6 +15,7 @@ import {
     type GeneratedPayload,
 } from "../validators/schemas.js";
 import { logger } from "../lib/logger.js";
+import { GEMINI_MODEL, GEMINI_THINKING_CONFIG } from "../lib/gemini.js";
 
 const log = logger.child({ component: "ai-payload" });
 
@@ -52,11 +53,44 @@ Rules:
 - Be creative and sophisticated. DO NOT use trivial or obvious payloads. Think like an attacker who has deep knowledge of the target.`;
 
 // ---------------------------------------------------------------------------
+// Response Schema — constrained decoding
+// ---------------------------------------------------------------------------
+// responseMimeType alone isn't enough: asked for "10MB strings" the model
+// writes JS like "A".repeat(10485760) inside the JSON, which fails to parse and
+// silently drops the whole endpoint to the fallback set. A response schema
+// forces syntactically valid JSON; aiPayloadArraySchema still validates after.
+
+const RESPONSE_SCHEMA = {
+    type: "array",
+    items: {
+        type: "object",
+        properties: {
+            payload: { anyOf: [{ type: "string" }, { type: "object" }] },
+            attackType: {
+                type: "string",
+                enum: [
+                    "SQL_INJECTION",
+                    "XSS",
+                    "BOUNDARY",
+                    "MISSING_AUTH",
+                    "PATH_TRAVERSAL",
+                    "OVERSIZED_PAYLOAD",
+                    "TYPE_CONFUSION",
+                    "RATE_LIMIT",
+                ],
+            },
+            description: { type: "string" },
+        },
+        required: ["payload", "attackType", "description"],
+    },
+};
+
+// ---------------------------------------------------------------------------
 // generateAIResponse — Core LLM Call
 // ---------------------------------------------------------------------------
 
 /**
- * Sends the parsed OpenAPI spec context to Gemini 2.5 Flash and returns
+ * Sends the parsed OpenAPI spec context to Gemini and returns
  * the raw JSON string of malicious payloads.
  *
  * If no API key is set, or the call fails, returns the fallback payloads.
@@ -72,16 +106,18 @@ export async function generateAIResponse(
     }
 
     try {
-        log.debug({ chars: endpointSpec.length }, "Sending to Gemini 2.5 Flash");
+        log.debug({ chars: endpointSpec.length, model: GEMINI_MODEL }, "Sending to Gemini");
 
         const response = await client.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: GEMINI_MODEL,
             contents: endpointSpec,
             config: {
                 systemInstruction: SYSTEM_PROMPT,
+                thinkingConfig: GEMINI_THINKING_CONFIG,
                 temperature: 0.9,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
+                responseJsonSchema: RESPONSE_SCHEMA,
             },
         });
 
@@ -151,6 +187,8 @@ Each object in the JSON array MUST have exactly these fields:
   "attackType": <one of: "SQL_INJECTION", "XSS", "BOUNDARY", "MISSING_AUTH", "PATH_TRAVERSAL", "OVERSIZED_PAYLOAD", "TYPE_CONFUSION", "RATE_LIMIT">,
   "description": <string — brief technical explanation of what vulnerability this tests>
 }
+
+Every value MUST be a literal JSON value. NEVER write code or expressions such as "A".repeat(10000), string concatenation, or Number.MAX_SAFE_INTEGER+1. Write the actual number, and keep any oversized string literal under 2000 characters.
 
 If the endpoint has a request body schema, the payload field MUST use the schema structure but inject malicious values into each field. If no request body exists, use query parameter strings or header values.
 

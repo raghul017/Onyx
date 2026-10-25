@@ -465,7 +465,7 @@ Onyx/
 | Database | PostgreSQL via Neon (serverless), Prisma ORM v7 |
 | Queue | BullMQ v5, Redis (Docker) |
 | WebSockets | `ws` library (native Node) |
-| AI | Google Gemini 2.5 Flash (`@google/genai`) |
+| AI | Google Gemini 3.5 Flash-Lite (`@google/genai`, override via `GEMINI_MODEL`) |
 | Auth | JWT (7-day), bcrypt |
 | Billing | Razorpay subscriptions + webhooks |
 | PDF | PDFKit |

@@ -135,6 +135,16 @@ instance injects auth headers and force-logs-out on 401.
 
 ## Done
 
+### 2026-10-25 — Gemini 3.5 Flash-Lite + AI payloads actually work now
+
+Model `gemini-2.5-flash` → `gemini-3.5-flash-lite` (free), centralised in
+`server/src/lib/gemini.ts` (`GEMINI_MODEL` env override; thinking pinned
+MINIMAL/LOW because 3.x thought tokens eat `maxOutputTokens`). `gemini-3.8-flash`
+was tested but 503/100s+ on the free tier. Also fixed a silent pre-existing bug:
+the model emitted `"A".repeat(...)` inside JSON so EVERY endpoint fell back to the
+built-in payloads; now a `responseJsonSchema` forces valid JSON. See
+`docs/UPDATES.md`.
+
 ### 2026-07-13 — Backend: SSRF cache, DB/WS trims, explained findings, denormalized score
 
 Performance + depth pass on the server (all pushed to `main`):
