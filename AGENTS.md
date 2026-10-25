@@ -388,8 +388,8 @@ Ordered by priority. Move to **Done** as shipped.
       OWNERS' active paid plan (`getEffectivePlan`), which covers "Team owner in
       their own workspace". Selling a plan to an org itself would still need
       `subscription.*` wired to `Organization` by `razorpaySubId`.
-- [ ] "Priority support" / "SLA support" on the pricing cards aren't backed by
-      anything in code. Keep only if there's a real process behind them.
+- [x] ~~"Priority support" / "SLA support" on pricing~~ — removed 2026-10-25
+      (not offered). Free keeps "Community support" (GitHub issues).
 - [x] ~~JWT in the WS query string~~ — 60s tickets via `POST /api/ws-ticket`
       (done 2026-10-25).
 - [x] ~~`bcrypt` cost 8 → 12.~~ (done 2026-07-02)

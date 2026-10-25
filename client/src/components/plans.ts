@@ -56,7 +56,6 @@ export const pricingPlans: PricingPlan[] = [
             "50 endpoints per run",
             "Baseline diffing",
             "PDF reports",
-            "Priority support",
         ],
         cta: "Upgrade to Pro",
         href: "/billing",
@@ -71,7 +70,6 @@ export const pricingPlans: PricingPlan[] = [
             "500 test runs / month",
             "200 endpoints per run",
             "Everything in Pro",
-            "SLA support",
         ],
         cta: "Upgrade to Team",
         href: "/billing",
@@ -107,5 +105,4 @@ export const COMPARE_ROWS: CompareRow[] = [
     { label: "Baseline capture & diffing", values: [false, true, true] },
     { label: "Workspaces (organizations)", values: [true, true, true] },
     { label: "API tokens, CLI & GitHub Action", values: [true, true, true] },
-    { label: "Support", values: ["Community", "Priority", "SLA"] },
 ];

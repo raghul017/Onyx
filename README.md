@@ -267,7 +267,6 @@ Priced in USD, billed in INR.
 | Workspaces, API tokens, CLI & GitHub Action | ✓ | ✓ | ✓ |
 | Baseline capture & diffing | — | ✓ | ✓ |
 | PDF report export | — | ✓ | ✓ |
-| Support | Community | Priority | SLA |
 
 Quotas live in `server/src/lib/plan-limits.ts` and are enforced server-side: run
 quota per calendar month, and the endpoints-per-run cap applied right after the

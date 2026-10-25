@@ -34,7 +34,7 @@ export const PUBLIC_ROUTES: RouteSeo[] = [
         path: "/pricing",
         title: "Pricing · Onyx",
         description:
-            "Simple, transparent plans for Onyx API security testing. Start free — 5 scans/month, no credit card. Upgrade for more runs, larger specs, PDF reports, and SLA support.",
+            "Simple, transparent plans for Onyx API security testing. Start free — 5 scans/month, no credit card. Upgrade for more runs, larger specs, baseline diffing, and PDF reports.",
     },
     {
         path: "/security",
