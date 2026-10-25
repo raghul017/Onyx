@@ -137,6 +137,23 @@ function dummyForSchema(schema: Record<string, unknown> | null | undefined): str
 }
 
 /**
+ * BOLA replay: put user A's object id into its own path segment and leave every
+ * OTHER {placeholder} for the builder to fill with a benign dummy. The id param
+ * is dropped from the param list so the builder can't overwrite it.
+ */
+export function injectObjectId<P extends { name: string }>(
+    path: string,
+    parameters: P[] | null | undefined,
+    idParamName: string,
+    objectId: string,
+): { path: string; parameters: P[] } {
+    const injected = path.replace(/\{([^}]+)\}/g, (_m, raw) =>
+        String(raw).trim() === idParamName ? encodeURIComponent(objectId) : `{${String(raw).trim()}}`,
+    );
+    return { path: injected, parameters: (parameters ?? []).filter((p) => p.name !== idParamName) };
+}
+
+/**
  * Build the concrete HTTP request for one attack payload. Pure and synchronous.
  */
 export function buildAttackRequest(

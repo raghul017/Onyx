@@ -21,6 +21,7 @@ import { scoreAndPersistRun } from "../services/run-score.js";
 import { scanForDataExposure } from "../services/data-exposure-scan.js";
 import {
     buildAttackRequest,
+    injectObjectId,
     buildBenignRequest,
     type BuiltAttackRequest,
     type AttachedCredential,
@@ -1149,10 +1150,12 @@ async function processReplayJob(data: AttackJobData): Promise<void> {
     // Inject A's object id into the detail path (URL-encoded), leaving other
     // placeholders to the builder's benign dummies. Drop the id param from the
     // list so the builder doesn't overwrite the now-literal segment.
-    const injectedPath = path.replace(/\{([^}]+)\}/g, (_m, raw) =>
-        String(raw).trim() === idParamName ? encodeURIComponent(objectId) : `{${String(raw).trim()}}`,
+    const { path: injectedPath, parameters: otherParams } = injectObjectId(
+        path,
+        parameters,
+        idParamName,
+        objectId,
     );
-    const otherParams = (parameters ?? []).filter((p) => p.name !== idParamName);
 
     // Fire the injected detail request AS one identity; return a redacted result.
     const fireAs = async (identityId: string) => {
