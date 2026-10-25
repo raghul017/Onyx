@@ -1269,3 +1269,70 @@ was written from the code, not from memory:
   prompt rule. Verified: 6/6 live calls across POST/GET/PUT endpoints returned 20
   validated payloads each; BOLA judge correct on same-object (true) and own-data
   (false) cases. Build clean, 419/419 tests pass.
+
+## 2026-10-25 — Audit: false positives, plan limits, WS auth, deploy visibility, deps
+
+**Added**
+- `server/src/lib/plan-limits.ts` — `PLAN_LIMITS` (moved from
+  `quota.middleware.ts`), `endpointCapFor`, `MAX_ENDPOINTS_PER_RUN` (200),
+  `PAYLOAD_GENERATION_CONCURRENCY` (4), `mapWithConcurrency`.
+- `server/src/websockets/ws-auth.ts` — `canSubscribeToRun`, `issueWsTicket`,
+  `verifyWsCredential`; `POST /api/ws-ticket` (60s ticket, key derived from
+  `JWT_SECRET`). Client `useAttackStore` connects with `?ticket=`, falls back
+  to `?token=` if the server has no ticket route yet.
+- `server/src/lib/deploy-info.ts` — `GET /api/health` now returns `commit`
+  (`RENDER_GIT_COMMIT` / `GIT_COMMIT`).
+- `server/src/queues/drain.ts` — abort/delete drains by job-id prefix via
+  `getRanges` instead of loading every queued job.
+- `injectObjectId()` in `request-builder.ts` (BOLA replay id substitution,
+  previously inline in `worker.ts`).
+- `generatePayloadsWithSource()` in `ai-payload.ts` reports `usedFallback`;
+  per-run count stored in `TestRun.aiFallbackEndpoints` and returned in the
+  report summary.
+- `bestPlan()` + org effective plan = better of the org's plan and its OWNERS'
+  active plans (`org.service.ts`).
+
+**Changed**
+- `finding-analysis.ts` rule 10: a 4xx is MEDIUM only when it leaks internals
+  (`INTERNALS_LEAK`: server file paths, exception classes, framework debug
+  output); stack traces / SQL errors are still caught by rules 3 and 8.
+  `Input Rejected` and `Access Control Enforced` are now INFO (were LOW), so
+  healthy results don't cost score points or appear in CLI/SARIF findings.
+  `rescan.service.ts` NOT_REPRODUCED unchanged (comments updated).
+- `run-score.ts`: `SCORE_VERSION = 1`, `isStoredScoreFresh`; the history list
+  recomputes scores stored under older rules. Report + PDF already recompute
+  from current severities, so their counters still sum to the total.
+- Endpoint cap is per plan and applied right after parsing (was a flat 20 for
+  every plan, and mass-assignment / BOLA / BFLA ignored it).
+- WS subscribe: owner or org member (was: org members blocked, and any user
+  could follow a run with `userId` null). WS JWT pinned to HS256.
+- Copy: pricing (`plans.ts`, `Billing.tsx`), Landing stats, HowItWorks, FaqCta,
+  MoreFeatures, DemoSection ("coming soon" placeholders removed), Docs page,
+  README, WORKFLOW, AGENTS. No more "5 attack types" / "Unlimited endpoints" /
+  Team-only workspaces or API access (none were enforced).
+- `ai-payload.ts` header: 36 fallback payloads (was "35").
+- Deps: server/client/cli in-range updates + `npm audit fix`; server
+  `overrides: js-yaml ^4.3.2`; removed unused `@scalar/swagger-parser`; vitest
+  3 → 4 in client + cli (critical tinypool advisory, dev-only). Removed the
+  `db:push` npm script.
+- `.gitignore`: `.claude/`, `.agents/`, `.codex/`, `PUBLISH-CLI-BRIEF.md`;
+  `.claude/` untracked (`git rm --cached`).
+
+**Migration**
+- `20261025055903_score_version` — `test_runs.scoreVersion INT NOT NULL DEFAULT 0`.
+- `20261025060705_ai_fallback_endpoints` — `test_runs.aiFallbackEndpoints INT NOT NULL DEFAULT 0`.
+  Both additive, applied with `migrate deploy`; `migrate status` clean.
+
+**Tests**
+- Server 419 → 670: `finding-analysis.test.ts` (rule 10 both directions, incl.
+  ProblemDetails 400 + `{"error":"Not found"}` 404 → INFO, and the SQL-error /
+  stack-trace fixtures re-run as 400s), `placeholder-resolution.test.ts` (213
+  cases, every request path), `ws-auth.test.ts`, `drain.test.ts`,
+  `plan-limits.test.ts`, `effective-plan.test.ts`, `ai-payload-fallback.test.ts`,
+  `run-score.test.ts` (score version). 6 tests updated that asserted the old
+  LOW/MEDIUM behavior.
+- Client 89 → 93 (`ws-credential.test.ts`, plans guard). CLI 25. Action 6 (run
+  as `node --test action/test/*.test.cjs`; a bare directory fails on Node 25).
+
+**Deferred** (see AGENTS.md Next): OAuth `state` binding, zod 4, vite 8 /
+tailwind 4 / react-router 7 majors, em-dash sweep, `useChaosStream.ts` (dead).

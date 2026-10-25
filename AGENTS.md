@@ -42,9 +42,10 @@
   `.mono-card`, `.mono-eyebrow`, `.mono-pill`, all scoped under `.onyx-mono`.
   Anti-slop: one accent, no em-dashes in UI copy, red only when truly broken.
   (The old off-black/teal palette below is retired — do not reintroduce it.)
-- **Skills available** (in `.claude/skills/`): `ui-ux-pro-max`,
-  `design-taste-frontend`, `gsap-scrolltrigger`, `make-interfaces-feel-better`.
-  Use them for any UI polish work.
+- **Skills** (`ui-ux-pro-max`, `design-taste-frontend`, `gsap-scrolltrigger`,
+  `make-interfaces-feel-better`) live in a LOCAL `.claude/skills/` (git-ignored
+  since 2026-10-25, along with `.agents/` and `.codex/`). Use them for UI polish
+  work when present on your machine.
 - **Verify before shipping backend:** `cd server && npm run build` (runs
   `prisma generate` + `tsc`) and `npm test`.
 - **Schema changes go via Prisma Migrate — NEVER `db push`.** Create with
@@ -119,6 +120,32 @@ credential for any identity (anonymous → none) over the shared, single-flight
 capability URLs — stored plaintext + indexed, ~256-bit, revocable. Response
 snippets are redacted (`lib/redact.ts`) BEFORE storage or broadcast.
 
+**Plan limits.** `server/src/lib/plan-limits.ts` is the single source of truth
+(runs/month + endpoints/run: Free 10 · Pro 50 · Team 200, hard ceiling
+`MAX_ENDPOINTS_PER_RUN`). The endpoint cap is applied ONCE right after parsing,
+before endpoints are saved, so payload generation, baselines, mass assignment
+and the BOLA/BFLA planners all see the same list. Gemini calls run at most
+`PAYLOAD_GENERATION_CONCURRENCY` at a time; endpoints that fell back to the
+built-in payloads are counted in `TestRun.aiFallbackEndpoints`. Inside an org,
+the effective plan is the better of the org's plan and its OWNERS' active plans.
+The client mirrors these numbers in `components/plans.ts` (guarded by a test).
+
+**Severity of healthy results.** `Input Rejected` (4xx without leaked internals)
+and `Access Control Enforced` (401/403) are INFO: no score deduction, not a CLI/
+SARIF finding. A 4xx is only MEDIUM when the body leaks internals
+(`INTERNALS_LEAK`, plus the earlier stack-trace / SQL-error rules). Scores are
+persisted with `scoreVersion`; bump `SCORE_VERSION` in `run-score.ts` whenever a
+rule change moves severities so stored scores get recomputed.
+
+**WebSocket auth.** The client trades its session for a 60s ticket
+(`POST /api/ws-ticket`, signed with a key derived from `JWT_SECRET`, so it can't
+pass as a session token) and connects with `?ticket=`. The legacy `?token=` is
+still accepted during rollout. Subscribing to a run uses the same rule as HTTP:
+owner or org member (`websockets/ws-auth.ts`).
+
+**Deploy visibility.** `GET /api/health` returns `commit` (Render's
+`RENDER_GIT_COMMIT`, or `GIT_COMMIT`) so you can confirm what's live.
+
 **Routing trap (bitten once).** `orgRouter`/`authRecipeRouter`/`apiTokenRouter`
 are mounted at `"/"` and each calls `router.use(authenticateToken)`. Express runs
 a mounted router's `use()` middleware for ANY path under its mount, so a PUBLIC
@@ -134,6 +161,24 @@ instance injects auth headers and force-logs-out on 401.
 ---
 
 ## Done
+
+### 2026-10-25 — Full audit: false positives, plan limits, WS auth, deps
+
+See `docs/UPDATES.md` (2026-10-25 audit entry) for the per-item detail.
+- Healthy 4xx / 401 / 403 are INFO (no deduction, not a CI finding); a 4xx is
+  MEDIUM only when it leaks internals. `scoreVersion` makes old stored scores
+  recompute. Report + PDF already recompute, so their counters stay consistent.
+- Plan limits enforced from `lib/plan-limits.ts` (Free 10 · Pro 50 · Team 200
+  endpoints/run; was a flat 20 for everyone). Org runs inherit the owners' plan.
+  Gemini calls paced 4 at a time; fallback endpoints counted per run.
+- WS: subscribe = owner or org member (was: any user on an ownerless run, and
+  org members blocked); 60s tickets instead of the session JWT; HS256 pinned.
+- Health returns the deployed commit. Queue drain is id-based.
+- Pricing/marketing copy now only claims what the server enforces.
+- Deps: in-range updates + audit fixes everywhere, `js-yaml` override (spec
+  parser), unused `@scalar/swagger-parser` removed, vitest 4 in client + CLI.
+- Untracked `.claude/`; ignored `.agents/`, `.codex/`, `PUBLISH-CLI-BRIEF.md`.
+- Migrations: `score_version`, `ai_fallback_endpoints` (both additive).
 
 ### 2026-10-25 — Gemini 3.5 Flash-Lite + AI payloads actually work now
 
@@ -330,15 +375,23 @@ domain-ownership verification, Razorpay billing, PDF export, CVSS severity scori
 
 Ordered by priority. Move to **Done** as shipped.
 
-### Backend — deferred MEDIUM / LOW (from the 2026-07-02 audit)
+### Backend — security / billing (open)
 - [ ] OAuth `state` is not bound to a browser/session — bind it (cookie nonce or
-      PKCE) so a stolen `state` can't be replayed. (Deferred: needs a cookie
-      roundtrip; must not break the live OAuth flow.)
-- [ ] JWT is passed in the WebSocket handshake **query string** (logged by
-      morgan) — move to a subprotocol header or short-lived ticket.
-- [ ] Org billing is effectively **unwired**: webhooks only ever update `User`,
-      never `Organization`. Decide whether orgs are billable yet; if so, wire
-      `subscription.*` events to the org by `razorpaySubId`.
+      PKCE) so a stolen `state` can't be replayed. **Deferred (2026-10-25):** it
+      can't be verified end to end without live Google/GitHub credentials, and a
+      mistake locks every user out of social sign-in. Plan: SameSite=Lax
+      httpOnly nonce cookie set on `GET /auth/:provider`, nonce inside the signed
+      `state`, compared on the callback; test on a staging OAuth app first.
+- [ ] Drop the legacy `?token=` WS handshake once every client uses tickets
+      (`verifyWsCredential` still accepts the session JWT during rollout).
+- [ ] Org billing: webhooks still only update `User`. Orgs now inherit their
+      OWNERS' active paid plan (`getEffectivePlan`), which covers "Team owner in
+      their own workspace". Selling a plan to an org itself would still need
+      `subscription.*` wired to `Organization` by `razorpaySubId`.
+- [ ] "Priority support" / "SLA support" on the pricing cards aren't backed by
+      anything in code. Keep only if there's a real process behind them.
+- [x] ~~JWT in the WS query string~~ — 60s tickets via `POST /api/ws-ticket`
+      (done 2026-10-25).
 - [x] ~~`bcrypt` cost 8 → 12.~~ (done 2026-07-02)
 - [x] ~~`uniqueSlug` TOCTOU — retry on P2002.~~ (done 2026-07-02)
 - [x] ~~Zod validation on billing/org bodies + `name` length cap.~~ (done 2026-07-02)
@@ -354,19 +407,30 @@ Ordered by priority. Move to **Done** as shipped.
       `onyx-row-flash`)
 
 ### Backend — remaining (lower priority, none pressing)
-- [ ] Targeted job draining — `drainTestRunJobs` scans the whole BullMQ queue on
-      each abort/delete; track per-run job ids (Redis set) to target them.
 - [ ] Read-caching for hot reads (Redis is queue-only today).
-- [ ] Prisma **migrations** instead of `db push` (no migration history now).
-- [ ] Structured logging / metrics (currently `console.log` + morgan).
-- [ ] **Phase 2 findings — baseline diffing.** Send a benign control request per
-      endpoint and diff it vs the payload response to CONFIRM blind/boolean/
-      time-based issues. Deferred: doubles request volume (conflicts with "fast").
+- [ ] Metrics (logging is structured Pino already; no metrics/dashboards yet).
+- [ ] `zod` 3 → 4: a high advisory needs zod ≥ 4.6.6 (major). Every request
+      schema in `validators/schemas.ts` must be re-checked; do it as its own ticket.
+- [x] ~~Targeted job draining~~ — ids-only via `getRanges` + the `${runId}:`
+      job-id prefix (`queues/drain.ts`, done 2026-10-25).
+- [x] ~~Prisma migrations instead of `db push`~~ (T-series; `db:push` script
+      removed 2026-10-25).
+- [x] ~~Structured logging~~ (Pino + morgan through the logger).
+- [x] ~~Baseline diffing~~ (T5/T6, paid plans).
+
+### Product / UI — open
+- [ ] ~82 user-visible strings still contain em-dashes (design rule says none).
+      Style-only; do as one sweep.
+- [ ] `client/src/hooks/useChaosStream.ts` is dead code (nothing imports it, and
+      it connects without credentials). Delete with the owner's OK.
+- [ ] Real demo media for the landing `#demo` section (the "coming soon"
+      placeholders were removed 2026-10-25).
 
 ### Roadmap (bigger bets — see changelog Phase 2–5)
 - [ ] Audit logs (immutable record of sensitive actions).
-- [ ] Public REST API + API keys; CLI (`npx onyx-scan …`); GitHub Action.
-- [ ] Diff / regression view between two runs; SARIF export.
+- [ ] Diff / regression view between two runs.
+- [ ] Publish the CLI to npm (today it's built from `cli/`).
+- [x] ~~API keys, CLI, GitHub Action, SARIF export~~ (T10–T11).
 
 ---
 

@@ -531,12 +531,15 @@ Without it the model wrote `"A".repeat(...)` inside the JSON and every endpoint 
 | `RATE_LIMIT` | Burst markers to probe rate limiting |
 
 ### Limits
-- 20 endpoints max per spec (Gemini API cost protection)
-- 20 payloads per endpoint = up to **400 attacks** per test run
-- Quota checked: FREE (10 endpoints), PRO (50), TEAM/ENTERPRISE (unlimited)
+- Endpoints per run by plan (`server/src/lib/plan-limits.ts`): FREE 10, PRO 50,
+  TEAM 200 (hard ceiling `MAX_ENDPOINTS_PER_RUN`). Applied right after parsing,
+  so a larger spec is truncated before anything is saved or fired.
+- Up to 20 payloads per endpoint.
+- Gemini calls run 4 at a time (`PAYLOAD_GENERATION_CONCURRENCY`) so the free
+  tier doesn't rate-limit a large run into silent fallbacks.
 
 ### Graceful degradation
-If Gemini is unavailable or `GEMINI_API_KEY` is missing: falls back to **36 hard-coded payloads** covering all attack types. The pipeline never stalls.
+If Gemini is unavailable or `GEMINI_API_KEY` is missing: falls back to **36 hard-coded payloads** covering all attack types. The pipeline never stalls. Each run records how many endpoints used the fallback (`TestRun.aiFallbackEndpoints`, also in the report summary).
 
 ---
 

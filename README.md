@@ -46,7 +46,11 @@ and a concrete fix.
 | **Excessive data exposure (API3)** | Inspects responses already collected for password hashes, tokens, SSN/card numbers, internal flags, and bulk PII |
 
 Detection is deliberately **conservative** — a finding is only raised when the
-evidence supports it. Where an AI model is consulted (BOLA interpretation), it can
+evidence supports it. A request your API correctly rejected (a 4xx with a generic
+message, or 401/403 on a protected route) is a healthy INFO result: it doesn't
+lower the score and isn't reported as a finding. An error response is only
+flagged when it leaks internals (stack trace, database error, server file path,
+exception class). Where an AI model is consulted (BOLA interpretation), it can
 only *confirm or veto* a verdict the deterministic rules already reached; it can
 never raise a finding on its own, and the pipeline works with the model
 unavailable.
@@ -239,11 +243,13 @@ an organization.
 **Billing** — `POST /billing/subscribe` · `POST /billing/verify` ·
 `POST /billing/cancel` · `POST /billing/webhook`
 
-**Misc** — `GET /user/me` · `PATCH /user/me` · `GET /health` *(public)* ·
-`GET /openapi.json` *(public)*
+**Misc** — `GET /user/me` · `PATCH /user/me` · `GET /health` *(public; includes
+the deployed `commit`)* · `GET /openapi.json` *(public)*
 
-**WebSocket** — connect and `SUBSCRIBE` to a `testRunId` to receive
-`ATTACK_RESULT` and `TEST_RUN_STATUS` messages live.
+**WebSocket** — get a 60-second ticket from `POST /ws-ticket`, connect to
+`/ws?ticket=<ticket>`, then `SUBSCRIBE` to a `testRunId` to receive
+`ATTACK_RESULT` and `TEST_RUN_STATUS` messages live. Only the run's owner or a
+member of its organization can subscribe.
 
 ---
 
@@ -254,17 +260,20 @@ Priced in USD, billed in INR.
 | | **Free** — $0 | **Pro** — $9/mo | **Team** — $18/mo |
 |---|---|---|---|
 | Test runs / month | 5 | 100 | 500 |
-| Endpoints per run | 10 | 50 | Unlimited |
-| Attack types | 5 | All | All |
+| Endpoints per run | 10 | 50 | 200 |
+| Check types | All | All | All |
 | Authenticated scanning | ✓ | ✓ | ✓ |
 | OWASP mapping + live console | ✓ | ✓ | ✓ |
+| Workspaces, API tokens, CLI & GitHub Action | ✓ | ✓ | ✓ |
 | Baseline capture & diffing | — | ✓ | ✓ |
 | PDF report export | — | ✓ | ✓ |
-| Multi-user workspaces | — | — | ✓ |
 | Support | Community | Priority | SLA |
 
-Quotas are enforced server-side (`quota.middleware.ts`); PDF export and baseline
-capture are the paid-only gates.
+Quotas live in `server/src/lib/plan-limits.ts` and are enforced server-side: run
+quota per calendar month, and the endpoints-per-run cap applied right after the
+spec is parsed (a larger spec is truncated). PDF export and baseline capture are
+the paid-only gates. Inside an organization, the better of the org's plan and its
+owners' active plans applies.
 
 ---
 
