@@ -698,3 +698,61 @@ describe("T-fix1 — time-based injection on timeout", () => {
         expect(f.category).toBe("Request Error");
     });
 });
+
+// -----------------------------------------------------------------------------
+// Rule 7a — infrastructure 5xx is not attributable to the payload.
+//
+// Regression lock for the false-positive class that scored a healthy API 0/100:
+// a Render/nginx/Cloudflare error page returned during a cold start was being
+// reported as "Server crashed on this input" (CRITICAL).
+// -----------------------------------------------------------------------------
+describe("rule 7a — infrastructure 5xx", () => {
+    const infraCases: { name: string; snippet: string }[] = [
+        { name: "nginx 502 page", snippet: "<html><head><title>502 Bad Gateway</title></head><body><center>nginx/1.24.0</center></body></html>" },
+        { name: "503 Service Unavailable", snippet: "Service Temporarily Unavailable" },
+        { name: "PaaS cold start", snippet: "Application failed to respond" },
+        { name: "envoy upstream failure", snippet: "upstream connect error or disconnect/reset before headers" },
+    ];
+
+    for (const c of infraCases) {
+        it(`${c.name} => INFO, not a crash finding`, () => {
+            const out = analyzeFinding({
+                attackType: "SQL_INJECTION", // injection type would otherwise be CRITICAL
+                statusCode: 500,
+                payload: "' OR 1=1--",
+                responseSnippet: c.snippet,
+            });
+            expect(out.severity).toBe("INFO");
+            expect(out.category).toBe("Request Error");
+        });
+    }
+
+    it("still reports a real crash when the body carries a stack trace", () => {
+        const out = analyzeFinding({
+            attackType: "SQL_INJECTION",
+            statusCode: 500,
+            payload: "' OR 1=1--",
+            responseSnippet: "TypeError: x is not a function\n    at handler (/app/src/index.js:10:5)",
+        });
+        expect(out.severity).toBe("CRITICAL");
+        expect(out.category).toBe("Unhandled Server Error");
+    });
+
+    it("a bodiless 5xx is still treated as a crash (error handlers hide details)", () => {
+        const out = analyzeFinding({
+            attackType: "SQL_INJECTION",
+            statusCode: 500,
+            payload: "' OR 1=1--",
+            responseSnippet: "",
+        });
+        expect(out.category).toBe("Unhandled Server Error");
+        expect(out.severity).toBe("CRITICAL");
+    });
+
+    it("an infra 5xx deducts no score", () => {
+        const { overallScore } = computeScore([
+            { statusCode: 500, attackType: "SQL_INJECTION", responseSnippet: "502 Bad Gateway nginx/1.24.0" },
+        ]);
+        expect(overallScore).toBe(100);
+    });
+});

@@ -43,6 +43,13 @@ export interface AuthRequirement {
     name?: string;
 }
 
+/** The result of parsing a spec: its endpoints plus the base URL they hang off. */
+export interface ParsedSpec {
+    endpoints: ParsedEndpoint[];
+    /** Absolute base URL that every endpoint `path` is appended to. */
+    baseUrl: string;
+}
+
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
@@ -55,7 +62,7 @@ const SUPPORTED_METHODS = ["get", "post", "put", "delete", "patch"] as const;
  */
 export async function parseOpenApiSpec(
     specUrl: string,
-): Promise<ParsedEndpoint[]> {
+): Promise<ParsedSpec> {
     let api: any;
 
     try {
@@ -163,7 +170,7 @@ export async function parseOpenApiSpec(
         );
     }
 
-    return endpoints;
+    return { endpoints, baseUrl: resolveBaseUrl(api, specUrl) };
 }
 
 // ---------------------------------------------------------------------------
@@ -304,4 +311,77 @@ export class OpenApiParserError extends Error {
         super(message);
         this.name = "OpenApiParserError";
     }
+}
+
+// ---------------------------------------------------------------------------
+// Base URL resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves the base URL that endpoint paths are relative to.
+ *
+ * A spec's paths are NOT relative to the spec URL's origin — they are relative
+ * to the declared server. Onyx's own spec, for example, declares
+ * `servers: [{ url: "/api" }]` while the spec itself is served from
+ * `/api/openapi.json`, so firing at `<origin>/orgs` 404s and every result is
+ * noise. Supports OpenAPI 3 (`servers[0].url`, absolute or relative) and
+ * Swagger 2 (`schemes` + `host` + `basePath`), and falls back to the spec
+ * URL's origin when the spec declares nothing.
+ */
+export function resolveBaseUrl(api: any, specUrl: string): string {
+    let origin: string;
+    try {
+        const u = new URL(specUrl);
+        origin = `${u.protocol}//${u.host}`;
+    } catch {
+        return "";
+    }
+
+    // OpenAPI 3.x — servers[0].url may be absolute or a relative prefix.
+    const serverUrl = api?.servers?.[0]?.url;
+    if (typeof serverUrl === "string" && serverUrl.trim() !== "") {
+        const raw = substituteServerVariables(serverUrl.trim(), api?.servers?.[0]);
+        try {
+            // Absolute (has its own scheme + host).
+            return stripTrailingSlash(new URL(raw).toString());
+        } catch {
+            // Relative prefix such as "/api" — join onto the spec's origin.
+            return stripTrailingSlash(
+                `${origin}${raw.startsWith("/") ? "" : "/"}${raw}`,
+            );
+        }
+    }
+
+    // Swagger 2.x — host/basePath/schemes, any of which may be absent.
+    const basePath = typeof api?.basePath === "string" ? api.basePath : "";
+    if (typeof api?.host === "string" && api.host.trim() !== "") {
+        const scheme =
+            (Array.isArray(api.schemes) && api.schemes.includes("https")
+                ? "https"
+                : Array.isArray(api.schemes) && api.schemes[0]) || "https";
+        return stripTrailingSlash(`${scheme}://${api.host}${basePath}`);
+    }
+    if (basePath !== "") {
+        return stripTrailingSlash(
+            `${origin}${basePath.startsWith("/") ? "" : "/"}${basePath}`,
+        );
+    }
+
+    return origin;
+}
+
+/** Replaces `{var}` placeholders in a server URL with their declared defaults. */
+function substituteServerVariables(url: string, server: any): string {
+    const vars = server?.variables;
+    if (!vars || typeof vars !== "object") return url;
+    return url.replace(/\{([^}]+)\}/g, (match, name) => {
+        const def = vars[name]?.default;
+        return typeof def === "string" || typeof def === "number"
+            ? String(def)
+            : match;
+    });
+}
+
+function stripTrailingSlash(s: string): string {
+    return s.replace(/\/+$/, "");
 }

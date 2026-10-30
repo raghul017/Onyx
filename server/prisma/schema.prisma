@@ -137,6 +137,9 @@ model OrgInvite {
 model TestRun {
   id                  String    @id @default(uuid())
   specUrl             String
+  // Base URL the spec's paths hang off (its `servers`/`basePath`, else the spec
+  // origin). Persisted so a re-scan fires at the exact URL the scan used.
+  baseUrl             String?
   status              String    @default("PENDING") // PENDING | PARSING | GENERATING | ATTACKING | COMPLETED | FAILED
   totalEndpoints      Int       @default(0)
   totalAttacks        Int       @default(0)

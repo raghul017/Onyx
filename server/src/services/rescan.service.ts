@@ -193,7 +193,7 @@ export async function rescanFinding(
             attackType: true,
             identityId: true,
             findingJson: true,
-            testRun: { select: { specUrl: true } },
+            testRun: { select: { specUrl: true, baseUrl: true } },
             endpoint: { select: { requestBodySchema: true, parameters: true } },
         },
     });
@@ -206,7 +206,10 @@ export async function rescanFinding(
         );
     }
 
-    const baseUrl = baseUrlFromSpec(row.testRun.specUrl);
+    // Prefer the base URL the original scan resolved from the spec's `servers`
+    // / `basePath`. Runs created before that was stored fall back to the spec
+    // origin, which is all those runs ever used.
+    const baseUrl = row.testRun.baseUrl || baseUrlFromSpec(row.testRun.specUrl);
     if (!baseUrl) return failed("Could not derive the target base URL for this run.");
 
     // Same credential the original check used (the row's identity), if any.

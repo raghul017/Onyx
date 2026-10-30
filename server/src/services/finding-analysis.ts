@@ -86,6 +86,14 @@ const FILE_LEAK =
 const SECRET_LEAK =
     /(-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|aws_secret_access_key|"(?:api[_-]?key|secret|password|passwd|access[_-]?token|private[_-]?key)"\s*:\s*"[^"]{6,})/i;
 
+// Edge / platform error pages. A 5xx served by a proxy, load balancer or PaaS
+// cold start never reached the application, so it says nothing about how the
+// app handles the payload. Matched on the body only (see rule 7a): a bodiless
+// 5xx is NOT treated as infra, because a real crash often returns one when the
+// app's error handler hides details.
+const INFRA_ERROR_PAGE =
+    /(<title>\s*(?:502|503|504)|Bad Gateway|Service (?:Temporarily )?Unavailable|Gateway Time-?out|cloudflare|x-render-routing|Application failed to respond|no healthy upstream|upstream connect error|Heroku \| Application Error|nginx\/|openresty|AWSALB|The service is temporarily unavailable)/i;
+
 // Internals leaked in a 4xx body. A 4xx is only a finding when it exposes HOW
 // the server is built: server-side file paths, namespaced / runtime exception
 // class names, or framework debug pages. Generic messages ("Not found",
@@ -226,6 +234,30 @@ function analyzeBase(input: FindingInput): FindingDetail {
     if (statusCode >= 500) {
         const injectiony = /INJECTION|SQLI|AUTH|TYPE_CONFUSION|OVERSIZED/.test(at);
         const hasTrace = STACK_TRACE.test(resp);
+
+        // 7a) The 5xx was served by an edge/platform layer (proxy, load
+        //     balancer, PaaS cold start), so the request never reached
+        //     application code and says nothing about how the app handles this
+        //     payload. Reported as INFO so it deducts no score.
+        //
+        //     Deliberately keyed on the error page itself, NOT on an empty
+        //     body: a real app crash often returns a bodiless 500 because the
+        //     error handler hides details, and treating those as noise would
+        //     suppress genuine findings. Bodiless 5xx keeps its crash
+        //     classification and is resolved by the baseline layer below when
+        //     a baseline exists.
+        if (!hasTrace && INFRA_ERROR_PAGE.test(resp)) {
+            return {
+                severity: "INFO",
+                category: "Request Error",
+                title: `Infrastructure error (${statusCode}) — not attributable`,
+                confidence: "info",
+                evidence: evidenceFor(resp, INFRA_ERROR_PAGE),
+                cause: "The 5xx came from a proxy, load balancer or a cold-starting host rather than the application, so this payload could not be evaluated. A real crash normally leaves a stack trace or a framework error message.",
+                remediation: "Re-run the scan once the target is warm and reachable. If this repeats across every endpoint, check that the scan is pointed at the right base URL and that the host is up.",
+            };
+        }
+
         return {
             severity: injectiony ? "CRITICAL" : "HIGH",
             category: "Unhandled Server Error",

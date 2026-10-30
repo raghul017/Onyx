@@ -23,6 +23,21 @@ export interface ChangelogEntry {
 // Newest first. Dates mirror the real ship dates from the internal log.
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        date: "October 30, 2026",
+        iso: "2026-10-30",
+        title: "Scans now respect the base URL your API spec declares",
+        tag: "Fixed",
+        items: [
+            "If your spec declares a server path, such as \"/api\", Onyx now scans your endpoints there. Previously it tested the bare domain, so every request hit a route that does not exist and the whole run came back as noise with a misleadingly bad score.",
+            "This also covers specs that declare a full server address, one that uses variables, and older Swagger specs that use a host and base path.",
+            "A temporary error from a proxy, load balancer, or a host that was still waking up is no longer reported as \"your server crashed on this input\". Those responses never reached your application, so they are now shown for information only and do not affect your score.",
+            "A genuine crash is still reported exactly as before, including when your error handler returns no details.",
+            "If nearly every request in a run comes back \"not found\", Onyx now tells you the scan probably pointed at the wrong base path, instead of showing a confident score built on nothing.",
+            "Re-scanning a single finding now reuses the exact address the original scan used, so a re-check can never drift from the scan that raised it.",
+            "Scores on older runs are recalculated with the new rules the next time you open your history.",
+        ],
+    },
+    {
         date: "October 25, 2026",
         iso: "2026-10-25",
         title: "Far fewer false positives, and plan limits that match pricing",

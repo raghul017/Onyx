@@ -1336,3 +1336,46 @@ was written from the code, not from memory:
 
 **Deferred** (see AGENTS.md Next): OAuth `state` binding, zod 4, vite 8 /
 tailwind 4 / react-router 7 majors, em-dash sweep, `useChaosStream.ts` (dead).
+
+## 2026-10-30 — Scanner false positives: spec base URL, infra 5xx, mass-404 warning
+
+A scan of Onyx's own API returned 0/100 CRITICAL with 16 CRITICAL/HIGH findings
+on a healthy server. All of them were false positives caused by the scanner
+firing at the wrong base path. Root cause and three fixes:
+
+**Root cause.** Endpoint paths are relative to the spec's DECLARED SERVER, not
+to the spec URL's origin. `extractBaseUrl`/`baseUrlFromSpec` returned
+`protocol//host` only, discarding `servers: [{ url: "/api" }]`. Onyx's own spec
+declares exactly that while being served from `/api/openapi.json`, so every one
+of the 832 attacks hit `<origin>/orgs` (404) instead of `<origin>/api/orgs`
+(401, auth correctly enforced). 816 results were 404 noise; the 16 "CRITICAL"
+rows were Render cold-start 5xx from the edge, not the app.
+
+- **Added:** `resolveBaseUrl(api, specUrl)` in `services/openapi-parser.ts` —
+  handles OpenAPI 3 `servers[0].url` (absolute OR relative prefix, with
+  `{variable}` default substitution) and Swagger 2 `schemes`/`host`/`basePath`,
+  falling back to the spec origin when nothing is declared.
+  `parseOpenApiSpec` now returns `ParsedSpec { endpoints, baseUrl }`.
+- **Added:** `baseUrlWarning()` in `services/run-score.ts` — when ≥90% of
+  answered requests 404 (min 20 results), the run records a plain-English
+  warning that it probably targeted the wrong base path, instead of reporting a
+  confident 0/100. Transport failures (status 0) are excluded from the ratio.
+- **Changed:** `finding-analysis.ts` rule 7a — a 5xx with no stack trace whose
+  body is an edge/platform error page (nginx/Cloudflare/envoy/PaaS cold start,
+  `INFRA_ERROR_PAGE`) is INFO "not attributable", not a CRITICAL crash.
+  Deliberately keyed on the error page and NOT on an empty body: a real app
+  crash often returns a bodiless 500 because the error handler hides details, so
+  bodiless 5xx keeps its crash classification and is resolved by the existing T6
+  baseline layer. `SCORE_VERSION` 1 → 2 so stored scores recompute.
+- **Changed:** `controllers/test-run.controller.ts` (uses the spec-resolved base
+  URL and persists it on the run), `services/rescan.service.ts` (prefers the
+  stored `baseUrl`, falls back to the spec origin for pre-migration runs) — so a
+  re-scan can't drift from the scan that raised the finding.
+- **Migration:** `20261030143703_test_run_base_url` (additive: `ADD COLUMN
+  "baseUrl" TEXT`, nullable; applied via `migrate deploy`, status clean).
+- **Tests:** +21 (691 total). New `__tests__/openapi-base-url.test.ts` (10) locks
+  the `/api` regression; rule-7a cases lock infra-vs-real-crash both ways;
+  `baseUrlWarning` cases cover the ratio, the floor and status-0 exclusion.
+- **Not changed:** baseline capture stays plan-gated to paid plans. Enabling it
+  on FREE would have let the T6 layer neutralize these 5xx automatically, but it
+  multiplies free-tier request volume — a pricing decision, not a bug fix.

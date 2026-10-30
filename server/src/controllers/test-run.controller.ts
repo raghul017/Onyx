@@ -420,8 +420,11 @@ async function processTestRunAsync(
         broadcastStatus("PARSING");
 
         let endpoints;
+        let specBaseUrl: string;
         try {
-            endpoints = await parseOpenApiSpec(specUrl);
+            const parsedSpec = await parseOpenApiSpec(specUrl);
+            endpoints = parsedSpec.endpoints;
+            specBaseUrl = parsedSpec.baseUrl;
         } catch (err) {
             const message =
                 err instanceof OpenApiParserError
@@ -495,8 +498,10 @@ async function processTestRunAsync(
         // --- Phase 2: Generate AI Payloads ---
         let totalJobs = 0;
 
-        // Extract base URL from spec URL
-        const baseUrl = extractBaseUrl(specUrl);
+        // Base URL comes from the spec's own `servers` / `basePath` (falling back
+        // to the spec URL's origin). Using the bare origin here fired every
+        // attack at a path the API doesn't serve.
+        const baseUrl = specBaseUrl || extractBaseUrl(specUrl);
 
         // Already capped to the plan limit right after parsing.
         const cappedEndpoints = endpoints;
@@ -508,7 +513,7 @@ async function processTestRunAsync(
         // Gemini call had returned.
         await prisma.testRun.update({
             where: { id: testRunId },
-            data: { status: "ATTACKING" },
+            data: { status: "ATTACKING", baseUrl },
         });
         wsManager.broadcast(testRunId, {
             type: "TEST_RUN_STATUS",

@@ -162,6 +162,29 @@ instance injects auth headers and force-logs-out on 401.
 
 ## Done
 
+### 2026-10-30 — Scanner false positives: spec base URL, infra 5xx, mass-404
+
+A scan of Onyx's OWN API scored 0/100 CRITICAL with 16 CRITICAL/HIGH findings on
+a healthy server. Every one was a false positive. See `docs/UPDATES.md`.
+- **Root cause: endpoint paths are relative to the spec's DECLARED SERVER, not
+  the spec URL's origin.** `extractBaseUrl`/`baseUrlFromSpec` returned
+  `protocol//host` only, dropping `servers: [{ url: "/api" }]` — which is
+  exactly what Onyx's own spec declares. All 832 attacks hit `<origin>/orgs`
+  (404) instead of `<origin>/api/orgs` (401, auth working). New
+  `resolveBaseUrl()` in `openapi-parser.ts` handles OpenAPI 3 `servers` (absolute
+  or relative, with `{var}` defaults) and Swagger 2 `host`/`basePath`/`schemes`.
+  **Any new base-URL logic must go through it — do not re-derive from the spec
+  URL.** The resolved value is persisted on `TestRun.baseUrl` and rescan prefers
+  it, so a re-scan can't drift from the scan that raised the finding.
+- **Infra 5xx is no longer a crash finding.** A 5xx with no stack trace whose
+  body is an edge/platform error page (nginx/Cloudflare/envoy/PaaS cold start)
+  is INFO. Keyed on the error page and NOT on an empty body on purpose: real
+  crashes often return a bodiless 500, so those keep the crash classification
+  and are resolved by the existing T6 baseline layer. `SCORE_VERSION` 1 → 2.
+- **Mass-404 warning.** ≥90% 404s across ≥20 answered results records a warning
+  that the run probably targeted the wrong base path, instead of a 0/100.
+- Migration `test_run_base_url` (additive, nullable). 691 tests pass (+21).
+
 ### 2026-10-25 — Full audit: false positives, plan limits, WS auth, deps
 
 See `docs/UPDATES.md` (2026-10-25 audit entry) for the per-item detail.

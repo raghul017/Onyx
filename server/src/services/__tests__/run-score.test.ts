@@ -22,6 +22,7 @@ import {
     isMissingScoreColumn,
     scoreAndPersistRun,
     isStoredScoreFresh,
+    baseUrlWarning,
     SCORE_VERSION,
 } from "../run-score.js";
 
@@ -120,5 +121,32 @@ describe("isStoredScoreFresh — stale scores from older rules are recomputed", 
     it("rejects a missing score or version", () => {
         expect(isStoredScoreFresh({ overallScore: null, scoreLabel: null, scoreVersion: SCORE_VERSION })).toBe(false);
         expect(isStoredScoreFresh({ overallScore: 90, scoreLabel: "LOW", scoreVersion: null })).toBe(false);
+    });
+});
+
+// -----------------------------------------------------------------------------
+// Mass-404 detection — a run that targeted the wrong base path.
+// -----------------------------------------------------------------------------
+describe("baseUrlWarning", () => {
+    const logs = (n: number, status: number) =>
+        Array.from({ length: n }, () => ({ statusCode: status }));
+
+    it("warns when nearly every request 404s", () => {
+        const warning = baseUrlWarning([...logs(49, 404), ...logs(1, 200)]);
+        expect(warning).toMatch(/98% of requests returned 404/);
+        expect(warning).toMatch(/wrong base path/);
+    });
+
+    it("stays silent on a normal run with a few 404s", () => {
+        expect(baseUrlWarning([...logs(10, 404), ...logs(40, 200)])).toBeNull();
+    });
+
+    it("stays silent when there are too few results to be representative", () => {
+        expect(baseUrlWarning(logs(10, 404))).toBeNull();
+    });
+
+    it("ignores transport failures (status 0) when computing the ratio", () => {
+        // 30 unreachable + 30 genuine 404s => 100% of ANSWERED requests 404'd.
+        expect(baseUrlWarning([...logs(30, 0), ...logs(30, 404)])).toMatch(/100%/);
     });
 });

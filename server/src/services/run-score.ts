@@ -15,8 +15,11 @@ import { logger } from "../lib/logger.js";
  * scores persisted under the old rules are recomputed on the next read.
  *   1 — healthy 4xx / 401 / 403 results are INFO (no deduction); a 4xx is only
  *       MEDIUM when it leaks real internals.
+ *   2 — a 5xx whose body is an edge/platform error page (proxy, load balancer,
+ *       PaaS cold start) and carries no stack trace is INFO ("not
+ *       attributable"), not a CRITICAL/HIGH crash.
  */
-export const SCORE_VERSION = 1;
+export const SCORE_VERSION = 2;
 
 /** A stored score is only trusted when the current rules produced it. */
 export function isStoredScoreFresh(run: {
@@ -79,9 +82,15 @@ export async function scoreAndPersistRun(testRunId: string): Promise<void> {
             select: { statusCode: true, attackType: true, responseSnippet: true, findingJson: true },
         });
         const { overallScore, scoreLabel } = computeScore(logs);
+        const warning = baseUrlWarning(logs);
         await prisma.testRun.update({
             where: { id: testRunId },
-            data: { overallScore, scoreLabel, scoreVersion: SCORE_VERSION },
+            data: {
+                overallScore,
+                scoreLabel,
+                scoreVersion: SCORE_VERSION,
+                ...(warning ? { errorMessage: warning } : {}),
+            },
         });
     } catch (e) {
         if (isMissingScoreColumn(e)) return; // columns not pushed yet — compute on read
@@ -90,4 +99,31 @@ export async function scoreAndPersistRun(testRunId: string): Promise<void> {
             "Failed to persist score",
         );
     }
+}
+
+/**
+ * Detects a run that almost certainly targeted the wrong base path.
+ *
+ * When nearly every attack comes back 404, the scan never reached the API:
+ * the findings are noise and the score is meaningless. This is cheap to spot
+ * and far more useful to the user than a confident 0/100, so it is surfaced on
+ * the run. Returns null for normal runs.
+ */
+export function baseUrlWarning(
+    logs: { statusCode: number | null }[],
+): string | null {
+    // Only meaningful once there are enough results to be representative.
+    const answered = logs.filter((l) => typeof l.statusCode === "number" && l.statusCode > 0);
+    if (answered.length < 20) return null;
+
+    const notFound = answered.filter((l) => l.statusCode === 404).length;
+    const ratio = notFound / answered.length;
+    if (ratio < 0.9) return null;
+
+    return (
+        `${Math.round(ratio * 100)}% of requests returned 404. The scan probably ` +
+        `targeted the wrong base path, so these results are not meaningful. Check that ` +
+        `the spec's declared server (its "servers" / "basePath") matches where the API ` +
+        `is actually mounted, then re-run.`
+    );
 }
